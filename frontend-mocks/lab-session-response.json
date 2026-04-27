@@ -1,0 +1,64 @@
+{
+  "session_id": "lab-demo1234",
+  "student_id": "kadir",
+  "difficulty": "easy",
+  "status": "created",
+  "topology": {
+    "name": "basic-two-router",
+    "nodes": [
+      {
+        "id": "r1",
+        "label": "Router 1",
+        "kind": "linux",
+        "image": "alpine:latest",
+        "mgmt_ipv4": null
+      },
+      {
+        "id": "r2",
+        "label": "Router 2",
+        "kind": "linux",
+        "image": "alpine:latest",
+        "mgmt_ipv4": null
+      }
+    ],
+    "links": [
+      {
+        "source": {
+          "node": "r1",
+          "interface": "eth1"
+        },
+        "target": {
+          "node": "r2",
+          "interface": "eth1"
+        }
+      }
+    ]
+  },
+  "injected_errors": [
+    {
+      "code": "IP_ADDRESS_MISMATCH",
+      "topic": "IP Addressing",
+      "device": "r1",
+      "description": "Incorrect IP address configured on r1 eth1.",
+      "severity": "low"
+    },
+    {
+      "code": "VLAN_MISMATCH",
+      "topic": "VLAN",
+      "device": "r2",
+      "description": "VLAN ID mismatch on r2 interface.",
+      "severity": "medium"
+    }
+  ],
+  "cli_access": [
+    {
+      "device_id": "r1",
+      "command": "docker exec -it clab-autonetlab-r1 sh"
+    },
+    {
+      "device_id": "r2",
+      "command": "docker exec -it clab-autonetlab-r2 sh"
+    }
+  ],
+  "message": "Lab session created successfully."
+}
