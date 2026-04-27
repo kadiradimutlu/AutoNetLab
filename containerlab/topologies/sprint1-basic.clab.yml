@@ -1,0 +1,13 @@
+name: autonetlab-sprint1
+
+topology:
+  nodes:
+    r1:
+      kind: linux
+      image: alpine:latest
+    r2:
+      kind: linux
+      image: alpine:latest
+
+  links:
+    - endpoints: ["r1:eth1", "r2:eth1"]
