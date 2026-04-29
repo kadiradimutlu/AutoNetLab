@@ -1,0 +1,40 @@
+{
+  "sessionId": "sess-001",
+  "status": "FAIL",
+  "score": 65,
+  "totalChecks": 4,
+  "passedChecks": 2,
+  "failedChecks": 2,
+  "checkedAt": "2026-04-29T10:20:00Z",
+  "summary": "The topology is partially fixed. VLAN assignment is correct on one switch, but trunk configuration and end-to-end connectivity still need attention.",
+  "results": [
+    {
+      "checkId": "check-001",
+      "title": "VLAN 10 exists on Switch-1",
+      "status": "PASS",
+      "message": "VLAN 10 is configured correctly on Switch-1.",
+      "relatedTopic": "VLAN"
+    },
+    {
+      "checkId": "check-002",
+      "title": "VLAN 10 exists on Switch-2",
+      "status": "PASS",
+      "message": "VLAN 10 is configured correctly on Switch-2.",
+      "relatedTopic": "VLAN"
+    },
+    {
+      "checkId": "check-003",
+      "title": "Trunk link allows VLAN 10",
+      "status": "FAIL",
+      "message": "The trunk link between Switch-1 and Switch-2 does not allow VLAN 10.",
+      "relatedTopic": "Trunk Configuration"
+    },
+    {
+      "checkId": "check-004",
+      "title": "End-to-end connectivity",
+      "status": "FAIL",
+      "message": "PC1 cannot reach PC2. Check VLAN and trunk settings.",
+      "relatedTopic": "Connectivity"
+    }
+  ]
+}
