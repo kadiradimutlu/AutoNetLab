@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createLab, getDifficulties } from "../services/apiService";
 import MessageBox from "../components/MessageBox";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
   getDifficultyClass
 } from "../utils/formatters";
 
 function CreateLab({ onLabCreated }) {
+  const { t } = useLanguage();
+
   const [studentId, setStudentId] = useState("muhammed");
   const [difficulty, setDifficulty] = useState("easy");
   const [topologyTemplate, setTopologyTemplate] = useState("basic-two-router");
@@ -20,13 +23,13 @@ function CreateLab({ onLabCreated }) {
         const data = await getDifficulties();
         setDifficulties(data.difficulties);
       } catch (error) {
-        setErrorMessage("Difficulty options could not be loaded.");
+        setErrorMessage(t("difficultyOptionsFailed"));
         console.error(error);
       }
     }
 
     loadDifficulties();
-  }, []);
+  }, [t]);
 
   const selectedDifficulty = useMemo(() => {
     return difficulties.find((item) => item.value === difficulty);
@@ -45,7 +48,7 @@ function CreateLab({ onLabCreated }) {
 
       onLabCreated(newLab);
     } catch (error) {
-      setErrorMessage("Lab session could not be created. Please try again.");
+      setErrorMessage(t("labCreationFailedMessage"));
       console.error(error);
     } finally {
       setIsCreating(false);
@@ -55,23 +58,20 @@ function CreateLab({ onLabCreated }) {
   return (
     <div className="two-column">
       <section className="card">
-        <h2>Create Lab / Laboratuvar Oluştur</h2>
+        <h2>{t("createLabTitle")}</h2>
 
-        <p className="muted">
-          Select a difficulty level. This value will be sent to the backend as
-          easy, medium, or hard.
-        </p>
+        <p className="muted">{t("createLabDescription")}</p>
 
         {errorMessage && (
           <MessageBox
             type="error"
-            title="Lab creation failed"
+            title={t("labCreationFailed")}
             message={errorMessage}
           />
         )}
 
         <div className="form-group">
-          <label htmlFor="studentId">Student ID / Öğrenci</label>
+          <label htmlFor="studentId">{t("studentId")}</label>
           <select
             id="studentId"
             value={studentId}
@@ -83,7 +83,7 @@ function CreateLab({ onLabCreated }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="difficulty">Difficulty / Zorluk</label>
+          <label htmlFor="difficulty">{t("difficulty")}</label>
           <select
             id="difficulty"
             value={difficulty}
@@ -91,14 +91,14 @@ function CreateLab({ onLabCreated }) {
           >
             {difficulties.map((item) => (
               <option key={item.value} value={item.value}>
-                {item.label}
+                {formatDifficulty(item.value, t)}
               </option>
             ))}
           </select>
         </div>
 
         <div className="form-group">
-          <label htmlFor="topologyTemplate">Topology Template / Topoloji Şablonu</label>
+          <label htmlFor="topologyTemplate">{t("topologyTemplate")}</label>
           <select
             id="topologyTemplate"
             value={topologyTemplate}
@@ -113,36 +113,32 @@ function CreateLab({ onLabCreated }) {
           onClick={handleCreateLab}
           disabled={isCreating}
         >
-          {isCreating ? "Creating..." : "Create Lab"}
+          {isCreating ? t("creating") : t("createLabButton")}
         </button>
 
-        <p className="footer-note">
-          Note: This page currently uses backend-compatible mock data. Later, it
-          will call POST /api/labs.
-        </p>
+        <p className="footer-note">{t("createLabNote")}</p>
       </section>
 
       <section className="card">
-        <h3>Difficulty Preview / Zorluk Önizlemesi</h3>
+        <h3>{t("difficultyPreview")}</h3>
 
         <span className={`badge ${getDifficultyClass(difficulty)}`}>
-          {formatDifficulty(difficulty)}
+          {formatDifficulty(difficulty, t)}
         </span>
 
         <div className="info-row">
-          <span>Backend Value</span>
+          <span>{t("backendValue")}</span>
           <strong>{difficulty}</strong>
         </div>
 
         <p>
-          {selectedDifficulty?.description ||
-            "Difficulty description is loading..."}
+          {selectedDifficulty?.description || t("difficultyLoading")}
         </p>
 
         <ul className="list">
-          <li>Easy creates 2 injected errors.</li>
-          <li>Medium creates 3 injected errors.</li>
-          <li>Hard creates 5 injected errors.</li>
+          <li>{t("easyCreates")}</li>
+          <li>{t("mediumCreates")}</li>
+          <li>{t("hardCreates")}</li>
         </ul>
       </section>
     </div>

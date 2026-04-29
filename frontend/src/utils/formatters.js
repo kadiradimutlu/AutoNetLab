@@ -1,19 +1,27 @@
-export function formatDifficulty(value) {
-  const labels = {
-    easy: "Easy / Kolay",
-    medium: "Medium / Orta",
-    hard: "Hard / Zor"
-  };
+export function formatDifficulty(value, t) {
+  if (!value) return "-";
 
-  return labels[value] || value || "-";
+  const difficultyKey = value.toLowerCase();
+
+  if (t) {
+    return t(difficultyKey);
+  }
+
+  return value;
 }
 
 export function getDifficultyClass(value) {
   return value || "easy";
 }
 
-export function formatStatus(value) {
+export function formatStatus(value, t) {
   if (!value) return "-";
+
+  const statusKey = value.toLowerCase();
+
+  if (t) {
+    return t(statusKey);
+  }
 
   return value
     .split("_")

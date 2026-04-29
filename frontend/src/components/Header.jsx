@@ -1,29 +1,51 @@
+import { useLanguage } from "../hooks/useLanguage";
+
 function Header({ currentPage, onNavigate }) {
+  const { language, setLanguage, t } = useLanguage();
+
   const menuItems = [
-    { id: "home", label: "Home" },
-    { id: "create", label: "Create Lab" },
-    { id: "session", label: "Session Detail" },
-    { id: "result", label: "Validation Result" }
+    { id: "home", label: t("navHome") },
+    { id: "create", label: t("navCreateLab") },
+    { id: "session", label: t("navSessionDetail") },
+    { id: "result", label: t("navValidationResult") }
   ];
 
   return (
     <header className="header">
       <div className="logo-area">
         <h1>AutoNetLab</h1>
-        <p>Intelligent Automated Network Training Laboratory</p>
+        <p>{t("appSubtitle")}</p>
       </div>
 
-      <nav className="nav">
-        {menuItems.map((item) => (
+      <div className="header-actions">
+        <nav className="nav">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              className={currentPage === item.id ? "active" : ""}
+              onClick={() => onNavigate(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="language-switch" aria-label={t("language")}>
           <button
-            key={item.id}
-            className={currentPage === item.id ? "active" : ""}
-            onClick={() => onNavigate(item.id)}
+            className={language === "en" ? "active" : ""}
+            onClick={() => setLanguage("en")}
           >
-            {item.label}
+            {t("english")}
           </button>
-        ))}
-      </nav>
+
+          <button
+            className={language === "tr" ? "active" : ""}
+            onClick={() => setLanguage("tr")}
+          >
+            {t("turkish")}
+          </button>
+        </div>
+      </div>
     </header>
   );
 }

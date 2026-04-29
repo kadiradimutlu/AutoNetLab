@@ -1,4 +1,5 @@
 import MessageBox from "./MessageBox";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   getCheckStatusClass,
   getCheckStatusLabel,
@@ -7,14 +8,16 @@ import {
 } from "../utils/formatters";
 
 function ValidationSummary({ validationResult, isValidating }) {
+  const { t } = useLanguage();
+
   if (isValidating) {
     return (
       <section className="card">
-        <h3>Validation / Doğrulama</h3>
+        <h3>{t("validationResultTitle")}</h3>
         <MessageBox
           type="info"
-          title="Validation is running"
-          message="The system is checking the current lab session. Please wait..."
+          title={t("validationRunningTitle")}
+          message={t("validationRunningMessage")}
         />
       </section>
     );
@@ -23,11 +26,11 @@ function ValidationSummary({ validationResult, isValidating }) {
   if (!validationResult) {
     return (
       <section className="card">
-        <h3>Validation / Doğrulama</h3>
+        <h3>{t("validationResultTitle")}</h3>
         <MessageBox
           type="empty"
-          title="No validation result yet"
-          message="Click the Run Validation button to generate PASS/FAIL checks and a score."
+          title={t("noValidationTitle")}
+          message={t("noValidationMessage")}
         />
       </section>
     );
@@ -39,7 +42,7 @@ function ValidationSummary({ validationResult, isValidating }) {
 
   return (
     <section className="card">
-      <h3>Validation Summary / Doğrulama Özeti</h3>
+      <h3>{t("validationSummary")}</h3>
 
       <div className="validation-header">
         <span className={`badge ${getValidationStatusClass(validationResult)}`}>
@@ -51,26 +54,26 @@ function ValidationSummary({ validationResult, isValidating }) {
 
       <p>
         {validationResult.passed
-          ? "All validation checks passed successfully."
-          : "Some validation checks failed. Review the failed topics below."}
+          ? t("allChecksPassed")
+          : t("someChecksFailed")}
       </p>
 
       <div className="info-row">
-        <span>Total Checks</span>
+        <span>{t("totalChecks")}</span>
         <strong>{totalChecks}</strong>
       </div>
 
       <div className="info-row">
-        <span>Passed Checks</span>
+        <span>{t("passedChecks")}</span>
         <strong>{passedChecks}</strong>
       </div>
 
       <div className="info-row">
-        <span>Failed Checks</span>
+        <span>{t("failedChecks")}</span>
         <strong>{failedChecks}</strong>
       </div>
 
-      <h4>Check Details / Kontrol Detayları</h4>
+      <h4>{t("checkDetails")}</h4>
 
       <div className="result-list">
         {validationResult.checks.map((check) => (
@@ -83,7 +86,9 @@ function ValidationSummary({ validationResult, isValidating }) {
             </div>
 
             <p>{check.message}</p>
-            <p className="muted">Check ID: {check.check_id}</p>
+            <p className="muted">
+              {t("checkId")}: {check.check_id}
+            </p>
           </div>
         ))}
       </div>

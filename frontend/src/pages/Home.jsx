@@ -1,28 +1,27 @@
 import StatCard from "../components/StatCard";
 import MessageBox from "../components/MessageBox";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
   formatStatus
 } from "../utils/formatters";
 
 function Home({ labSession, onNavigate }) {
+  const { t } = useLanguage();
+
   return (
     <>
       <section className="hero">
-        <h2>AutoNetLab Dashboard</h2>
-        <p>
-          This dashboard helps students create virtual network labs, view lab
-          session information, inspect topology details, run validation, and
-          receive learning recommendations.
-        </p>
+        <h2>{t("dashboardTitle")}</h2>
+        <p>{t("dashboardDescription")}</p>
 
         <div className="actions">
           <button className="primary-button" onClick={() => onNavigate("create")}>
-            Create New Lab
+            {t("createNewLab")}
           </button>
 
           <button className="secondary-button" onClick={() => onNavigate("session")}>
-            View Current Lab
+            {t("viewCurrentLab")}
           </button>
         </div>
       </section>
@@ -30,34 +29,34 @@ function Home({ labSession, onNavigate }) {
       {!labSession && (
         <MessageBox
           type="info"
-          title="Loading lab data"
-          message="The dashboard is loading the current mock lab session information."
+          title={t("loadingLabDataTitle")}
+          message={t("loadingLabDataMessage")}
         />
       )}
 
       <section className="grid">
         <StatCard
-          title="Current Lab"
+          title={t("currentLab")}
           value={labSession?.session_id || "-"}
-          helper="Active lab session identifier"
+          helper={t("activeLabSessionIdentifier")}
         />
 
         <StatCard
-          title="Difficulty"
-          value={formatDifficulty(labSession?.difficulty)}
-          helper="Selected lab difficulty level"
+          title={t("difficulty")}
+          value={formatDifficulty(labSession?.difficulty, t)}
+          helper={t("selectedLabDifficultyLevel")}
         />
 
         <StatCard
-          title="Status"
-          value={formatStatus(labSession?.status)}
-          helper="Current lab session status"
+          title={t("status")}
+          value={formatStatus(labSession?.status, t)}
+          helper={t("currentLabSessionStatus")}
         />
 
         <StatCard
-          title="Injected Errors"
+          title={t("injectedErrors")}
           value={labSession?.injected_errors?.length ?? 0}
-          helper="Number of generated troubleshooting errors"
+          helper={t("numberOfGeneratedErrors")}
         />
       </section>
     </>

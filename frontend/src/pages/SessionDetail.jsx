@@ -1,4 +1,5 @@
 import TopologyCard from "../components/TopologyCard";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
   formatStatus,
@@ -7,11 +8,13 @@ import {
 } from "../utils/formatters";
 
 function SessionDetail({ labSession, onNavigate }) {
+  const { t } = useLanguage();
+
   if (!labSession) {
     return (
       <section className="card">
-        <h2>Lab Session Detail / Lab Oturum Detayı</h2>
-        <p className="muted">Lab session data is loading...</p>
+        <h2>{t("labSessionDetail")}</h2>
+        <p className="muted">{t("labSessionLoading")}</p>
       </section>
     );
   }
@@ -21,50 +24,50 @@ function SessionDetail({ labSession, onNavigate }) {
   return (
     <div className="two-column">
       <section className="card">
-        <h2>Lab Session Detail / Lab Oturum Detayı</h2>
+        <h2>{t("labSessionDetail")}</h2>
 
         <div className="info-row">
-          <span>Session ID</span>
+          <span>{t("sessionId")}</span>
           <strong>{labSession.session_id}</strong>
         </div>
 
         <div className="info-row">
-          <span>Student</span>
+          <span>{t("student")}</span>
           <strong>{formatStudentName(labSession.student_id)}</strong>
         </div>
 
         <div className="info-row">
-          <span>Difficulty</span>
+          <span>{t("difficulty")}</span>
           <span className={`badge ${difficultyClass}`}>
-            {formatDifficulty(labSession.difficulty)}
+            {formatDifficulty(labSession.difficulty, t)}
           </span>
         </div>
 
         <div className="info-row">
-          <span>Status</span>
-          <strong>{formatStatus(labSession.status)}</strong>
+          <span>{t("status")}</span>
+          <strong>{formatStatus(labSession.status, t)}</strong>
         </div>
 
         <div className="info-row">
-          <span>Injected Errors</span>
+          <span>{t("injectedErrors")}</span>
           <strong>{labSession.injected_errors.length}</strong>
         </div>
 
-        <h4>Injected Errors / Eklenen Hatalar</h4>
+        <h4>{t("injectedErrors")}</h4>
         <div className="result-list">
           {labSession.injected_errors.map((error) => (
             <div className="list-item" key={`${error.code}-${error.device}`}>
               <strong>{error.code}</strong>
               <p>{error.description}</p>
               <p className="muted">
-                Topic: {error.topic} | Device: {error.device} | Severity:{" "}
-                {error.severity}
+                {t("topic")}: {error.topic} | {t("device")}: {error.device} |{" "}
+                {t("severity")}: {error.severity}
               </p>
             </div>
           ))}
         </div>
 
-        <h4>CLI Access / CLI Erişimi</h4>
+        <h4>{t("cliAccess")}</h4>
         <div className="result-list">
           {labSession.cli_access.map((cli) => (
             <div className="list-item" key={cli.device_id}>
@@ -76,13 +79,11 @@ function SessionDetail({ labSession, onNavigate }) {
 
         <div className="actions">
           <button className="primary-button" onClick={() => onNavigate("result")}>
-            Validate Lab
+            {t("validateLab")}
           </button>
         </div>
 
-        <p className="footer-note">
-          This screen now follows the backend lab session response format.
-        </p>
+        <p className="footer-note">{t("backendFormatNote")}</p>
       </section>
 
       <TopologyCard topology={labSession.topology} />

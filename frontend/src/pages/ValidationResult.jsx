@@ -3,19 +3,22 @@ import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
 import MessageBox from "../components/MessageBox";
 import { validateLab } from "../services/apiService";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
   formatStatus
 } from "../utils/formatters";
 
 function ValidationResult({ labSession }) {
+  const { t } = useLanguage();
+
   const [validationResult, setValidationResult] = useState(null);
   const [isValidating, setIsValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   async function handleValidate() {
     if (!labSession) {
-      setErrorMessage("There is no active lab session to validate.");
+      setErrorMessage(t("noActiveLab"));
       return;
     }
 
@@ -26,7 +29,7 @@ function ValidationResult({ labSession }) {
       const result = await validateLab(labSession.session_id);
       setValidationResult(result);
     } catch (error) {
-      setErrorMessage("Validation failed. Please try again.");
+      setErrorMessage(t("validationFailed"));
       console.error(error);
     } finally {
       setIsValidating(false);
@@ -36,28 +39,24 @@ function ValidationResult({ labSession }) {
   return (
     <>
       <section className="hero">
-        <h2>Validation Result / Doğrulama Sonucu</h2>
-        <p>
-          Run validation to check whether the current network configuration
-          satisfies the expected topology state. The response format now follows
-          the backend ValidationResult schema.
-        </p>
+        <h2>{t("validationResultTitle")}</h2>
+        <p>{t("validationResultDescription")}</p>
 
         {labSession && (
           <div className="session-mini-summary">
             <div>
-              <span className="muted">Session</span>
+              <span className="muted">{t("sessionId")}</span>
               <strong>{labSession.session_id}</strong>
             </div>
 
             <div>
-              <span className="muted">Difficulty</span>
-              <strong>{formatDifficulty(labSession.difficulty)}</strong>
+              <span className="muted">{t("difficulty")}</span>
+              <strong>{formatDifficulty(labSession.difficulty, t)}</strong>
             </div>
 
             <div>
-              <span className="muted">Status</span>
-              <strong>{formatStatus(labSession.status)}</strong>
+              <span className="muted">{t("status")}</span>
+              <strong>{formatStatus(labSession.status, t)}</strong>
             </div>
           </div>
         )}
@@ -65,7 +64,7 @@ function ValidationResult({ labSession }) {
         {errorMessage && (
           <MessageBox
             type="error"
-            title="Something went wrong"
+            title={t("somethingWentWrong")}
             message={errorMessage}
           />
         )}
@@ -76,7 +75,7 @@ function ValidationResult({ labSession }) {
             onClick={handleValidate}
             disabled={isValidating}
           >
-            {isValidating ? "Validating..." : "Run Validation"}
+            {isValidating ? t("validating") : t("runValidation")}
           </button>
         </div>
       </section>

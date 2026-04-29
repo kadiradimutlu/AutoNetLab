@@ -340,3 +340,41 @@ select {
     flex-direction: column;
   }
 }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.language-switch {
+  display: flex;
+  gap: 6px;
+  background: #1f2937;
+  padding: 5px;
+  border-radius: 10px;
+}
+
+.language-switch button {
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.language-switch button.active,
+.language-switch button:hover {
+  background: #2563eb;
+  color: white;
+}
+
+@media (max-width: 900px) {
+  .header-actions {
+    justify-content: flex-start;
+  }
+}

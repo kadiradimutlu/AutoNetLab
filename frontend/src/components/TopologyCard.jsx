@@ -1,38 +1,43 @@
+import { useLanguage } from "../hooks/useLanguage";
+
 function TopologyCard({ topology }) {
+  const { t } = useLanguage();
+
   if (!topology) {
     return (
       <section className="card">
-        <h3>Topology / Topoloji</h3>
-        <p className="muted">Topology data is loading...</p>
+        <h3>{t("topology")}</h3>
+        <p className="muted">{t("topologyLoading")}</p>
       </section>
     );
   }
 
   return (
     <section className="card">
-      <h3>Topology / Topoloji</h3>
+      <h3>{t("topology")}</h3>
 
       <div className="info-row">
-        <span>Topology Name</span>
+        <span>{t("topologyName")}</span>
         <strong>{topology.name}</strong>
       </div>
 
-      <h4>Nodes / Düğümler</h4>
+      <h4>{t("nodes")}</h4>
       <div className="device-list">
         {topology.nodes.map((node) => (
           <div className="list-item" key={node.id}>
             <strong>{node.label}</strong>
             <p className="muted">
-              ID: {node.id} | Kind: {node.kind} | Image: {node.image || "-"}
+              {t("id")}: {node.id} | {t("kind")}: {node.kind} | {t("image")}:{" "}
+              {node.image || "-"}
             </p>
             <p className="muted">
-              Management IPv4: {node.mgmt_ipv4 || "Not assigned yet"}
+              {t("managementIpv4")}: {node.mgmt_ipv4 || t("notAssignedYet")}
             </p>
           </div>
         ))}
       </div>
 
-      <h4>Links / Bağlantılar</h4>
+      <h4>{t("links")}</h4>
       <div className="link-list">
         {topology.links.map((link, index) => (
           <div
