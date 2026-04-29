@@ -3,7 +3,10 @@ import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+export function isMockApiEnabled() {
+  return USE_MOCK_API;
+}
 
 const ERROR_COUNT_BY_DIFFICULTY = {
   easy: 2,

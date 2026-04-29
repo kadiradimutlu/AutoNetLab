@@ -4,20 +4,24 @@ import Home from "./pages/Home";
 import CreateLab from "./pages/CreateLab";
 import SessionDetail from "./pages/SessionDetail";
 import ValidationResult from "./pages/ValidationResult";
-import { getLab } from "./services/apiService";
+import { getLab, isMockApiEnabled } from "./services/apiService";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
   const [labSession, setLabSession] = useState(null);
 
   useEffect(() => {
-    async function loadInitialData() {
-      const labData = await getLab("lab-demo-001");
-      setLabSession(labData);
+  async function loadInitialData() {
+    if (!isMockApiEnabled()) {
+      return;
     }
 
-    loadInitialData();
-  }, []);
+    const labData = await getLab("lab-demo-001");
+    setLabSession(labData);
+  }
+
+  loadInitialData();
+}, []);
 
   function handleLabCreated(newLabSession) {
     setLabSession(newLabSession);

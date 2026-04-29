@@ -27,12 +27,12 @@ function Home({ labSession, onNavigate }) {
       </section>
 
       {!labSession && (
-        <MessageBox
-          type="info"
-          title={t("loadingLabDataTitle")}
-          message={t("loadingLabDataMessage")}
-        />
-      )}
+  <MessageBox
+    type="info"
+    title="No active lab session"
+    message="Create a new lab session to start testing with the backend API."
+  />
+)}
 
       <section className="grid">
         <StatCard
