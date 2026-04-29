@@ -1,9 +1,11 @@
-function RecommendationCard({ recommendation }) {
-  if (!recommendation) {
+function RecommendationCard({ recommendations = [] }) {
+  if (!recommendations.length) {
     return (
       <section className="card">
         <h3>Recommendation / Öneri</h3>
-        <p className="muted">Recommendation data is loading...</p>
+        <p className="muted">
+          Recommendations will appear after validation if any topic needs review.
+        </p>
       </section>
     );
   }
@@ -13,11 +15,10 @@ function RecommendationCard({ recommendation }) {
       <h3>Recommendation / Öneri</h3>
 
       <div className="recommendation-list">
-        {recommendation.recommendations.map((item) => (
-          <div className="list-item" key={item.id}>
-            <strong>{item.topic}</strong>
-            <p>{item.message}</p>
-            <p className="muted">Priority: {item.priority}</p>
+        {recommendations.map((message, index) => (
+          <div className="list-item" key={`${message}-${index}`}>
+            <strong>Recommendation {index + 1}</strong>
+            <p>{message}</p>
           </div>
         ))}
       </div>

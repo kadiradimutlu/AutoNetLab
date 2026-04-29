@@ -1,0 +1,19 @@
+{
+  "difficulties": [
+    {
+      "value": "easy",
+      "label": "Easy",
+      "description": "Two injected errors. Suitable for beginners."
+    },
+    {
+      "value": "medium",
+      "label": "Medium",
+      "description": "Three injected errors. Suitable for intermediate users."
+    },
+    {
+      "value": "hard",
+      "label": "Hard",
+      "description": "Five injected errors. Suitable for advanced users."
+    }
+  ]
+}

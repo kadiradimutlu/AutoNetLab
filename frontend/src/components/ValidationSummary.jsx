@@ -1,4 +1,10 @@
 import MessageBox from "./MessageBox";
+import {
+  getCheckStatusClass,
+  getCheckStatusLabel,
+  getValidationStatusClass,
+  getValidationStatusLabel
+} from "../utils/formatters";
 
 function ValidationSummary({ validationResult, isValidating }) {
   if (isValidating) {
@@ -21,57 +27,63 @@ function ValidationSummary({ validationResult, isValidating }) {
         <MessageBox
           type="empty"
           title="No validation result yet"
-          message="Click the Run Validation button to generate a PASS/FAIL result and score."
+          message="Click the Run Validation button to generate PASS/FAIL checks and a score."
         />
       </section>
     );
   }
 
-  const statusClass = validationResult.status.toLowerCase();
+  const totalChecks = validationResult.checks.length;
+  const passedChecks = validationResult.checks.filter((check) => check.passed).length;
+  const failedChecks = totalChecks - passedChecks;
 
   return (
     <section className="card">
       <h3>Validation Summary / Doğrulama Özeti</h3>
 
       <div className="validation-header">
-        <span className={`badge ${statusClass}`}>
-          {validationResult.status}
+        <span className={`badge ${getValidationStatusClass(validationResult)}`}>
+          {getValidationStatusLabel(validationResult)}
         </span>
 
         <div className="score-box">{validationResult.score}/100</div>
       </div>
 
-      <p>{validationResult.summary}</p>
+      <p>
+        {validationResult.passed
+          ? "All validation checks passed successfully."
+          : "Some validation checks failed. Review the failed topics below."}
+      </p>
 
       <div className="info-row">
         <span>Total Checks</span>
-        <strong>{validationResult.totalChecks}</strong>
+        <strong>{totalChecks}</strong>
       </div>
 
       <div className="info-row">
         <span>Passed Checks</span>
-        <strong>{validationResult.passedChecks}</strong>
+        <strong>{passedChecks}</strong>
       </div>
 
       <div className="info-row">
         <span>Failed Checks</span>
-        <strong>{validationResult.failedChecks}</strong>
+        <strong>{failedChecks}</strong>
       </div>
 
       <h4>Check Details / Kontrol Detayları</h4>
 
       <div className="result-list">
-        {validationResult.results.map((item) => (
-          <div className="list-item" key={item.checkId}>
+        {validationResult.checks.map((check) => (
+          <div className="list-item" key={check.check_id}>
             <div className="result-title-row">
-              <strong>{item.title}</strong>
-              <span className={`badge ${item.status.toLowerCase()}`}>
-                {item.status}
+              <strong>{check.topic}</strong>
+              <span className={`badge ${getCheckStatusClass(check.passed)}`}>
+                {getCheckStatusLabel(check.passed)}
               </span>
             </div>
 
-            <p>{item.message}</p>
-            <p className="muted">Related Topic: {item.relatedTopic}</p>
+            <p>{check.message}</p>
+            <p className="muted">Check ID: {check.check_id}</p>
           </div>
         ))}
       </div>

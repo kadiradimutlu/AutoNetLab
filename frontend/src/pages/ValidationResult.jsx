@@ -1,34 +1,21 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
 import MessageBox from "../components/MessageBox";
-import { getRecommendation, validateSession } from "../services/apiService";
+import { validateLab } from "../services/apiService";
+import {
+  formatDifficulty,
+  formatStatus
+} from "../utils/formatters";
 
-function ValidationResult({ session }) {
+function ValidationResult({ labSession }) {
   const [validationResult, setValidationResult] = useState(null);
-  const [recommendation, setRecommendation] = useState(null);
   const [isValidating, setIsValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    async function loadRecommendation() {
-      if (!session) return;
-
-      try {
-        const recommendationData = await getRecommendation(session.sessionId);
-        setRecommendation(recommendationData);
-      } catch (error) {
-        setErrorMessage("Recommendation data could not be loaded.");
-        console.error(error);
-      }
-    }
-
-    loadRecommendation();
-  }, [session]);
-
   async function handleValidate() {
-    if (!session) {
-      setErrorMessage("There is no active session to validate.");
+    if (!labSession) {
+      setErrorMessage("There is no active lab session to validate.");
       return;
     }
 
@@ -36,7 +23,7 @@ function ValidationResult({ session }) {
     setErrorMessage("");
 
     try {
-      const result = await validateSession(session.sessionId);
+      const result = await validateLab(labSession.session_id);
       setValidationResult(result);
     } catch (error) {
       setErrorMessage("Validation failed. Please try again.");
@@ -52,25 +39,25 @@ function ValidationResult({ session }) {
         <h2>Validation Result / Doğrulama Sonucu</h2>
         <p>
           Run validation to check whether the current network configuration
-          satisfies the expected topology state. The result is currently generated
-          from mock data.
+          satisfies the expected topology state. The response format now follows
+          the backend ValidationResult schema.
         </p>
 
-        {session && (
+        {labSession && (
           <div className="session-mini-summary">
             <div>
               <span className="muted">Session</span>
-              <strong>{session.sessionId}</strong>
+              <strong>{labSession.session_id}</strong>
             </div>
 
             <div>
               <span className="muted">Difficulty</span>
-              <strong>{session.difficulty}</strong>
+              <strong>{formatDifficulty(labSession.difficulty)}</strong>
             </div>
 
             <div>
               <span className="muted">Status</span>
-              <strong>{session.status}</strong>
+              <strong>{formatStatus(labSession.status)}</strong>
             </div>
           </div>
         )}
@@ -100,7 +87,9 @@ function ValidationResult({ session }) {
           isValidating={isValidating}
         />
 
-        <RecommendationCard recommendation={recommendation} />
+        <RecommendationCard
+          recommendations={validationResult?.recommendations || []}
+        />
       </div>
     </>
   );

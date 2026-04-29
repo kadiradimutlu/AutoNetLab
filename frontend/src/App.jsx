@@ -4,53 +4,48 @@ import Home from "./pages/Home";
 import CreateLab from "./pages/CreateLab";
 import SessionDetail from "./pages/SessionDetail";
 import ValidationResult from "./pages/ValidationResult";
-import { getSession, getTopology } from "./services/apiService";
+import { getLab } from "./services/apiService";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
-  const [session, setSession] = useState(null);
-  const [topology, setTopology] = useState(null);
+  const [labSession, setLabSession] = useState(null);
 
   useEffect(() => {
     async function loadInitialData() {
-      const sessionData = await getSession("sess-001");
-      const topologyData = await getTopology(sessionData.topologyId);
-
-      setSession(sessionData);
-      setTopology(topologyData);
+      const labData = await getLab("lab-demo-001");
+      setLabSession(labData);
     }
 
     loadInitialData();
   }, []);
 
-  function handleSessionCreated(newSession) {
-    setSession(newSession);
+  function handleLabCreated(newLabSession) {
+    setLabSession(newLabSession);
     setCurrentPage("session");
   }
 
   return (
     <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
       {currentPage === "home" && (
-        <Home session={session} onNavigate={setCurrentPage} />
+        <Home labSession={labSession} onNavigate={setCurrentPage} />
       )}
 
       {currentPage === "create" && (
         <CreateLab
-          onSessionCreated={handleSessionCreated}
+          onLabCreated={handleLabCreated}
           onNavigate={setCurrentPage}
         />
       )}
 
       {currentPage === "session" && (
         <SessionDetail
-          session={session}
-          topology={topology}
+          labSession={labSession}
           onNavigate={setCurrentPage}
         />
       )}
 
       {currentPage === "result" && (
-        <ValidationResult session={session} />
+        <ValidationResult labSession={labSession} />
       )}
     </Layout>
   );

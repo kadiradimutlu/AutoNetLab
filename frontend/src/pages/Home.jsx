@@ -1,15 +1,19 @@
 import StatCard from "../components/StatCard";
 import MessageBox from "../components/MessageBox";
+import {
+  formatDifficulty,
+  formatStatus
+} from "../utils/formatters";
 
-function Home({ session, onNavigate }) {
+function Home({ labSession, onNavigate }) {
   return (
     <>
       <section className="hero">
         <h2>AutoNetLab Dashboard</h2>
         <p>
-          This dashboard helps students create virtual network labs, view session
-          information, inspect topology details, run validation, and receive
-          learning recommendations.
+          This dashboard helps students create virtual network labs, view lab
+          session information, inspect topology details, run validation, and
+          receive learning recommendations.
         </p>
 
         <div className="actions">
@@ -18,42 +22,42 @@ function Home({ session, onNavigate }) {
           </button>
 
           <button className="secondary-button" onClick={() => onNavigate("session")}>
-            View Current Session
+            View Current Lab
           </button>
         </div>
       </section>
 
-      {!session && (
+      {!labSession && (
         <MessageBox
           type="info"
-          title="Loading session data"
-          message="The dashboard is loading the current mock session information."
+          title="Loading lab data"
+          message="The dashboard is loading the current mock lab session information."
         />
       )}
 
       <section className="grid">
         <StatCard
-          title="Current Session"
-          value={session?.sessionId || "-"}
+          title="Current Lab"
+          value={labSession?.session_id || "-"}
           helper="Active lab session identifier"
         />
 
         <StatCard
           title="Difficulty"
-          value={session?.difficulty || "-"}
+          value={formatDifficulty(labSession?.difficulty)}
           helper="Selected lab difficulty level"
         />
 
         <StatCard
           title="Status"
-          value={session?.status || "-"}
-          helper="Current session status"
+          value={formatStatus(labSession?.status)}
+          helper="Current lab session status"
         />
 
         <StatCard
-          title="Progress"
-          value={`${session?.progress ?? 0}%`}
-          helper="Mock progress value for demo"
+          title="Injected Errors"
+          value={labSession?.injected_errors?.length ?? 0}
+          helper="Number of generated troubleshooting errors"
         />
       </section>
     </>

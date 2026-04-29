@@ -1,0 +1,23 @@
+{
+  "session_id": "lab-demo-001",
+  "status": "validated",
+  "passed": false,
+  "score": 50,
+  "checks": [
+    {
+      "check_id": "check_1_ip_address_mismatch",
+      "topic": "IP Addressing",
+      "passed": false,
+      "message": "IP Addressing issue still exists: Incorrect IP address configured on r1 eth1."
+    },
+    {
+      "check_id": "check_2_missing_route",
+      "topic": "Routing",
+      "passed": true,
+      "message": "Routing check passed."
+    }
+  ],
+  "recommendations": [
+    "Review topic: IP Addressing"
+  ]
+}
