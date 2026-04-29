@@ -1,4 +1,5 @@
 import StatCard from "../components/StatCard";
+import MessageBox from "../components/MessageBox";
 
 function Home({ session, onNavigate }) {
   return (
@@ -21,6 +22,14 @@ function Home({ session, onNavigate }) {
           </button>
         </div>
       </section>
+
+      {!session && (
+        <MessageBox
+          type="info"
+          title="Loading session data"
+          message="The dashboard is loading the current mock session information."
+        />
+      )}
 
       <section className="grid">
         <StatCard

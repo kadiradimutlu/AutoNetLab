@@ -1,9 +1,28 @@
-function ValidationSummary({ validationResult }) {
+import MessageBox from "./MessageBox";
+
+function ValidationSummary({ validationResult, isValidating }) {
+  if (isValidating) {
+    return (
+      <section className="card">
+        <h3>Validation / Doğrulama</h3>
+        <MessageBox
+          type="info"
+          title="Validation is running"
+          message="The system is checking the current lab session. Please wait..."
+        />
+      </section>
+    );
+  }
+
   if (!validationResult) {
     return (
       <section className="card">
         <h3>Validation / Doğrulama</h3>
-        <p className="muted">No validation result yet.</p>
+        <MessageBox
+          type="empty"
+          title="No validation result yet"
+          message="Click the Run Validation button to generate a PASS/FAIL result and score."
+        />
       </section>
     );
   }
@@ -14,11 +33,13 @@ function ValidationSummary({ validationResult }) {
     <section className="card">
       <h3>Validation Summary / Doğrulama Özeti</h3>
 
-      <span className={`badge ${statusClass}`}>
-        {validationResult.status}
-      </span>
+      <div className="validation-header">
+        <span className={`badge ${statusClass}`}>
+          {validationResult.status}
+        </span>
 
-      <div className="score-box">{validationResult.score}/100</div>
+        <div className="score-box">{validationResult.score}/100</div>
+      </div>
 
       <p>{validationResult.summary}</p>
 
@@ -37,15 +58,18 @@ function ValidationSummary({ validationResult }) {
         <strong>{validationResult.failedChecks}</strong>
       </div>
 
-      <h4>Check Details</h4>
+      <h4>Check Details / Kontrol Detayları</h4>
 
       <div className="result-list">
         {validationResult.results.map((item) => (
           <div className="list-item" key={item.checkId}>
-            <strong>{item.title}</strong>{" "}
-            <span className={`badge ${item.status.toLowerCase()}`}>
-              {item.status}
-            </span>
+            <div className="result-title-row">
+              <strong>{item.title}</strong>
+              <span className={`badge ${item.status.toLowerCase()}`}>
+                {item.status}
+              </span>
+            </div>
+
             <p>{item.message}</p>
             <p className="muted">Related Topic: {item.relatedTopic}</p>
           </div>

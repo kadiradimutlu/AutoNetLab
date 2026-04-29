@@ -259,3 +259,84 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.message-box {
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin: 16px 0;
+  border: 1px solid transparent;
+}
+
+.message-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.message-box p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.message-box.info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.message-box.empty {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.message-box.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.validation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.result-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-mini-summary {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.session-mini-summary div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.session-mini-summary span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+  .session-mini-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .validation-header,
+  .result-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
