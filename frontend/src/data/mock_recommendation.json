@@ -1,0 +1,23 @@
+{
+  "sessionId": "sess-001",
+  "recommendations": [
+    {
+      "id": "rec-001",
+      "topic": "VLAN Trunking",
+      "priority": "High",
+      "message": "Review how trunk ports carry VLAN traffic between switches."
+    },
+    {
+      "id": "rec-002",
+      "topic": "End-to-End Connectivity",
+      "priority": "Medium",
+      "message": "Practice using ping and interface status commands to verify connectivity."
+    },
+    {
+      "id": "rec-003",
+      "topic": "Troubleshooting Methodology",
+      "priority": "Medium",
+      "message": "Follow a step-by-step approach: physical link, VLAN, trunk, IP address, then connectivity test."
+    }
+  ]
+}

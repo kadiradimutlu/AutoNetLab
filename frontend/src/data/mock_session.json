@@ -1,0 +1,14 @@
+{
+  "sessionId": "sess-001",
+  "user": {
+    "id": "user-001",
+    "name": "Muhammed YILDIZ"
+  },
+  "labTitle": "Basic VLAN Troubleshooting Lab",
+  "difficulty": "Easy",
+  "status": "In Progress",
+  "createdAt": "2026-04-29T10:00:00Z",
+  "topologyId": "topo-basic-01",
+  "progress": 45,
+  "score": null
+}
