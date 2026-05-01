@@ -1,0 +1,17 @@
+name: autonetlab-medium
+
+topology:
+  nodes:
+    r1:
+      kind: linux
+      image: alpine:latest
+    r2:
+      kind: linux
+      image: alpine:latest
+    r3:
+      kind: linux
+      image: alpine:latest
+
+  links:
+    - endpoints: ["r1:eth1", "r2:eth1"]
+    - endpoints: ["r2:eth2", "r3:eth1"]

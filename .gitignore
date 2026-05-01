@@ -46,3 +46,6 @@ temp/
 *.db
 *.sqlite
 *.sqlite3
+backend/.venv-wsl/
+sprint1_backend_snapshot.txt
+containerlab/generated/
