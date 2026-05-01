@@ -40,16 +40,28 @@ def deploy_lab(session_id: str) -> ActionResponse:
 
     result = containerlab_adapter.deploy(
         session_id=session_id,
-        topology_name=session["topology"].name,
+        topology_file=session["topology_file"],
     )
 
-    update_session_status(session_id, SessionStatus.deployed)
+    update_session_status(session_id, result["status"])
 
-    return ActionResponse(
-        session_id=result["session_id"],
-        status=result["status"],
-        message=result["message"],
+    return ActionResponse(**result)
+
+
+@router.get("/{session_id}/inspect", response_model=ActionResponse)
+def inspect_lab(session_id: str) -> ActionResponse:
+    session = get_lab_session(session_id)
+
+    result = containerlab_adapter.inspect(
+        session_id=session_id,
+        topology_file=session["topology_file"],
+        current_status=session["status"],
     )
+
+    if result["status"] == SessionStatus.error:
+        update_session_status(session_id, SessionStatus.error)
+
+    return ActionResponse(**result)
 
 
 @router.post("/{session_id}/destroy", response_model=ActionResponse)
@@ -58,16 +70,12 @@ def destroy_lab(session_id: str) -> ActionResponse:
 
     result = containerlab_adapter.destroy(
         session_id=session_id,
-        topology_name=session["topology"].name,
+        topology_file=session["topology_file"],
     )
 
-    update_session_status(session_id, SessionStatus.destroyed)
+    update_session_status(session_id, result["status"])
 
-    return ActionResponse(
-        session_id=result["session_id"],
-        status=result["status"],
-        message=result["message"],
-    )
+    return ActionResponse(**result)
 
 
 @router.post("/{session_id}/validate", response_model=ValidationResult)

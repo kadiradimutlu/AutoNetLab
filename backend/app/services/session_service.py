@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import CliAccess, CreateLabRequest, LabSessionResponse
 from app.services.error_injection import generate_errors
-from app.services.topology_generator import generate_basic_topology
+from app.services.topology_generator import generate_session_topology
 
 
 _sessions: dict[str, dict] = {}
@@ -14,13 +14,19 @@ _sessions: dict[str, dict] = {}
 def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
     session_id = f"lab-{uuid4().hex[:8]}"
 
-    topology = generate_basic_topology(request.topology_template)
+    generated_topology = generate_session_topology(
+        session_id=session_id,
+        difficulty=request.difficulty,
+        topology_template=request.topology_template,
+    )
+
+    topology = generated_topology["topology"]
     injected_errors = generate_errors(request.difficulty, seed=session_id)
 
     cli_access = [
         CliAccess(
             device_id=node.id,
-            command=f"docker exec -it clab-autonetlab-{node.id} sh",
+            command=f"docker exec -it clab-{topology.name}-{node.id} sh",
         )
         for node in topology.nodes
     ]
@@ -31,6 +37,9 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
         "difficulty": request.difficulty,
         "status": SessionStatus.created,
         "topology": topology,
+        "topology_file": generated_topology["topology_file"],
+        "topology_template": generated_topology["topology_template"],
+        "lab_name": generated_topology["lab_name"],
         "injected_errors": injected_errors,
         "cli_access": cli_access,
     }
