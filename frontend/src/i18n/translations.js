@@ -45,7 +45,7 @@ export const translations = {
     difficultyOptionsFailed:
       "Difficulty options could not be loaded.",
     createLabNote:
-      "Note: This page currently uses backend-compatible mock data. Later, it will call POST /api/labs.",
+      "This page now creates real lab sessions through the FastAPI backend.",
     difficultyLoading: "Difficulty description is loading...",
     easyCreates: "Easy creates 2 injected errors.",
     mediumCreates: "Medium creates 3 injected errors.",

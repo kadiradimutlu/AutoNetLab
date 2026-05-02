@@ -3,7 +3,9 @@ import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+
 export function isMockApiEnabled() {
   return USE_MOCK_API;
 }
@@ -57,18 +59,40 @@ function wait(ms = 300) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json"
-    },
-    ...options
-  });
+  const url = `${API_BASE_URL}${path}`;
 
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      ...options
+    });
+
+    const contentType = response.headers.get("content-type");
+    const hasJsonBody = contentType && contentType.includes("application/json");
+    const data = hasJsonBody ? await response.json() : null;
+
+    if (!response.ok) {
+      const message =
+        data?.detail ||
+        data?.message ||
+        `API request failed with status ${response.status}`;
+
+      throw new Error(message);
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Backend API is not reachable. Please check if FastAPI is running at ${API_BASE_URL}.`
+      );
+    }
+
+    throw error;
   }
-
-  return response.json();
 }
 
 function createMockLabSession({ student_id, difficulty, topology_template }) {
@@ -85,7 +109,27 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
       name: topology_template
     },
     injected_errors: MOCK_ERROR_POOL.slice(0, errorCount),
+    cli_access: [
+      {
+        device_id: "r1",
+        command: "docker exec -it clab-autonetlab-mock-r1 sh"
+      },
+      {
+        device_id: "r2",
+        command: "docker exec -it clab-autonetlab-mock-r2 sh"
+      }
+    ],
     message: "Lab session created successfully."
+  };
+}
+
+function normalizeValidationResult(result) {
+  return {
+    ...result,
+    passed: Boolean(result.passed),
+    score: result.score ?? 0,
+    checks: result.checks || [],
+    recommendations: result.recommendations || result.recommendation || []
   };
 }
 
@@ -98,7 +142,7 @@ export async function getDifficulties() {
   return request("/meta/difficulties");
 }
 
-export async function createLab({
+export async function createSession({
   student_id = "muhammed",
   difficulty = "easy",
   topology_template = "basic-two-router"
@@ -123,7 +167,11 @@ export async function createLab({
   });
 }
 
-export async function getLab(sessionId) {
+export async function getSession(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
   if (USE_MOCK_API) {
     await wait();
 
@@ -136,7 +184,22 @@ export async function getLab(sessionId) {
   return request(`/labs/${sessionId}`);
 }
 
-export async function deployLab(sessionId) {
+export async function getTopology(sessionId) {
+  const session = await getSession(sessionId);
+
+  return {
+    session_id: session.session_id,
+    topology: session.topology || null,
+    injected_errors: session.injected_errors || [],
+    cli_access: session.cli_access || []
+  };
+}
+
+export async function deploySession(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
   if (USE_MOCK_API) {
     await wait();
 
@@ -152,7 +215,11 @@ export async function deployLab(sessionId) {
   });
 }
 
-export async function destroyLab(sessionId) {
+export async function destroySession(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
   if (USE_MOCK_API) {
     await wait();
 
@@ -168,18 +235,32 @@ export async function destroyLab(sessionId) {
   });
 }
 
-export async function validateLab(sessionId) {
+export async function validateSession(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
   if (USE_MOCK_API) {
     await wait(600);
 
-    return {
+    return normalizeValidationResult({
       ...mockValidationResult,
       session_id: sessionId || mockValidationResult.session_id,
       status: "validated"
-    };
+    });
   }
 
-  return request(`/labs/${sessionId}/validate`, {
+  const result = await request(`/labs/${sessionId}/validate`, {
     method: "POST"
   });
+
+  return normalizeValidationResult(result);
 }
+
+// Backward-compatible aliases.
+// Sprint 1 component/bileşenleri eski isimleri kullanıyorsa kırılmasın diye bırakıyoruz.
+export const createLab = createSession;
+export const getLab = getSession;
+export const deployLab = deploySession;
+export const destroyLab = destroySession;
+export const validateLab = validateSession;
