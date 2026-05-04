@@ -80,15 +80,20 @@ async function request(path, options = {}) {
         data?.message ||
         `API request failed with status ${response.status}`;
 
-      throw new Error(message);
+      const error = new Error(message);
+      error.status = response.status;
+      error.data = data;
+      throw error;
     }
 
     return data;
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(
+      const apiError = new Error(
         `Backend API is not reachable. Please check if FastAPI is running at ${API_BASE_URL}.`
       );
+      apiError.status = 0;
+      throw apiError;
     }
 
     throw error;
@@ -111,12 +116,18 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
     injected_errors: MOCK_ERROR_POOL.slice(0, errorCount),
     cli_access: [
       {
-        device_id: "r1",
-        command: "docker exec -it clab-autonetlab-mock-r1 sh"
+        device_name: "r1",
+        container_name: "clab-autonetlab-mock-r1",
+        access_method: "docker_exec",
+        command: "docker exec -it clab-autonetlab-mock-r1 sh",
+        description: "Open CLI access for router r1."
       },
       {
-        device_id: "r2",
-        command: "docker exec -it clab-autonetlab-mock-r2 sh"
+        device_name: "r2",
+        container_name: "clab-autonetlab-mock-r2",
+        access_method: "docker_exec",
+        command: "docker exec -it clab-autonetlab-mock-r2 sh",
+        description: "Open CLI access for router r2."
       }
     ],
     message: "Lab session created successfully."
@@ -124,12 +135,50 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
 }
 
 function normalizeValidationResult(result) {
+  const checks = Array.isArray(result?.checks) ? result.checks : [];
+  const passedChecks = checks.filter((check) => check.passed).length;
+  const totalChecks = checks.length;
+
   return {
     ...result,
-    passed: Boolean(result.passed),
-    score: result.score ?? 0,
-    checks: result.checks || [],
-    recommendations: result.recommendations || result.recommendation || []
+    passed: Boolean(result?.passed),
+    score: result?.score ?? 0,
+    checks,
+    passed_checks: result?.passed_checks ?? passedChecks,
+    total_checks: result?.total_checks ?? totalChecks,
+    recommendations: result?.recommendations || result?.recommendation || []
+  };
+}
+
+function normalizeCliAccess(cli, index) {
+  return {
+    device_name:
+      cli.device_name ||
+      cli.device ||
+      cli.device_id ||
+      cli.container_name ||
+      `device-${index + 1}`,
+    container_name:
+      cli.container_name ||
+      cli.container ||
+      cli.container_id ||
+      "-",
+    access_method:
+      cli.access_method ||
+      cli.method ||
+      "docker_exec",
+    docker_exec_command:
+      cli.docker_exec_command ||
+      cli.command ||
+      cli.exec_command ||
+      "",
+    ssh_command:
+      cli.ssh_command ||
+      cli.ssh ||
+      "",
+    description:
+      cli.description ||
+      ""
   };
 }
 
@@ -195,6 +244,46 @@ export async function getTopology(sessionId) {
   };
 }
 
+export async function getCliAccess(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    const session = createMockLabSession({
+      student_id: "muhammed",
+      difficulty: "easy",
+      topology_template: "basic-two-router"
+    });
+
+    return (session.cli_access || []).map((cli, index) =>
+      normalizeCliAccess(cli, index)
+    );
+  }
+
+  try {
+    const result = await request(`/labs/${sessionId}/cli`);
+    const cliAccess = result?.cli_access || result?.items || result || [];
+
+    return Array.isArray(cliAccess)
+      ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
+      : [];
+  } catch (error) {
+    if (error.status === 404) {
+      const session = await getSession(sessionId);
+      const cliAccess = session.cli_access || [];
+
+      return Array.isArray(cliAccess)
+        ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
+        : [];
+    }
+
+    throw error;
+  }
+}
+
 export async function deploySession(sessionId) {
   if (!sessionId) {
     throw new Error("sessionId is required.");
@@ -258,7 +347,7 @@ export async function validateSession(sessionId) {
 }
 
 // Backward-compatible aliases.
-// Sprint 1 component/bileşenleri eski isimleri kullanıyorsa kırılmasın diye bırakıyoruz.
+// Sprint 1 components may still use the old function names.
 export const createLab = createSession;
 export const getLab = getSession;
 export const deployLab = deploySession;
