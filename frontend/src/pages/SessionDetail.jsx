@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TopologyCard from "../components/TopologyCard";
-import { deployLab, destroyLab, getLab } from "../services/apiService";
+import {
+  deployLab,
+  destroyLab,
+  getCliAccess,
+  getLab
+} from "../services/apiService";
 import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
@@ -9,6 +14,38 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
+function normalizeCliAccess(cli, index) {
+  return {
+    deviceName:
+      cli.device_name ||
+      cli.device ||
+      cli.device_id ||
+      cli.container_name ||
+      `device-${index + 1}`,
+    containerName:
+      cli.container_name ||
+      cli.container ||
+      cli.container_id ||
+      "-",
+    accessMethod:
+      cli.access_method ||
+      cli.method ||
+      "docker_exec",
+    dockerExecCommand:
+      cli.docker_exec_command ||
+      cli.command ||
+      cli.exec_command ||
+      "",
+    sshCommand:
+      cli.ssh_command ||
+      cli.ssh ||
+      "",
+    description:
+      cli.description ||
+      ""
+  };
+}
+
 function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   const { t } = useLanguage();
 
@@ -16,6 +53,43 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   const [isDestroying, setIsDestroying] = useState(false);
   const [operationResult, setOperationResult] = useState(null);
   const [operationError, setOperationError] = useState("");
+  const [copiedCommandKey, setCopiedCommandKey] = useState("");
+  const [cliAccessList, setCliAccessList] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCliAccess() {
+      if (!labSession?.session_id) {
+        setCliAccessList([]);
+        return;
+      }
+
+      try {
+        const result = await getCliAccess(labSession.session_id);
+
+        if (isMounted) {
+          const normalizedResult = Array.isArray(result)
+            ? result.map((cli, index) => normalizeCliAccess(cli, index))
+            : [];
+
+          setCliAccessList(normalizedResult);
+        }
+      } catch (error) {
+        console.error("CLI access fetch failed. Falling back to session data.", error);
+
+        if (isMounted) {
+          setCliAccessList([]);
+        }
+      }
+    }
+
+    loadCliAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [labSession?.session_id]);
 
   if (!labSession) {
     return (
@@ -27,7 +101,10 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   }
 
   const injectedErrors = labSession.injected_errors || [];
-  const cliAccess = labSession.cli_access || [];
+  const fallbackCliAccess = (labSession.cli_access || []).map((cli, index) =>
+    normalizeCliAccess(cli, index)
+  );
+  const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const difficultyClass = getDifficultyClass(labSession.difficulty);
 
   async function refreshCurrentSession() {
@@ -82,6 +159,24 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     }
   }
 
+  async function handleCopyCommand(command, commandKey) {
+    if (!command) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopiedCommandKey(commandKey);
+
+      setTimeout(() => {
+        setCopiedCommandKey("");
+      }, 1500);
+    } catch (error) {
+      console.error("Copy command failed.", error);
+      setOperationError("Command could not be copied. Please copy it manually.");
+    }
+  }
+
   return (
     <div className="two-column">
       <section className="card">
@@ -116,6 +211,10 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
 
         <h4>{t("injectedErrors")}</h4>
         <div className="result-list">
+          {injectedErrors.length === 0 && (
+            <p className="muted">No injected errors found.</p>
+          )}
+
           {injectedErrors.map((error) => (
             <div className="list-item" key={`${error.code}-${error.device}`}>
               <strong>{error.code}</strong>
@@ -134,12 +233,69 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
             <p className="muted">CLI access information is not available yet.</p>
           )}
 
-          {cliAccess.map((cli) => (
-            <div className="list-item" key={cli.device_id}>
-              <strong>{cli.device_id}</strong>
-              <p className="muted">{cli.command}</p>
-            </div>
-          ))}
+          {cliAccess.map((cli, index) => {
+            const dockerCommandKey = `${cli.deviceName}-docker-${index}`;
+            const sshCommandKey = `${cli.deviceName}-ssh-${index}`;
+
+            return (
+              <div className="list-item" key={`${cli.deviceName}-${index}`}>
+                <div className="result-title-row">
+                  <strong>{cli.deviceName}</strong>
+                  <span className="badge">CLI</span>
+                </div>
+
+                <p className="muted">Container Name: {cli.containerName}</p>
+                <p className="muted">Access Method: {cli.accessMethod}</p>
+
+                {cli.description && (
+                  <p className="muted">Description: {cli.description}</p>
+                )}
+
+                {cli.dockerExecCommand && (
+                  <>
+                    <p className="muted">Docker Exec Command:</p>
+                    <code className="command-box">{cli.dockerExecCommand}</code>
+
+                    <div className="actions">
+                      <button
+                        className="primary-button"
+                        onClick={() =>
+                          handleCopyCommand(
+                            cli.dockerExecCommand,
+                            dockerCommandKey
+                          )
+                        }
+                      >
+                        {copiedCommandKey === dockerCommandKey
+                          ? "Copied"
+                          : "Copy Docker Command"}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {cli.sshCommand && (
+                  <>
+                    <p className="muted">SSH Command:</p>
+                    <code className="command-box">{cli.sshCommand}</code>
+
+                    <div className="actions">
+                      <button
+                        className="primary-button"
+                        onClick={() =>
+                          handleCopyCommand(cli.sshCommand, sshCommandKey)
+                        }
+                      >
+                        {copiedCommandKey === sshCommandKey
+                          ? "Copied"
+                          : "Copy SSH Command"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <h4>Containerlab Runtime</h4>
@@ -184,7 +340,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
 
               {operationResult.message && <p>{operationResult.message}</p>}
 
-              {operationResult.return_code !== undefined && 
+              {operationResult.return_code !== undefined &&
                 operationResult.return_code !== null &&
                 operationResult.return_code !== "" && (
                   <p className="muted">
