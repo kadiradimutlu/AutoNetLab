@@ -29,8 +29,8 @@ function ValidationResult({ labSession }) {
       const result = await validateLab(labSession.session_id);
       setValidationResult(result);
     } catch (error) {
-      setErrorMessage(t("validationFailed"));
-      console.error(error);
+      setErrorMessage(error.message || t("validationFailed"));
+      console.error("Validation failed:", error);
     } finally {
       setIsValidating(false);
     }
