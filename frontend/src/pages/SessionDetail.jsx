@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import TopologyCard from "../components/TopologyCard";
-import { deployLab, destroyLab, getLab } from "../services/apiService";
+import {
+  deployLab,
+  destroyLab,
+  getCliAccess,
+  getLab
+} from "../services/apiService";
 import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
@@ -15,12 +20,17 @@ function normalizeCliAccess(cli, index) {
       cli.device_name ||
       cli.device ||
       cli.device_id ||
+      cli.container_name ||
       `device-${index + 1}`,
     containerName:
       cli.container_name ||
       cli.container ||
       cli.container_id ||
       "-",
+    accessMethod:
+      cli.access_method ||
+      cli.method ||
+      "docker_exec",
     dockerExecCommand:
       cli.docker_exec_command ||
       cli.command ||
@@ -29,6 +39,9 @@ function normalizeCliAccess(cli, index) {
     sshCommand:
       cli.ssh_command ||
       cli.ssh ||
+      "",
+    description:
+      cli.description ||
       ""
   };
 }
@@ -41,6 +54,42 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   const [operationResult, setOperationResult] = useState(null);
   const [operationError, setOperationError] = useState("");
   const [copiedCommandKey, setCopiedCommandKey] = useState("");
+  const [cliAccessList, setCliAccessList] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCliAccess() {
+      if (!labSession?.session_id) {
+        setCliAccessList([]);
+        return;
+      }
+
+      try {
+        const result = await getCliAccess(labSession.session_id);
+
+        if (isMounted) {
+          const normalizedResult = Array.isArray(result)
+            ? result.map((cli, index) => normalizeCliAccess(cli, index))
+            : [];
+
+          setCliAccessList(normalizedResult);
+        }
+      } catch (error) {
+        console.error("CLI access fetch failed. Falling back to session data.", error);
+
+        if (isMounted) {
+          setCliAccessList([]);
+        }
+      }
+    }
+
+    loadCliAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [labSession?.session_id]);
 
   if (!labSession) {
     return (
@@ -52,9 +101,10 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   }
 
   const injectedErrors = labSession.injected_errors || [];
-  const cliAccess = (labSession.cli_access || []).map((cli, index) =>
+  const fallbackCliAccess = (labSession.cli_access || []).map((cli, index) =>
     normalizeCliAccess(cli, index)
   );
+  const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const difficultyClass = getDifficultyClass(labSession.difficulty);
 
   async function refreshCurrentSession() {
@@ -161,6 +211,10 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
 
         <h4>{t("injectedErrors")}</h4>
         <div className="result-list">
+          {injectedErrors.length === 0 && (
+            <p className="muted">No injected errors found.</p>
+          )}
+
           {injectedErrors.map((error) => (
             <div className="list-item" key={`${error.code}-${error.device}`}>
               <strong>{error.code}</strong>
@@ -190,9 +244,12 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
                   <span className="badge">CLI</span>
                 </div>
 
-                <p className="muted">
-                  Container Name: {cli.containerName}
-                </p>
+                <p className="muted">Container Name: {cli.containerName}</p>
+                <p className="muted">Access Method: {cli.accessMethod}</p>
+
+                {cli.description && (
+                  <p className="muted">Description: {cli.description}</p>
+                )}
 
                 {cli.dockerExecCommand && (
                   <>

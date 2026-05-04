@@ -454,7 +454,7 @@ export async function getCliAccess(sessionId) {
   }
 
   try {
-    const result = await request(`/labs/${sessionId}/cli-access`);
+    const result = await request(`/labs/${sessionId}/cli`);
     const cliAccess = result?.cli_access || result || [];
 
     return Array.isArray(cliAccess)
