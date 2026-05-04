@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import TopologyCard from "../components/TopologyCard";
+import MessageBox from "../components/MessageBox";
 import {
   deployLab,
   destroyLab,
   getCliAccess,
+  getErrorDetails,
+  getErrorMessage,
   getLab
 } from "../services/apiService";
 import { useLanguage } from "../hooks/useLanguage";
@@ -53,7 +56,11 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   const [isDestroying, setIsDestroying] = useState(false);
   const [operationResult, setOperationResult] = useState(null);
   const [operationError, setOperationError] = useState("");
+  const [operationErrorDetails, setOperationErrorDetails] = useState("");
+  const [cliAccessWarning, setCliAccessWarning] = useState("");
+  const [cliAccessDetails, setCliAccessDetails] = useState("");
   const [copiedCommandKey, setCopiedCommandKey] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
   const [cliAccessList, setCliAccessList] = useState([]);
 
   useEffect(() => {
@@ -62,8 +69,13 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     async function loadCliAccess() {
       if (!labSession?.session_id) {
         setCliAccessList([]);
+        setCliAccessWarning("");
+        setCliAccessDetails("");
         return;
       }
+
+      setCliAccessWarning("");
+      setCliAccessDetails("");
 
       try {
         const result = await getCliAccess(labSession.session_id);
@@ -80,6 +92,13 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
 
         if (isMounted) {
           setCliAccessList([]);
+          setCliAccessWarning(
+            getErrorMessage(
+              error,
+              "CLI access information could not be loaded. Existing session data will be used if available."
+            )
+          );
+          setCliAccessDetails(getErrorDetails(error));
         }
       }
     }
@@ -119,6 +138,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     setIsDeploying(true);
     setOperationResult(null);
     setOperationError("");
+    setOperationErrorDetails("");
 
     try {
       const result = await deployLab(labSession.session_id);
@@ -130,8 +150,9 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         console.error("Session refresh after deploy failed.", refreshError);
       }
     } catch (error) {
-      setOperationError(error.message || "Deploy operation failed.");
-      console.error(error);
+      setOperationError(getErrorMessage(error, "Deploy operation failed."));
+      setOperationErrorDetails(getErrorDetails(error));
+      console.error("Deploy operation failed.", error);
     } finally {
       setIsDeploying(false);
     }
@@ -141,6 +162,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     setIsDestroying(true);
     setOperationResult(null);
     setOperationError("");
+    setOperationErrorDetails("");
 
     try {
       const result = await destroyLab(labSession.session_id);
@@ -152,8 +174,9 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         console.error("Session refresh after destroy failed.", refreshError);
       }
     } catch (error) {
-      setOperationError(error.message || "Destroy operation failed.");
-      console.error(error);
+      setOperationError(getErrorMessage(error, "Destroy operation failed."));
+      setOperationErrorDetails(getErrorDetails(error));
+      console.error("Destroy operation failed.", error);
     } finally {
       setIsDestroying(false);
     }
@@ -164,16 +187,23 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
+    setCopyNotice("");
+    setOperationError("");
+    setOperationErrorDetails("");
+
     try {
       await navigator.clipboard.writeText(command);
       setCopiedCommandKey(commandKey);
+      setCopyNotice("Command copied to clipboard.");
 
       setTimeout(() => {
         setCopiedCommandKey("");
+        setCopyNotice("");
       }, 1500);
     } catch (error) {
       console.error("Copy command failed.", error);
       setOperationError("Command could not be copied. Please copy it manually.");
+      setOperationErrorDetails(error.message || "");
     }
   }
 
@@ -217,17 +247,48 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
 
           {injectedErrors.map((error) => (
             <div className="list-item" key={`${error.code}-${error.device}`}>
-              <strong>{error.code}</strong>
+              <div className="result-title-row">
+                <strong>{error.code}</strong>
+                <span className={`badge ${error.severity || ""}`}>
+                  {error.severity || "unknown"}
+                </span>
+              </div>
+
               <p>{error.description}</p>
               <p className="muted">
-                {t("topic")}: {error.topic} | {t("device")}: {error.device} |{" "}
-                {t("severity")}: {error.severity}
+                {t("topic")}: {error.topic} | {t("device")}: {error.device}
               </p>
             </div>
           ))}
         </div>
 
         <h4>{t("cliAccess")}</h4>
+
+        {cliAccessWarning && (
+          <>
+            <MessageBox
+              type="error"
+              title="CLI access warning"
+              message={cliAccessWarning}
+            />
+
+            {cliAccessDetails && (
+              <div className="technical-detail-box">
+                <strong>Technical detail</strong>
+                <p>{cliAccessDetails}</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {copyNotice && (
+          <MessageBox
+            type="info"
+            title="Copy successful"
+            message={copyNotice}
+          />
+        )}
+
         <div className="result-list">
           {cliAccess.length === 0 && (
             <p className="muted">CLI access information is not available yet.</p>
@@ -238,27 +299,37 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
             const sshCommandKey = `${cli.deviceName}-ssh-${index}`;
 
             return (
-              <div className="list-item" key={`${cli.deviceName}-${index}`}>
+              <div className="list-item cli-card" key={`${cli.deviceName}-${index}`}>
                 <div className="result-title-row">
                   <strong>{cli.deviceName}</strong>
                   <span className="badge">CLI</span>
                 </div>
 
-                <p className="muted">Container Name: {cli.containerName}</p>
-                <p className="muted">Access Method: {cli.accessMethod}</p>
+                <div className="cli-meta-grid">
+                  <div>
+                    <span className="muted">Container Name</span>
+                    <strong>{cli.containerName}</strong>
+                  </div>
 
-                {cli.description && (
-                  <p className="muted">Description: {cli.description}</p>
-                )}
+                  <div>
+                    <span className="muted">Access Method</span>
+                    <strong>{cli.accessMethod}</strong>
+                  </div>
+                </div>
+
+                <p className="muted">
+                  Description: Use this command to access {cli.deviceName} through the CLI.
+                </p>
 
                 {cli.dockerExecCommand && (
-                  <>
+                  <div className="command-section">
                     <p className="muted">Docker Exec Command:</p>
-                    <code className="command-box">{cli.dockerExecCommand}</code>
 
-                    <div className="actions">
+                    <div className="command-row">
+                      <code className="command-box">{cli.dockerExecCommand}</code>
+
                       <button
-                        className="primary-button"
+                        className="secondary-button"
                         onClick={() =>
                           handleCopyCommand(
                             cli.dockerExecCommand,
@@ -268,30 +339,29 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
                       >
                         {copiedCommandKey === dockerCommandKey
                           ? "Copied"
-                          : "Copy Docker Command"}
+                          : "Copy"}
                       </button>
                     </div>
-                  </>
+                  </div>
                 )}
 
                 {cli.sshCommand && (
-                  <>
+                  <div className="command-section">
                     <p className="muted">SSH Command:</p>
-                    <code className="command-box">{cli.sshCommand}</code>
 
-                    <div className="actions">
+                    <div className="command-row">
+                      <code className="command-box">{cli.sshCommand}</code>
+
                       <button
-                        className="primary-button"
+                        className="secondary-button"
                         onClick={() =>
                           handleCopyCommand(cli.sshCommand, sshCommandKey)
                         }
                       >
-                        {copiedCommandKey === sshCommandKey
-                          ? "Copied"
-                          : "Copy SSH Command"}
+                        {copiedCommandKey === sshCommandKey ? "Copied" : "Copy"}
                       </button>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             );
@@ -323,16 +393,24 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         </div>
 
         {operationError && (
-          <div className="result-list">
-            <div className="list-item">
-              <strong>Operation failed</strong>
-              <p>{operationError}</p>
-            </div>
-          </div>
+          <>
+            <MessageBox
+              type="error"
+              title="Operation failed"
+              message={operationError}
+            />
+
+            {operationErrorDetails && (
+              <div className="technical-detail-box">
+                <strong>Technical detail</strong>
+                <p>{operationErrorDetails}</p>
+              </div>
+            )}
+          </>
         )}
 
         {operationResult && (
-          <div className="result-list">
+          <div className="result-list runtime-result">
             <div className="list-item">
               <strong>
                 Runtime operation result: {operationResult.status || "unknown"}

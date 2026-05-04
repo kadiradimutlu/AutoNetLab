@@ -3,8 +3,9 @@ import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
+).replace(/\/$/, "");
 
 export function isMockApiEnabled() {
   return USE_MOCK_API;
@@ -58,8 +59,149 @@ function wait(ms = 300) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getRequestMethod(options = {}) {
+  return options.method || "GET";
+}
+
+function formatBackendDetail(detail) {
+  if (!detail) {
+    return "";
+  }
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        const location = Array.isArray(item.loc) ? item.loc.join(".") : "";
+        const message = item.msg || item.message || JSON.stringify(item);
+
+        return location ? `${location}: ${message}` : message;
+      })
+      .join(" | ");
+  }
+
+  if (typeof detail === "object") {
+    return detail.message || detail.error || JSON.stringify(detail);
+  }
+
+  return String(detail);
+}
+
+function getRawErrorMessage(data, fallbackMessage) {
+  return (
+    formatBackendDetail(data?.detail) ||
+    formatBackendDetail(data?.message) ||
+    formatBackendDetail(data?.error) ||
+    fallbackMessage
+  );
+}
+
+function getFriendlyErrorMessage({ status, path, method }) {
+  if (status === 0) {
+    return "Backend API is not reachable. Please make sure the FastAPI server is running and the API base URL is correct.";
+  }
+
+  if (status === 400) {
+    return "The request was rejected by the backend. Please check the submitted data.";
+  }
+
+  if (status === 404) {
+    if (path.includes("/cli")) {
+      return "CLI access information could not be found. Please check the CLI endpoint or the session data.";
+    }
+
+    return "Invalid session ID or endpoint not found. Please create a new lab or check the API path.";
+  }
+
+  if (status === 409) {
+    return "This operation conflicts with the current session state. Please refresh the session and try again.";
+  }
+
+  if (status === 422) {
+    return "The submitted data does not match the format expected by the backend. Please check the field names and request body.";
+  }
+
+  if (status >= 500) {
+    if (path.includes("/deploy")) {
+      return "Containerlab deploy operation failed. Please check Docker, WSL, or Containerlab setup.";
+    }
+
+    if (path.includes("/destroy")) {
+      return "Containerlab destroy operation failed. Please check the running containers or Containerlab state.";
+    }
+
+    if (path.includes("/validate")) {
+      return "Validation operation failed on the backend side. Please try again.";
+    }
+
+    return "An unexpected backend error occurred. Please check the FastAPI terminal output.";
+  }
+
+  return `${method} request failed. Please try again.`;
+}
+
+function createApiError({
+  status,
+  data,
+  path,
+  method,
+  url,
+  message,
+  originalError
+}) {
+  const error = new Error(
+    getFriendlyErrorMessage({
+      status,
+      path,
+      method
+    })
+  );
+
+  error.name = "ApiServiceError";
+  error.status = status;
+  error.data = data;
+  error.path = path;
+  error.method = method;
+  error.url = url;
+  error.originalError = originalError || null;
+  error.technicalMessage =
+    message ||
+    getRawErrorMessage(data, `API request failed with status ${status}`);
+  error.friendlyMessage = error.message;
+  error.isApiError = true;
+
+  return error;
+}
+
+async function parseResponseBody(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const hasJsonBody = contentType.includes("application/json");
+
+  if (hasJsonBody) {
+    return response.json();
+  }
+
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  return {
+    message: text
+  };
+}
+
 async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
+  const method = getRequestMethod(options);
 
   try {
     const response = await fetch(url, {
@@ -70,34 +212,77 @@ async function request(path, options = {}) {
       ...options
     });
 
-    const contentType = response.headers.get("content-type");
-    const hasJsonBody = contentType && contentType.includes("application/json");
-    const data = hasJsonBody ? await response.json() : null;
+    const data = await parseResponseBody(response);
 
     if (!response.ok) {
-      const message =
-        data?.detail ||
-        data?.message ||
-        `API request failed with status ${response.status}`;
-
-      const error = new Error(message);
-      error.status = response.status;
-      error.data = data;
-      throw error;
+      throw createApiError({
+        status: response.status,
+        data,
+        path,
+        method,
+        url,
+        message: getRawErrorMessage(
+          data,
+          `API request failed with status ${response.status}`
+        )
+      });
     }
 
     return data;
   } catch (error) {
-    if (error instanceof TypeError) {
-      const apiError = new Error(
-        `Backend API is not reachable. Please check if FastAPI is running at ${API_BASE_URL}.`
-      );
-      apiError.status = 0;
-      throw apiError;
+    if (error.isApiError) {
+      throw error;
     }
 
-    throw error;
+    if (error instanceof TypeError) {
+      throw createApiError({
+        status: 0,
+        data: null,
+        path,
+        method,
+        url,
+        message:
+          "Network error, CORS error, or backend server is not reachable.",
+        originalError: error
+      });
+    }
+
+    throw createApiError({
+      status: -1,
+      data: null,
+      path,
+      method,
+      url,
+      message: error.message || "Unexpected frontend API error.",
+      originalError: error
+    });
   }
+}
+
+export function getErrorMessage(error, fallbackMessage = "Operation failed.") {
+  return error?.friendlyMessage || error?.message || fallbackMessage;
+}
+
+export function getErrorDetails(error) {
+  if (!error) {
+    return "";
+  }
+
+  const details = [];
+
+  if (error.status !== undefined && error.status !== null) {
+    details.push(`Status: ${error.status}`);
+  }
+
+  if (error.method && error.path) {
+    details.push(`Request: ${error.method} ${error.path}`);
+  }
+
+  if (error.technicalMessage) {
+    details.push(`Detail: ${error.technicalMessage}`);
+  }
+
+  return details.join(" | ");
 }
 
 function createMockLabSession({ student_id, difficulty, topology_template }) {
@@ -139,6 +324,9 @@ function normalizeValidationResult(result) {
   const passedChecks = checks.filter((check) => check.passed).length;
   const totalChecks = checks.length;
 
+  const recommendations =
+    result?.recommendations || result?.recommendation || [];
+
   return {
     ...result,
     passed: Boolean(result?.passed),
@@ -146,7 +334,9 @@ function normalizeValidationResult(result) {
     checks,
     passed_checks: result?.passed_checks ?? passedChecks,
     total_checks: result?.total_checks ?? totalChecks,
-    recommendations: result?.recommendations || result?.recommendation || []
+    recommendations: Array.isArray(recommendations)
+      ? recommendations
+      : [recommendations].filter(Boolean)
   };
 }
 
