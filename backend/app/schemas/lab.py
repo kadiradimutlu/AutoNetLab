@@ -20,7 +20,21 @@ class ErrorItem(BaseModel):
 
 class CliAccess(BaseModel):
     device_id: str = Field(..., examples=["r1"])
-    command: str = Field(..., examples=["docker exec -it clab-autonetlab-r1 sh"])
+    name: str = Field(..., examples=["r1"])
+    container_name: str = Field(..., examples=["clab-autonetlab-lab-12345678-r1"])
+    access_method: str = Field(default="docker_exec", examples=["docker_exec"])
+    command: str = Field(..., examples=["docker exec -it clab-autonetlab-lab-12345678-r1 sh"])
+    description: str = Field(
+        ...,
+        examples=["R1 cihazına CLI üzerinden bağlanmak için bu komutu kullanın."],
+    )
+
+
+class CliAccessResponse(BaseModel):
+    session_id: str
+    lab_name: str
+    devices: list[CliAccess]
+    message: str
 
 
 class LabSessionResponse(BaseModel):
