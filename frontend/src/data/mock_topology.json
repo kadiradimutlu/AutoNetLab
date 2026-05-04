@@ -1,0 +1,49 @@
+{
+  "topologyId": "topo-basic-01",
+  "name": "Two Switch VLAN Topology",
+  "description": "A simple topology used to practice VLAN configuration and basic connectivity troubleshooting.",
+  "devices": [
+    {
+      "id": "sw1",
+      "name": "Switch-1",
+      "type": "Switch",
+      "managementIp": "192.168.10.2"
+    },
+    {
+      "id": "sw2",
+      "name": "Switch-2",
+      "type": "Switch",
+      "managementIp": "192.168.10.3"
+    },
+    {
+      "id": "pc1",
+      "name": "Student-PC-1",
+      "type": "Host",
+      "managementIp": "192.168.10.10"
+    },
+    {
+      "id": "pc2",
+      "name": "Student-PC-2",
+      "type": "Host",
+      "managementIp": "192.168.10.20"
+    }
+  ],
+  "links": [
+    {
+      "source": "pc1",
+      "target": "sw1",
+      "interface": "eth1"
+    },
+    {
+      "source": "sw1",
+      "target": "sw2",
+      "interface": "eth2"
+    },
+    {
+      "source": "sw2",
+      "target": "pc2",
+      "interface": "eth1"
+    }
+  ],
+  "expectedGoal": "PC1 and PC2 should communicate through the correct VLAN configuration."
+}

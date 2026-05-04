@@ -38,3 +38,7 @@ class ActionResponse(BaseModel):
     session_id: str
     status: SessionStatus
     message: str
+    command: str | None = None
+    return_code: int | None = None
+    stdout: str | None = None
+    stderr: str | None = None
