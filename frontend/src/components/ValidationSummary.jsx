@@ -36,47 +36,61 @@ function ValidationSummary({ validationResult, isValidating }) {
     );
   }
 
-  const totalChecks = validationResult.checks.length;
-  const passedChecks = validationResult.checks.filter((check) => check.passed).length;
+  const checks = validationResult.checks || [];
+  const totalChecks = checks.length;
+  const passedChecks = checks.filter((check) => check.passed).length;
   const failedChecks = totalChecks - passedChecks;
+  const score = validationResult.score ?? 0;
 
   return (
     <section className="card">
       <h3>{t("validationSummary")}</h3>
 
-      <div className="validation-header">
-        <span className={`badge ${getValidationStatusClass(validationResult)}`}>
-          {getValidationStatusLabel(validationResult)}
-        </span>
+      <div className="validation-status-panel">
+        <div>
+          <span className={`badge ${getValidationStatusClass(validationResult)}`}>
+            {getValidationStatusLabel(validationResult)}
+          </span>
 
-        <div className="score-box">{validationResult.score}/100</div>
+          <p>
+            {validationResult.passed
+              ? t("allChecksPassed")
+              : t("someChecksFailed")}
+          </p>
+        </div>
+
+        <div className="score-area">
+          <div className="score-box">{score}/100</div>
+          <div className="score-progress">
+            <div
+              className="score-progress-fill"
+              style={{ width: `${Math.min(Math.max(score, 0), 100)}%` }}
+            />
+          </div>
+        </div>
       </div>
 
-      <p>
-        {validationResult.passed
-          ? t("allChecksPassed")
-          : t("someChecksFailed")}
-      </p>
+      <div className="validation-metrics">
+        <div className="metric-card">
+          <span>{t("totalChecks")}</span>
+          <strong>{totalChecks}</strong>
+        </div>
 
-      <div className="info-row">
-        <span>{t("totalChecks")}</span>
-        <strong>{totalChecks}</strong>
-      </div>
+        <div className="metric-card">
+          <span>{t("passedChecks")}</span>
+          <strong>{passedChecks}</strong>
+        </div>
 
-      <div className="info-row">
-        <span>{t("passedChecks")}</span>
-        <strong>{passedChecks}</strong>
-      </div>
-
-      <div className="info-row">
-        <span>{t("failedChecks")}</span>
-        <strong>{failedChecks}</strong>
+        <div className="metric-card">
+          <span>{t("failedChecks")}</span>
+          <strong>{failedChecks}</strong>
+        </div>
       </div>
 
       <h4>{t("checkDetails")}</h4>
 
       <div className="result-list">
-        {validationResult.checks.map((check) => (
+        {checks.map((check) => (
           <div className="list-item" key={check.check_id}>
             <div className="result-title-row">
               <strong>{check.topic}</strong>
@@ -85,7 +99,7 @@ function ValidationSummary({ validationResult, isValidating }) {
               </span>
             </div>
 
-            <p>{check.message}</p>
+            <p className="check-message">{check.message}</p>
             <p className="muted">
               {t("checkId")}: {check.check_id}
             </p>
