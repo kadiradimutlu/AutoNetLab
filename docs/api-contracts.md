@@ -431,3 +431,51 @@ Backend çalıştığında frontend base URL olarak şunu kullanmalıdır:
 ```text
 http://127.0.0.1:8000/api/v1
 ```
+
+---
+
+# Sprint 2 Backend Addendum
+
+Sprint 2 ile backend tarafinda su guncellemeler yapildi:
+
+- Containerlab Adapter artik gercek deploy, inspect ve destroy komutlarini calistirir.
+- Topology Generator difficulty seviyesine gore easy, medium veya hard template secip session ozel lab.clab.yml uretir.
+- Error Injection v1 injected_errors.json ve device config dosyalari uretir.
+- Validation Service v1 config dosyalarini okuyarak check, score ve recommendation uretir.
+- Session Persistence v1 session bilgisini session.json dosyasinda saklar.
+
+## New Endpoint
+
+GET /labs/{session_id}/inspect
+
+Bu endpoint Containerlab uzerinden lab durumunu kontrol eder.
+
+## Updated ActionResponse
+
+Deploy, inspect ve destroy endpointleri artik su ek alanlari doner:
+
+- command
+- return_code
+- stdout
+- stderr
+
+## Generated Session Files
+
+Yeni session icin su dosyalar uretilir:
+
+- containerlab/generated/<session_id>/lab.clab.yml
+- containerlab/generated/<session_id>/session.json
+- containerlab/generated/<session_id>/errors/injected_errors.json
+- containerlab/generated/<session_id>/configs/r1.conf
+- containerlab/generated/<session_id>/configs/r2.conf
+
+Hard difficulty icin r3.conf ve r4.conf dosyalari da olusabilir.
+
+## Validation v1 Behavior
+
+Validation servisi injected_errors.json dosyasini ve configs/<device>.conf dosyalarini okur. Hata kodu config icinde duruyorsa check basarisiz, hata kodu kaldirilmissa check basarili kabul edilir.
+
+## Session Persistence
+
+Backend restart edilse bile GET /labs/{session_id} endpointi session bilgisini session.json dosyasindan geri yukleyebilir.
+
