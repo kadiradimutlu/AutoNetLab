@@ -1,10 +1,11 @@
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import HTTPException, status
 
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import CliAccess, CreateLabRequest, LabSessionResponse
-from app.services.error_injection import generate_errors
+from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import generate_session_topology
 
 
@@ -21,7 +22,12 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
     )
 
     topology = generated_topology["topology"]
-    injected_errors = generate_errors(request.difficulty, seed=session_id)
+    session_dir = Path(generated_topology["topology_file"]).parent
+    injected_errors = apply_error_injection(
+        difficulty=request.difficulty,
+        seed=session_id,
+        session_dir=session_dir,
+    )
 
     cli_access = [
         CliAccess(
