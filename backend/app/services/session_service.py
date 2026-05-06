@@ -5,7 +5,13 @@ from uuid import uuid4
 from fastapi import HTTPException, status
 
 from app.schemas.enums import Difficulty, SessionStatus
-from app.schemas.lab import CliAccess, CreateLabRequest, ErrorItem, LabSessionResponse
+from app.schemas.lab import (
+    CliAccess,
+    CliAccessResponse,
+    CreateLabRequest,
+    ErrorItem,
+    LabSessionResponse,
+)
 from app.schemas.topology import Topology
 from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
@@ -26,19 +32,22 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
     topology = generated_topology["topology"]
     session_dir = Path(generated_topology["topology_file"]).parent
 
+    topology_devices = [
+        node.id
+        for node in topology.nodes
+    ]
+
     injected_errors = apply_error_injection(
         difficulty=request.difficulty,
         seed=session_id,
         session_dir=session_dir,
+        topology_devices=topology_devices,
     )
 
-    cli_access = [
-        CliAccess(
-            device_id=node.id,
-            command=f"docker exec -it clab-{topology.name}-{node.id} sh",
-        )
-        for node in topology.nodes
-    ]
+    cli_access = build_cli_access(
+        lab_name=generated_topology["lab_name"],
+        topology=topology,
+    )
 
     session = {
         "session_id": session_id,
@@ -87,6 +96,17 @@ def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
     return session
 
 
+def get_cli_access_response(session_id: str) -> CliAccessResponse:
+    session = get_lab_session(session_id)
+
+    return CliAccessResponse(
+        session_id=session["session_id"],
+        lab_name=session["lab_name"],
+        devices=session["cli_access"],
+        message="CLI access information retrieved successfully.",
+    )
+
+
 def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
     return LabSessionResponse(
         session_id=session["session_id"],
@@ -98,6 +118,41 @@ def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
         cli_access=session["cli_access"],
         message=message,
     )
+
+
+def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
+    """
+    Builds CLI access / CLI erişimi information for each Containerlab node.
+
+    Containerlab container naming format:
+    clab-<lab_name>-<node_id>
+
+    Example:
+    lab_name = autonetlab-lab-12345678
+    node_id = r1
+    container_name = clab-autonetlab-lab-12345678-r1
+    """
+
+    cli_items: list[CliAccess] = []
+
+    for node in topology.nodes:
+        container_name = f"clab-{lab_name}-{node.id}"
+
+        cli_items.append(
+            CliAccess(
+                device_id=node.id,
+                name=node.id,
+                container_name=container_name,
+                access_method="docker_exec",
+                command=f"docker exec -it {container_name} sh",
+                description=(
+                    f"{node.id.upper()} cihazına CLI üzerinden bağlanmak için "
+                    f"bu komutu kullanın."
+                ),
+            )
+        )
+
+    return cli_items
 
 
 def _save_session_metadata(session: dict) -> None:
@@ -145,26 +200,82 @@ def _load_session_metadata(session_id: str) -> dict | None:
 
     payload = json.loads(metadata_path.read_text(encoding="utf-8"))
 
+    topology = Topology(**payload["topology"])
+    lab_name = payload["lab_name"]
+
+    cli_access_payload = payload.get("cli_access", [])
+
+    if cli_access_payload:
+        cli_access = [
+            _normalize_cli_access_item(
+                raw_cli=raw_cli,
+                lab_name=lab_name,
+            )
+            for raw_cli in cli_access_payload
+        ]
+    else:
+        cli_access = build_cli_access(
+            lab_name=lab_name,
+            topology=topology,
+        )
+
     session = {
         "session_id": payload["session_id"],
         "student_id": payload["student_id"],
         "difficulty": Difficulty(payload["difficulty"]),
         "status": SessionStatus(payload["status"]),
-        "topology": Topology(**payload["topology"]),
+        "topology": topology,
         "topology_file": payload["topology_file"],
         "topology_template": payload["topology_template"],
-        "lab_name": payload["lab_name"],
+        "lab_name": lab_name,
         "injected_errors": [
             ErrorItem(**error)
             for error in payload.get("injected_errors", [])
         ],
-        "cli_access": [
-            CliAccess(**cli)
-            for cli in payload.get("cli_access", [])
-        ],
+        "cli_access": cli_access,
     }
 
     return session
+
+
+def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
+    """
+    Keeps backward compatibility / geriye dönük uyumluluk.
+
+    Sprint 2 session.json files may only have:
+    - device_id
+    - command
+
+    Sprint 3 expects:
+    - device_id
+    - name
+    - container_name
+    - access_method
+    - command
+    - description
+    """
+
+    device_id = raw_cli.get("device_id") or raw_cli.get("name")
+
+    if not device_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid CLI access metadata: missing device_id.",
+        )
+
+    container_name = raw_cli.get("container_name") or f"clab-{lab_name}-{device_id}"
+
+    return CliAccess(
+        device_id=device_id,
+        name=raw_cli.get("name", device_id),
+        container_name=container_name,
+        access_method=raw_cli.get("access_method", "docker_exec"),
+        command=raw_cli.get("command", f"docker exec -it {container_name} sh"),
+        description=raw_cli.get(
+            "description",
+            f"{device_id.upper()} cihazına CLI üzerinden bağlanmak için bu komutu kullanın.",
+        ),
+    )
 
 
 def _enum_value(value) -> str:

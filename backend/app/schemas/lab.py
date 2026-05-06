@@ -20,10 +20,26 @@ class ErrorItem(BaseModel):
 
 class CliAccess(BaseModel):
     device_id: str = Field(..., examples=["r1"])
-    command: str = Field(..., examples=["docker exec -it clab-autonetlab-r1 sh"])
+    name: str = Field(..., examples=["r1"])
+    container_name: str = Field(..., examples=["clab-autonetlab-lab-12345678-r1"])
+    access_method: str = Field(default="docker_exec", examples=["docker_exec"])
+    command: str = Field(..., examples=["docker exec -it clab-autonetlab-lab-12345678-r1 sh"])
+    description: str = Field(
+        ...,
+        examples=["R1 cihazına CLI üzerinden bağlanmak için bu komutu kullanın."],
+    )
+
+
+class CliAccessResponse(BaseModel):
+    success: bool = True
+    session_id: str
+    lab_name: str
+    devices: list[CliAccess]
+    message: str
 
 
 class LabSessionResponse(BaseModel):
+    success: bool = True
     session_id: str
     student_id: str
     difficulty: Difficulty
@@ -35,6 +51,7 @@ class LabSessionResponse(BaseModel):
 
 
 class ActionResponse(BaseModel):
+    success: bool = True
     session_id: str
     status: SessionStatus
     message: str
@@ -42,3 +59,8 @@ class ActionResponse(BaseModel):
     return_code: int | None = None
     stdout: str | None = None
     stderr: str | None = None
+
+    # Sprint 4 API polish / API cilalama fields
+    error_code: str | None = None
+    detail: str | None = None
+    suggestion: str | None = None

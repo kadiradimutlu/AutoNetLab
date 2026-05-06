@@ -1,11 +1,17 @@
 from fastapi import APIRouter, status
 
 from app.schemas.enums import SessionStatus
-from app.schemas.lab import ActionResponse, CreateLabRequest, LabSessionResponse
+from app.schemas.lab import (
+    ActionResponse,
+    CliAccessResponse,
+    CreateLabRequest,
+    LabSessionResponse,
+)
 from app.schemas.validation import ValidationResult
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.session_service import (
     create_lab_session,
+    get_cli_access_response,
     get_lab_session,
     to_lab_session_response,
     update_session_status,
@@ -32,6 +38,11 @@ def get_lab(session_id: str) -> LabSessionResponse:
         session,
         message="Lab session retrieved successfully.",
     )
+
+
+@router.get("/{session_id}/cli", response_model=CliAccessResponse)
+def get_lab_cli_access(session_id: str) -> CliAccessResponse:
+    return get_cli_access_response(session_id)
 
 
 @router.post("/{session_id}/deploy", response_model=ActionResponse)
