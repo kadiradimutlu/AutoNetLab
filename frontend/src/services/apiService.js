@@ -3,8 +3,9 @@ import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
+).replace(/\/$/, "");
 
 export function isMockApiEnabled() {
   return USE_MOCK_API;
@@ -58,45 +59,149 @@ function wait(ms = 300) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function createApiError(message, status, data) {
-  const error = new Error(message);
-  error.status = status;
-  error.data = data;
-  return error;
+function getRequestMethod(options = {}) {
+  return options.method || "GET";
 }
 
-function buildFriendlyErrorMessage(status, data, fallbackMessage) {
+function formatBackendDetail(detail) {
+  if (!detail) {
+    return "";
+  }
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        const location = Array.isArray(item.loc) ? item.loc.join(".") : "";
+        const message = item.msg || item.message || JSON.stringify(item);
+
+        return location ? `${location}: ${message}` : message;
+      })
+      .join(" | ");
+  }
+
+  if (typeof detail === "object") {
+    return detail.message || detail.error || JSON.stringify(detail);
+  }
+
+  return String(detail);
+}
+
+function getRawErrorMessage(data, fallbackMessage) {
+  return (
+    formatBackendDetail(data?.detail) ||
+    formatBackendDetail(data?.message) ||
+    formatBackendDetail(data?.error) ||
+    fallbackMessage
+  );
+}
+
+function getFriendlyErrorMessage({ status, path, method }) {
+  if (status === 0) {
+    return "Backend API is not reachable. Please make sure the FastAPI server is running and the API base URL is correct.";
+  }
+
+  if (status === 400) {
+    return "The request was rejected by the backend. Please check the submitted data.";
+  }
+
   if (status === 404) {
-    return "Endpoint not found. The API path may be incorrect or the backend may not have this endpoint yet.";
+    if (path.includes("/cli")) {
+      return "CLI access information could not be found. Please check the CLI endpoint or the session data.";
+    }
+
+    return "Invalid session ID or endpoint not found. Please create a new lab or check the API path.";
+  }
+
+  if (status === 409) {
+    return "This operation conflicts with the current session state. Please refresh the session and try again.";
   }
 
   if (status === 422) {
-    return "Validation error. The request body or parameters may not match the backend schema.";
+    return "The submitted data does not match the format expected by the backend. Please check the field names and request body.";
   }
 
-  if (status === 500) {
-    return "Backend server error. Check the FastAPI terminal for details.";
-  }
-
-  if (data?.detail) {
-    if (Array.isArray(data.detail)) {
-      return data.detail
-        .map((item) => `${item.loc?.join(".") || "field"}: ${item.msg}`)
-        .join(" | ");
+  if (status >= 500) {
+    if (path.includes("/deploy")) {
+      return "Containerlab deploy operation failed. Please check Docker, WSL, or Containerlab setup.";
     }
 
-    return String(data.detail);
+    if (path.includes("/destroy")) {
+      return "Containerlab destroy operation failed. Please check the running containers or Containerlab state.";
+    }
+
+    if (path.includes("/validate")) {
+      return "Validation operation failed on the backend side. Please try again.";
+    }
+
+    return "An unexpected backend error occurred. Please check the FastAPI terminal output.";
   }
 
-  if (data?.message) {
-    return String(data.message);
+  return `${method} request failed. Please try again.`;
+}
+
+function createApiError({
+  status,
+  data,
+  path,
+  method,
+  url,
+  message,
+  originalError
+}) {
+  const error = new Error(
+    getFriendlyErrorMessage({
+      status,
+      path,
+      method
+    })
+  );
+
+  error.name = "ApiServiceError";
+  error.status = status;
+  error.data = data;
+  error.path = path;
+  error.method = method;
+  error.url = url;
+  error.originalError = originalError || null;
+  error.technicalMessage =
+    message ||
+    getRawErrorMessage(data, `API request failed with status ${status}`);
+  error.friendlyMessage = error.message;
+  error.isApiError = true;
+
+  return error;
+}
+
+async function parseResponseBody(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const hasJsonBody = contentType.includes("application/json");
+
+  if (hasJsonBody) {
+    return response.json();
   }
 
-  return fallbackMessage;
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  return {
+    message: text
+  };
 }
 
 async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
+  const method = getRequestMethod(options);
 
   try {
     const response = await fetch(url, {
@@ -107,32 +212,77 @@ async function request(path, options = {}) {
       ...options
     });
 
-    const contentType = response.headers.get("content-type");
-    const hasJsonBody = contentType && contentType.includes("application/json");
-    const data = hasJsonBody ? await response.json() : null;
+    const data = await parseResponseBody(response);
 
     if (!response.ok) {
-      const message = buildFriendlyErrorMessage(
-        response.status,
+      throw createApiError({
+        status: response.status,
         data,
-        `API request failed with status ${response.status}`
-      );
-
-      throw createApiError(message, response.status, data);
+        path,
+        method,
+        url,
+        message: getRawErrorMessage(
+          data,
+          `API request failed with status ${response.status}`
+        )
+      });
     }
 
     return data;
   } catch (error) {
-    if (error instanceof TypeError) {
-      throw createApiError(`Backend API is not reachable. Please check if FastAPI is running at ${API_BASE_URL}.`,
-        
-        0,
-        null
-      );
+    if (error.isApiError) {
+      throw error;
     }
 
-    throw error;
+    if (error instanceof TypeError) {
+      throw createApiError({
+        status: 0,
+        data: null,
+        path,
+        method,
+        url,
+        message:
+          "Network error, CORS error, or backend server is not reachable.",
+        originalError: error
+      });
+    }
+
+    throw createApiError({
+      status: -1,
+      data: null,
+      path,
+      method,
+      url,
+      message: error.message || "Unexpected frontend API error.",
+      originalError: error
+    });
   }
+}
+
+export function getErrorMessage(error, fallbackMessage = "Operation failed.") {
+  return error?.friendlyMessage || error?.message || fallbackMessage;
+}
+
+export function getErrorDetails(error) {
+  if (!error) {
+    return "";
+  }
+
+  const details = [];
+
+  if (error.status !== undefined && error.status !== null) {
+    details.push(`Status: ${error.status}`);
+  }
+
+  if (error.method && error.path) {
+    details.push(`Request: ${error.method} ${error.path}`);
+  }
+
+  if (error.technicalMessage) {
+    details.push(`Detail: ${error.technicalMessage}`);
+  }
+
+  return details.join(" | ");
 }
 
 function createMockLabSession({ student_id, difficulty, topology_template }) {
@@ -153,60 +303,40 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
       {
         device_name: "r1",
         container_name: "clab-autonetlab-mock-r1",
-        docker_exec_command: "docker exec -it clab-autonetlab-mock-r1 sh",
-        ssh_command: ""
+        access_method: "docker_exec",
+        command: "docker exec -it clab-autonetlab-mock-r1 sh",
+        description: "Open CLI access for router r1."
       },
       {
         device_name: "r2",
         container_name: "clab-autonetlab-mock-r2",
-        docker_exec_command: "docker exec -it clab-autonetlab-mock-r2 sh",
-        ssh_command: ""
+        access_method: "docker_exec",
+        command: "docker exec -it clab-autonetlab-mock-r2 sh",
+        description: "Open CLI access for router r2."
       }
     ],
     message: "Lab session created successfully."
   };
 }
 
-function normalizeCheck(check, index) {
-  const checkType =
-    check.check_type ||
-    check.type ||
-    check.error_type ||
-    check.topic ||
-    "general_check";
+function normalizeValidationResult(result) {
+  const checks = Array.isArray(result?.checks) ? result.checks : [];
+  const passedChecks = checks.filter((check) => check.passed).length;
+  const totalChecks = checks.length;
+
+  const recommendations =
+    result?.recommendations || result?.recommendation || [];
 
   return {
-    check_id: check.check_id || `check_${index + 1}`,
-    check_type: checkType,
-    topic: check.topic || checkType,
-    device: check.device || check.device_name || "unknown",
-    expected: check.expected ?? check.expected_value ?? "-",
-    actual: check.actual ?? check.actual_value ?? "-",
-    passed: Boolean(check.passed),
-    message: check.message || "No check message provided.",
-    related_error_type: check.related_error_type || check.code || checkType
-  };
-}
-
-function normalizeRecommendation(recommendation, index) {
-  if (typeof recommendation === "string") {
-    return {
-      topic: `Recommendation ${index + 1}`,
-      priority: "medium",
-      message: recommendation,
-      related_error_type: "general"
-    };
-  }
-
-  return {
-    topic: recommendation.topic || `Recommendation ${index + 1}`,
-    priority: recommendation.priority || "medium",
-    message: recommendation.message || String(recommendation),
-    related_error_type:
-      recommendation.related_error_type ||
-      recommendation.error_type ||
-      recommendation.check_type ||
-      "general"
+    ...result,
+    passed: Boolean(result?.passed),
+    score: result?.score ?? 0,
+    checks,
+    passed_checks: result?.passed_checks ?? passedChecks,
+    total_checks: result?.total_checks ?? totalChecks,
+    recommendations: Array.isArray(recommendations)
+      ? recommendations
+      : [recommendations].filter(Boolean)
   };
 }
 
@@ -216,12 +346,17 @@ function normalizeCliAccess(cli, index) {
       cli.device_name ||
       cli.device ||
       cli.device_id ||
+      cli.container_name ||
       `device-${index + 1}`,
     container_name:
       cli.container_name ||
       cli.container ||
       cli.container_id ||
       "-",
+    access_method:
+      cli.access_method ||
+      cli.method ||
+      "docker_exec",
     docker_exec_command:
       cli.docker_exec_command ||
       cli.command ||
@@ -230,62 +365,10 @@ function normalizeCliAccess(cli, index) {
     ssh_command:
       cli.ssh_command ||
       cli.ssh ||
+      "",
+    description:
+      cli.description ||
       ""
-  };
-}
-
-function normalizeValidationResult(result) {
-  const checks = Array.isArray(result?.checks)
-    ? result.checks.map((check, index) => normalizeCheck(check, index))
-    : [];
-
-  const passedChecks =
-    result?.passed_checks ??
-    result?.passed_check_count ??
-    checks.filter((check) => check.passed).length;
-
-  const totalChecks =
-    result?.total_checks ??
-    result?.total_check_count ??
-    checks.length;
-
-  const failedChecks =
-    result?.failed_checks ??
-    Math.max(totalChecks - passedChecks, 0);
-
-  const passed =
-    typeof result?.passed === "boolean"
-      ? result.passed
-      : String(result?.status || "").toUpperCase() === "PASS";
-
-  const rawRecommendations =
-    result?.recommendations ||
-    result?.recommendation ||
-    [];
-
-  const recommendations = Array.isArray(rawRecommendations)
-    ? rawRecommendations.map((item, index) =>
-        normalizeRecommendation(item, index)
-      )
-    : [normalizeRecommendation(rawRecommendations, 0)];
-
-  const rawCliAccess = result?.cli_access || [];
-
-  return {
-    ...result,
-    session_id: result?.session_id,
-    status: passed ? "PASS" : "FAIL",
-    passed,
-    score: result?.score ?? 0,
-    difficulty: result?.difficulty || "-",
-    passed_checks: passedChecks,
-    failed_checks: failedChecks,
-    total_checks: totalChecks,
-    checks,
-    recommendations,
-    cli_access: Array.isArray(rawCliAccess)
-      ? rawCliAccess.map((cli, index) => normalizeCliAccess(cli, index))
-      : []
   };
 }
 
@@ -351,6 +434,46 @@ export async function getTopology(sessionId) {
   };
 }
 
+export async function getCliAccess(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    const session = createMockLabSession({
+      student_id: "muhammed",
+      difficulty: "easy",
+      topology_template: "basic-two-router"
+    });
+
+    return (session.cli_access || []).map((cli, index) =>
+      normalizeCliAccess(cli, index)
+    );
+  }
+
+  try {
+    const result = await request(`/labs/${sessionId}/cli`);
+    const cliAccess = result?.cli_access || result?.items || result || [];
+
+    return Array.isArray(cliAccess)
+      ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
+      : [];
+  } catch (error) {
+    if (error.status === 404) {
+      const session = await getSession(sessionId);
+      const cliAccess = session.cli_access || [];
+
+      return Array.isArray(cliAccess)
+        ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
+        : [];
+    }
+
+    throw error;
+  }
+}
+
 export async function deploySession(sessionId) {
   if (!sessionId) {
     throw new Error("sessionId is required.");
@@ -413,96 +536,8 @@ export async function validateSession(sessionId) {
   return normalizeValidationResult(result);
 }
 
-export async function getValidationResult(sessionId) {
-  if (!sessionId) {
-    throw new Error("sessionId is required.");
-  }
-
-  if (USE_MOCK_API) {
-    return validateSession(sessionId);
-  }
-
-  try {
-    const result = await request(`/labs/${sessionId}/validation-result`);
-    return normalizeValidationResult(result);
-  } catch (error) {
-    if (error.status === 404) {
-      return validateSession(sessionId);
-    }
-
-    throw error;
-  }
-}
-
-export async function getCliAccess(sessionId) {
-  if (!sessionId) {
-    throw new Error("sessionId is required.");
-  }
-
-  if (USE_MOCK_API) {
-    await wait();
-
-    const session = createMockLabSession({
-      student_id: "muhammed",
-      difficulty: "easy",
-      topology_template: "basic-two-router"
-    });
-
-    return session.cli_access.map((cli, index) =>
-      normalizeCliAccess(cli, index)
-    );
-  }
-
-  try {
-    const result = await request(`/labs/${sessionId}/cli`);
-    const cliAccess = result?.cli_access || result || [];
-
-    return Array.isArray(cliAccess)
-      ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
-      : [];
-  } catch (error) {
-    if (error.status === 404) {
-      const session = await getSession(sessionId);
-      const cliAccess = session.cli_access || [];
-
-      return Array.isArray(cliAccess)
-        ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
-        : [];
-    }
-
-    throw error;
-  }
-}
-
-export async function getRecommendations(sessionId) {
-  if (!sessionId) {
-    throw new Error("sessionId is required.");
-  }
-
-  if (USE_MOCK_API) {
-    const result = await validateSession(sessionId);
-    return result.recommendations;
-  }
-
-  try {
-    const result = await request(`/labs/${sessionId}/recommendations`);
-    const recommendations = result?.recommendations || result || [];
-
-    return Array.isArray(recommendations)
-      ? recommendations.map((item, index) => normalizeRecommendation(item, index))
-      : [normalizeRecommendation(recommendations, 0)];
-  } catch (error) {
-    if (error.status === 404) {
-      const result = await validateSession(sessionId);
-      return result.recommendations;
-    }
-
-    throw error;
-  }
-}
-
 // Backward-compatible aliases.
-// Sprint 1 component/bileşenleri eski isimleri kullanıyorsa kırılmasın diye bırakıyoruz.
+// Sprint 1 components may still use the old function names.
 export const createLab = createSession;
 export const getLab = getSession;
 export const deployLab = deploySession;

@@ -13,7 +13,7 @@ ERROR_POOL = [
         "device": "r1",
         "description": "Incorrect IP address configured on r1 eth1.",
         "severity": "low",
-        "config_line": "interface eth1 ip address 10.10.10.99/24  # injected wrong IP",
+        "config_line": "interface eth1 ip address 10.10.10.99/24  # IP_ADDRESS_MISMATCH",
     },
     {
         "code": "VLAN_MISMATCH",
@@ -21,7 +21,7 @@ ERROR_POOL = [
         "device": "r1",
         "description": "VLAN ID mismatch on r1 interface eth1.",
         "severity": "medium",
-        "config_line": "interface eth1 vlan 999  # injected wrong VLAN",
+        "config_line": "interface eth1 vlan 999  # VLAN_MISMATCH",
     },
     {
         "code": "MISSING_ROUTE",
@@ -29,7 +29,7 @@ ERROR_POOL = [
         "device": "r2",
         "description": "Required static route is missing on r2.",
         "severity": "medium",
-        "config_line": "no ip route 10.10.30.0/24 via 10.10.20.1  # injected missing route",
+        "config_line": "no ip route 10.10.30.0/24 via 10.10.20.1  # MISSING_ROUTE",
     },
     {
         "code": "WRONG_GATEWAY",
@@ -37,7 +37,15 @@ ERROR_POOL = [
         "device": "r2",
         "description": "Wrong default gateway configured on r2.",
         "severity": "medium",
-        "config_line": "ip route 0.0.0.0/0 via 10.10.10.254  # injected wrong gateway",
+        "config_line": "ip route 0.0.0.0/0 via 10.10.10.254  # WRONG_GATEWAY",
+    },
+    {
+        "code": "INTERFACE_DOWN_R2",
+        "topic": "Interface Status",
+        "device": "r2",
+        "description": "Interface eth1 is administratively down on r2.",
+        "severity": "medium",
+        "config_line": "interface eth1 shutdown  # INTERFACE_DOWN_R2",
     },
     {
         "code": "WRONG_SUBNET_MASK",
@@ -45,15 +53,39 @@ ERROR_POOL = [
         "device": "r3",
         "description": "Wrong subnet mask configured on r3 eth1.",
         "severity": "low",
-        "config_line": "interface eth1 ip address 10.10.30.2/16  # injected wrong subnet mask",
+        "config_line": "interface eth1 ip address 10.10.23.2/16  # WRONG_SUBNET_MASK",
     },
     {
-        "code": "ACL_DENY_ANY",
-        "topic": "ACL",
+        "code": "MISSING_ROUTE_R3",
+        "topic": "Routing",
+        "device": "r3",
+        "description": "Required route is missing on r3.",
+        "severity": "medium",
+        "config_line": "no ip route 10.10.12.0/24 via 10.10.23.1  # MISSING_ROUTE_R3",
+    },
+    {
+        "code": "VLAN_MISMATCH_R3",
+        "topic": "VLAN",
+        "device": "r3",
+        "description": "VLAN mismatch exists on r3 eth2.",
+        "severity": "medium",
+        "config_line": "interface eth2 vlan 300  # VLAN_MISMATCH_R3",
+    },
+    {
+        "code": "INTERFACE_DOWN_R4",
+        "topic": "Interface Status",
         "device": "r4",
-        "description": "ACL rule blocks all traffic unexpectedly.",
+        "description": "Interface eth1 is administratively down on r4.",
         "severity": "high",
-        "config_line": "access-list 100 deny ip any any  # injected blocking ACL",
+        "config_line": "interface eth1 shutdown  # INTERFACE_DOWN_R4",
+    },
+    {
+        "code": "WRONG_GATEWAY_R4",
+        "topic": "Default Gateway",
+        "device": "r4",
+        "description": "Wrong default gateway configured on r4.",
+        "severity": "high",
+        "config_line": "ip route 0.0.0.0/0 via 10.10.34.254  # WRONG_GATEWAY_R4",
     },
 ]
 
@@ -83,26 +115,38 @@ BASE_CONFIG_BY_DEVICE = {
         "hostname r3",
         "interface eth1 ip address 10.10.23.2/24",
         "interface eth2 ip address 10.10.34.1/24",
+        "ip route 10.10.12.0/24 via 10.10.23.1",
     ],
     "r4": [
         "# AutoNetLab generated config for r4",
         "hostname r4",
         "interface eth1 ip address 10.10.34.2/24",
         "interface eth2 ip address 10.10.14.2/24",
+        "ip route 0.0.0.0/0 via 10.10.34.1",
     ],
 }
 
 
-def generate_errors(difficulty: Difficulty, seed: str) -> list[ErrorItem]:
+def generate_errors(
+    difficulty: Difficulty,
+    seed: str,
+    topology_devices: list[str] | None = None,
+) -> list[ErrorItem]:
     """
-    Generates deterministic random error metadata for the same session id.
+    Generates deterministic/reproducible error metadata.
 
-    Deterministic / tekrarlanabilir:
-    - same session_id -> same error list
-    - useful for session continuity and validation/doğrulama
+    Tekrar üretilebilirlik:
+    - same seed/tohum değer
+    - same difficulty/zorluk
+    - same topology device list/topoloji cihaz listesi
+    -> same injected error list.
     """
 
-    selected_errors = _select_errors(difficulty=difficulty, seed=seed)
+    selected_errors = _select_errors(
+        difficulty=difficulty,
+        seed=seed,
+        topology_devices=topology_devices,
+    )
 
     return [
         ErrorItem(
@@ -120,21 +164,27 @@ def apply_error_injection(
     difficulty: Difficulty,
     seed: str,
     session_dir: Path,
+    topology_devices: list[str] | None = None,
 ) -> list[ErrorItem]:
     """
-    Applies Error Injection v1 / Hata Enjeksiyonu v1.
+    Applies Error Injection v2 / Hata Enjeksiyonu v2.
 
-    MVP yaklaşımı:
-    - Real router configuration is not required yet.
-    - We create session-specific metadata and simple device config files.
-    - Validation service can later read these files.
+    Sprint 3 improvements:
+    - Error selection is deterministic/reproducible by seed.
+    - Errors are selected only from devices that exist in the generated topology.
+    - Session-specific metadata and config files are written under generated session folder.
 
     Output:
     - containerlab/generated/<session_id>/errors/injected_errors.json
     - containerlab/generated/<session_id>/configs/<device>.conf
     """
 
-    selected_errors = _select_errors(difficulty=difficulty, seed=seed)
+    selected_errors = _select_errors(
+        difficulty=difficulty,
+        seed=seed,
+        topology_devices=topology_devices,
+    )
+
     error_items = [
         ErrorItem(
             code=error["code"],
@@ -155,21 +205,41 @@ def apply_error_injection(
     _write_device_configs(
         configs_dir=configs_dir,
         selected_errors=selected_errors,
+        topology_devices=topology_devices,
     )
 
     _write_error_metadata(
         errors_dir=errors_dir,
         error_items=error_items,
+        difficulty=difficulty,
+        seed=seed,
+        topology_devices=topology_devices,
     )
 
     return error_items
 
 
-def _select_errors(difficulty: Difficulty, seed: str) -> list[dict]:
+def _select_errors(
+    difficulty: Difficulty,
+    seed: str,
+    topology_devices: list[str] | None = None,
+) -> list[dict]:
     count = ERROR_COUNT_BY_DIFFICULTY[difficulty]
     randomizer = random.Random(seed)
 
-    available_errors = list(ERROR_POOL)
+    allowed_devices = set(topology_devices or [])
+
+    if allowed_devices:
+        available_errors = [
+            error
+            for error in ERROR_POOL
+            if error["device"] in allowed_devices
+        ]
+    else:
+        available_errors = list(ERROR_POOL)
+
+    if not available_errors:
+        return []
 
     if count > len(available_errors):
         count = len(available_errors)
@@ -180,11 +250,22 @@ def _select_errors(difficulty: Difficulty, seed: str) -> list[dict]:
 def _write_device_configs(
     configs_dir: Path,
     selected_errors: list[dict],
+    topology_devices: list[str] | None = None,
 ) -> None:
-    config_by_device = {
-        device: list(lines)
-        for device, lines in BASE_CONFIG_BY_DEVICE.items()
-    }
+    devices_to_write = list(topology_devices or BASE_CONFIG_BY_DEVICE.keys())
+
+    config_by_device = {}
+
+    for device in devices_to_write:
+        config_by_device[device] = list(
+            BASE_CONFIG_BY_DEVICE.get(
+                device,
+                [
+                    f"# AutoNetLab generated config for {device}",
+                    f"hostname {device}",
+                ],
+            )
+        )
 
     for error in selected_errors:
         device = error["device"]
@@ -208,14 +289,20 @@ def _write_device_configs(
 def _write_error_metadata(
     errors_dir: Path,
     error_items: list[ErrorItem],
+    difficulty: Difficulty,
+    seed: str,
+    topology_devices: list[str] | None = None,
 ) -> None:
     metadata_path = errors_dir / "injected_errors.json"
 
     payload = {
+        "difficulty": difficulty.value,
+        "seed": seed,
+        "topology_devices": topology_devices or [],
         "injected_errors": [
             error.model_dump()
             for error in error_items
-        ]
+        ],
     }
 
     metadata_path.write_text(

@@ -2,7 +2,11 @@ import { useState } from "react";
 import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
 import MessageBox from "../components/MessageBox";
-import { validateLab } from "../services/apiService";
+import {
+  getErrorDetails,
+  getErrorMessage,
+  validateLab
+} from "../services/apiService";
 import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
@@ -15,22 +19,26 @@ function ValidationResult({ labSession }) {
   const [validationResult, setValidationResult] = useState(null);
   const [isValidating, setIsValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [errorDetails, setErrorDetails] = useState("");
 
   async function handleValidate() {
     if (!labSession) {
       setErrorMessage(t("noActiveLab"));
+      setErrorDetails("");
       return;
     }
 
     setIsValidating(true);
     setErrorMessage("");
+    setErrorDetails("");
 
     try {
       const result = await validateLab(labSession.session_id);
       setValidationResult(result);
     } catch (error) {
-      setErrorMessage(error.message || t("validationFailed"));
-      console.error("Validation failed:", error);
+      setErrorMessage(getErrorMessage(error, t("validationFailed")));
+      setErrorDetails(getErrorDetails(error));
+      console.error("Validation failed.", error);
     } finally {
       setIsValidating(false);
     }
@@ -62,11 +70,20 @@ function ValidationResult({ labSession }) {
         )}
 
         {errorMessage && (
-          <MessageBox
-            type="error"
-            title={t("somethingWentWrong")}
-            message={errorMessage}
-          />
+          <>
+            <MessageBox
+              type="error"
+              title={t("somethingWentWrong")}
+              message={errorMessage}
+            />
+
+            {errorDetails && (
+              <div className="technical-detail-box">
+                <strong>Technical detail</strong>
+                <p>{errorDetails}</p>
+              </div>
+            )}
+          </>
         )}
 
         <div className="actions">
