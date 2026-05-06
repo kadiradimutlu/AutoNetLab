@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.error_handlers import register_exception_handlers
 
 
 def get_cors_origins() -> list[str]:
@@ -30,6 +31,8 @@ app = FastAPI(
     version="0.1.0",
 )
 
+register_exception_handlers(app)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
@@ -44,6 +47,7 @@ app.include_router(api_router, prefix=settings.api_prefix)
 @app.get("/")
 def root() -> dict:
     return {
+        "success": True,
         "message": "Welcome to AutoNetLab Backend API",
         "docs": "/docs",
         "health": f"{settings.api_prefix}/health",
