@@ -31,6 +31,7 @@ class CliAccess(BaseModel):
 
 
 class CliAccessResponse(BaseModel):
+    success: bool = True
     session_id: str
     lab_name: str
     devices: list[CliAccess]
@@ -38,6 +39,7 @@ class CliAccessResponse(BaseModel):
 
 
 class LabSessionResponse(BaseModel):
+    success: bool = True
     session_id: str
     student_id: str
     difficulty: Difficulty
@@ -49,6 +51,7 @@ class LabSessionResponse(BaseModel):
 
 
 class ActionResponse(BaseModel):
+    success: bool = True
     session_id: str
     status: SessionStatus
     message: str
@@ -56,3 +59,8 @@ class ActionResponse(BaseModel):
     return_code: int | None = None
     stdout: str | None = None
     stderr: str | None = None
+
+    # Sprint 4 API polish / API cilalama fields
+    error_code: str | None = None
+    detail: str | None = None
+    suggestion: str | None = None

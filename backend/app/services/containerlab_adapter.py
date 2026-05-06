@@ -18,17 +18,21 @@ class ContainerlabAdapter:
     """
     Containerlab Adapter / Containerlab Adaptörü.
 
-    Sprint 3:
-    - Executes real Containerlab commands through subprocess/alt süreç.
-    - Supports deploy/ayağa kaldırma, destroy/kapatma, inspect/durum kontrolü.
-    - Never executes raw user-provided terminal commands.
-    - Validates topology path to reduce path traversal risk.
-    - Performs basic preflight checks:
-      containerlab installed, Docker reachable, topology file exists.
+    Sprint 4 goal:
+    - Keep deploy/ayağa kaldırma, inspect/durum kontrolü and destroy/kapatma stable.
+    - Prevent backend crash when Containerlab, Docker or topology execution fails.
+    - Return frontend-friendly JSON error responses.
     """
 
     def deploy(self, session_id: str, topology_file: str) -> dict:
-        topology_path = self._resolve_topology_file(topology_file)
+        topology_path = self._resolve_or_error(
+            session_id=session_id,
+            action="deploy",
+            topology_file=topology_file,
+        )
+
+        if isinstance(topology_path, dict):
+            return topology_path
 
         return self._run_containerlab_command(
             session_id=session_id,
@@ -40,7 +44,14 @@ class ContainerlabAdapter:
         )
 
     def destroy(self, session_id: str, topology_file: str) -> dict:
-        topology_path = self._resolve_topology_file(topology_file)
+        topology_path = self._resolve_or_error(
+            session_id=session_id,
+            action="destroy",
+            topology_file=topology_file,
+        )
+
+        if isinstance(topology_path, dict):
+            return topology_path
 
         return self._run_containerlab_command(
             session_id=session_id,
@@ -57,7 +68,14 @@ class ContainerlabAdapter:
         topology_file: str,
         current_status: SessionStatus,
     ) -> dict:
-        topology_path = self._resolve_topology_file(topology_file)
+        topology_path = self._resolve_or_error(
+            session_id=session_id,
+            action="inspect",
+            topology_file=topology_file,
+        )
+
+        if isinstance(topology_path, dict):
+            return topology_path
 
         return self._run_containerlab_command(
             session_id=session_id,
@@ -100,44 +118,64 @@ class ContainerlabAdapter:
                 session_id=session_id,
                 action=action,
                 command=command,
-                message=(
-                    "Containerlab command not found. Run the backend from WSL/Ubuntu "
-                    "or install containerlab in the current environment."
+                error_code="CONTAINERLAB_NOT_FOUND",
+                message="Containerlab command could not be found.",
+                detail="containerlab executable was not found in PATH.",
+                suggestion=(
+                    "Run the backend inside WSL/Ubuntu where Containerlab is installed, "
+                    "or install Containerlab in the current backend environment."
                 ),
-                stderr="containerlab executable was not found.",
             )
         except PermissionError as exc:
             return self._error_response(
                 session_id=session_id,
                 action=action,
                 command=command,
+                error_code="CONTAINERLAB_PERMISSION_DENIED",
                 message="Permission denied while running Containerlab command.",
-                stderr=str(exc),
+                detail=str(exc),
+                suggestion=(
+                    "Run the backend from WSL/Ubuntu with proper Docker permissions. "
+                    "If needed, check Docker group permissions or restart Docker Desktop."
+                ),
             )
         except subprocess.TimeoutExpired as exc:
             return self._error_response(
                 session_id=session_id,
                 action=action,
                 command=command,
-                message=f"Containerlab {action} command timed out after {timeout_seconds} seconds.",
+                error_code=f"CONTAINERLAB_{action.upper()}_TIMEOUT",
+                message=f"Containerlab {action} command timed out.",
+                detail=f"The command exceeded the timeout limit of {timeout_seconds} seconds.",
+                suggestion=(
+                    "Check Docker Desktop, WSL integration, image pulling status and system resources. "
+                    "Then retry the operation."
+                ),
                 stdout=exc.stdout or "",
                 stderr=exc.stderr or "",
             )
 
-        is_success = completed.returncode == 0
+        if completed.returncode != 0:
+            failure = self._classify_failure(
+                action=action,
+                stderr=completed.stderr,
+            )
 
-        if not is_success:
             return self._error_response(
                 session_id=session_id,
                 action=action,
                 command=command,
-                message=self._build_failure_message(action, completed.stderr),
+                error_code=failure["error_code"],
+                message=failure["message"],
+                detail=failure["detail"],
+                suggestion=failure["suggestion"],
                 return_code=completed.returncode,
                 stdout=completed.stdout,
                 stderr=completed.stderr,
             )
 
         return {
+            "success": True,
             "session_id": session_id,
             "status": success_status,
             "message": success_message,
@@ -145,6 +183,9 @@ class ContainerlabAdapter:
             "return_code": completed.returncode,
             "stdout": completed.stdout,
             "stderr": completed.stderr,
+            "error_code": None,
+            "detail": None,
+            "suggestion": None,
         }
 
     def _run_preflight_checks(
@@ -158,13 +199,15 @@ class ContainerlabAdapter:
                 session_id=session_id,
                 action=action,
                 command=command,
-                message=(
-                    "Containerlab is not available in the current backend environment. "
-                    "For this project, run uvicorn inside WSL/Ubuntu where containerlab is installed."
-                ),
-                stderr=(
+                error_code="CONTAINERLAB_NOT_FOUND",
+                message="Containerlab is not available in the current backend environment.",
+                detail=(
                     "containerlab executable was not found in PATH. "
-                    f"Detected OS: {platform.system()}"
+                    f"Detected OS: {platform.system()}."
+                ),
+                suggestion=(
+                    "For this project, run uvicorn inside WSL/Ubuntu where Containerlab is installed. "
+                    "You can verify it with: containerlab version"
                 ),
             )
 
@@ -173,27 +216,73 @@ class ContainerlabAdapter:
                 session_id=session_id,
                 action=action,
                 command=command,
+                error_code="DOCKER_NOT_FOUND",
                 message="Docker command is not available in the current backend environment.",
-                stderr="docker executable was not found in PATH.",
+                detail="docker executable was not found in PATH.",
+                suggestion=(
+                    "Install Docker Desktop and enable WSL2 integration. "
+                    "Then verify it with: docker version"
+                ),
             )
 
-        docker_check = subprocess.run(
-            ["docker", "info"],
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
+        try:
+            docker_check = subprocess.run(
+                ["docker", "info"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except FileNotFoundError:
+            return self._error_response(
+                session_id=session_id,
+                action=action,
+                command=command,
+                error_code="DOCKER_NOT_FOUND",
+                message="Docker command could not be found.",
+                detail="docker executable was not found while running docker info.",
+                suggestion="Install Docker Desktop and enable WSL2 integration.",
+            )
+        except PermissionError as exc:
+            return self._error_response(
+                session_id=session_id,
+                action=action,
+                command=command,
+                error_code="DOCKER_PERMISSION_DENIED",
+                message="Permission denied while checking Docker.",
+                detail=str(exc),
+                suggestion=(
+                    "Check Docker permissions in WSL/Ubuntu. "
+                    "You may need to restart Docker Desktop or your WSL session."
+                ),
+            )
+        except subprocess.TimeoutExpired as exc:
+            return self._error_response(
+                session_id=session_id,
+                action=action,
+                command=command,
+                error_code="DOCKER_CHECK_TIMEOUT",
+                message="Docker health check timed out.",
+                detail="docker info did not finish within 30 seconds.",
+                suggestion=(
+                    "Make sure Docker Desktop is running and WSL integration is enabled. "
+                    "Then retry the request."
+                ),
+                stdout=exc.stdout or "",
+                stderr=exc.stderr or "",
+            )
 
         if docker_check.returncode != 0:
             return self._error_response(
                 session_id=session_id,
                 action=action,
                 command=command,
-                message=(
-                    "Docker is not reachable. Make sure Docker Desktop is running "
-                    "and WSL integration is enabled."
+                error_code="DOCKER_NOT_RUNNING",
+                message="Docker is not reachable.",
+                detail=docker_check.stderr or "docker info returned a non-zero exit code.",
+                suggestion=(
+                    "Start Docker Desktop, enable WSL2 integration, and verify with: docker ps"
                 ),
                 return_code=docker_check.returncode,
                 stdout=docker_check.stdout,
@@ -201,6 +290,44 @@ class ContainerlabAdapter:
             )
 
         return None
+
+    def _resolve_or_error(
+        self,
+        session_id: str,
+        action: str,
+        topology_file: str,
+    ) -> Path | dict:
+        command = ["containerlab", action, "-t", str(topology_file)]
+
+        try:
+            return self._resolve_topology_file(topology_file)
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_404_NOT_FOUND:
+                return self._error_response(
+                    session_id=session_id,
+                    action=action,
+                    command=command,
+                    error_code="TOPOLOGY_FILE_NOT_FOUND",
+                    message="Topology YAML file could not be found.",
+                    detail=str(exc.detail),
+                    suggestion=(
+                        "Create the lab session again or check whether "
+                        "containerlab/generated/<session_id>/lab.clab.yml exists."
+                    ),
+                )
+
+            return self._error_response(
+                session_id=session_id,
+                action=action,
+                command=command,
+                error_code="TOPOLOGY_FILE_INVALID",
+                message="Topology YAML file is invalid or not allowed.",
+                detail=str(exc.detail),
+                suggestion=(
+                    "Make sure the topology file is a .yml/.yaml file under "
+                    "containerlab/generated or containerlab/templates."
+                ),
+            )
 
     def _resolve_topology_file(self, topology_file: str) -> Path:
         path = Path(topology_file)
@@ -235,40 +362,104 @@ class ContainerlabAdapter:
 
         return resolved_path
 
-    def _build_failure_message(self, action: str, stderr: str | None) -> str:
+    def _classify_failure(self, action: str, stderr: str | None) -> dict:
         normalized_stderr = (stderr or "").lower()
 
         if "permission denied" in normalized_stderr:
-            return (
-                f"Containerlab {action} failed because of a permission problem. "
-                "Try running the backend from WSL/Ubuntu with proper Docker permissions."
-            )
+            return {
+                "error_code": "CONTAINERLAB_PERMISSION_DENIED",
+                "message": f"Containerlab {action} failed because of a permission problem.",
+                "detail": stderr or "Permission denied.",
+                "suggestion": (
+                    "Run the backend from WSL/Ubuntu with proper Docker permissions. "
+                    "Also check Docker Desktop and WSL integration."
+                ),
+            }
 
-        if "cannot connect to the docker daemon" in normalized_stderr:
-            return (
-                "Containerlab could not connect to Docker. "
-                "Make sure Docker Desktop is running and WSL integration is enabled."
+        if (
+            "cannot connect to the docker daemon" in normalized_stderr
+            or "docker daemon" in normalized_stderr
+            or "is the docker daemon running" in normalized_stderr
+        ):
+            return {
+                "error_code": "DOCKER_NOT_RUNNING",
+                "message": "Containerlab could not connect to Docker.",
+                "detail": stderr or "Docker daemon is not reachable.",
+                "suggestion": (
+                    "Start Docker Desktop, enable WSL2 integration, and verify with: docker ps"
+                ),
+            }
+
+        if (
+            "pull access denied" in normalized_stderr
+            or "manifest unknown" in normalized_stderr
+            or "no such image" in normalized_stderr
+            or "image" in normalized_stderr and "not found" in normalized_stderr
+        ):
+            return {
+                "error_code": "CONTAINERLAB_MISSING_IMAGE",
+                "message": "Required Docker image could not be found or pulled.",
+                "detail": stderr or "A required Docker image is missing.",
+                "suggestion": (
+                    "Check the image name in the topology YAML file and pull it manually if needed. "
+                    "Example: docker pull alpine:latest"
+                ),
+            }
+
+        if (
+            "container" in normalized_stderr
+            and (
+                "not running" in normalized_stderr
+                or "exited" in normalized_stderr
+                or "unhealthy" in normalized_stderr
             )
+        ):
+            return {
+                "error_code": "CONTAINER_NOT_RUNNING",
+                "message": "A Containerlab container did not reach the expected running state.",
+                "detail": stderr or "Container state is not running.",
+                "suggestion": (
+                    "Run containerlab inspect and docker ps -a to identify the failed container."
+                ),
+            }
 
         if "not found" in normalized_stderr:
-            return (
-                f"Containerlab {action} failed because a required file, image, "
-                "or command was not found."
-            )
+            return {
+                "error_code": "CONTAINERLAB_REQUIRED_RESOURCE_NOT_FOUND",
+                "message": (
+                    f"Containerlab {action} failed because a required file, image, "
+                    "or command was not found."
+                ),
+                "detail": stderr or "Required resource was not found.",
+                "suggestion": (
+                    "Check the topology YAML path, Docker images, and Containerlab installation."
+                ),
+            }
 
-        return f"Containerlab {action} command failed."
+        return {
+            "error_code": f"CONTAINERLAB_{action.upper()}_FAILED",
+            "message": f"Containerlab {action} command failed.",
+            "detail": stderr or "Containerlab returned a non-zero exit code.",
+            "suggestion": (
+                "Check stdout/stderr details, Docker status, WSL integration, and topology YAML."
+            ),
+        }
 
     def _error_response(
         self,
         session_id: str,
         action: str,
         command: list[str],
+        error_code: str,
         message: str,
+        detail: str,
+        suggestion: str,
         return_code: int | None = None,
         stdout: str = "",
         stderr: str = "",
     ) -> dict:
         return {
+            "success": False,
             "session_id": session_id,
             "status": SessionStatus.error,
             "message": message,
@@ -276,6 +467,9 @@ class ContainerlabAdapter:
             "return_code": return_code,
             "stdout": stdout,
             "stderr": stderr,
+            "error_code": error_code,
+            "detail": detail,
+            "suggestion": suggestion,
         }
 
     @staticmethod
