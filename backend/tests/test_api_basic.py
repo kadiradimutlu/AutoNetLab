@@ -36,8 +36,65 @@ def test_create_lab_medium_returns_success():
     assert data["student_id"] == "pytest-student"
     assert data["difficulty"] == "medium"
     assert data["status"] == "created"
-    assert len(data["injected_errors"]) == 3
+    assert "injected_errors" not in data
+    assert "hints" in data
+    assert len(data["hints"]) >= 1
     assert len(data["cli_access"]) >= 1
+
+def test_get_lab_default_response_is_student_safe():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "pytest-student",
+            "difficulty": "medium",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    get_response = client.get(f"/api/v1/labs/{session_id}")
+
+    assert get_response.status_code == 200
+
+    data = get_response.json()
+    assert data["success"] is True
+    assert data["session_id"] == session_id
+    assert "topology" in data
+    assert "cli_access" in data
+    assert "hints" in data
+    assert "injected_errors" not in data
+    assert "expected_fix" not in data
+    assert "solution" not in data
+    assert "answer" not in data
+    assert "debug" not in data
+
+def test_get_lab_debug_response_includes_injected_errors():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "pytest-student",
+            "difficulty": "medium",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    debug_response = client.get(f"/api/v1/labs/{session_id}/debug")
+
+    assert debug_response.status_code == 200
+
+    data = debug_response.json()
+    assert data["success"] is True
+    assert data["session_id"] == session_id
+    assert "injected_errors" in data
+    assert len(data["injected_errors"]) == 3
+    assert "hints" in data
 
 
 def test_get_unknown_lab_returns_standard_error():

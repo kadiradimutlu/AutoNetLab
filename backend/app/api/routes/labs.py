@@ -5,6 +5,7 @@ from app.schemas.lab import (
     ActionResponse,
     CliAccessResponse,
     CreateLabRequest,
+    LabSessionDebugResponse,
     LabSessionResponse,
 )
 from app.schemas.validation import ValidationResult
@@ -13,6 +14,7 @@ from app.services.session_service import (
     create_lab_session,
     get_cli_access_response,
     get_lab_session,
+    to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
 )
@@ -39,6 +41,14 @@ def get_lab(session_id: str) -> LabSessionResponse:
         message="Lab session retrieved successfully.",
     )
 
+@router.get("/{session_id}/debug", response_model=LabSessionDebugResponse)
+def get_lab_debug(session_id: str) -> LabSessionDebugResponse:
+    session = get_lab_session(session_id)
+
+    return to_lab_session_debug_response(
+        session,
+        message="Debug lab session retrieved successfully.",
+    )
 
 @router.get("/{session_id}/cli", response_model=CliAccessResponse)
 def get_lab_cli_access(session_id: str) -> CliAccessResponse:
