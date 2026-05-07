@@ -10,6 +10,7 @@ from app.schemas.lab import (
     CliAccessResponse,
     CreateLabRequest,
     ErrorItem,
+    LabSessionDebugResponse,
     LabSessionResponse,
 )
 from app.schemas.topology import Topology
@@ -19,6 +20,23 @@ from app.services.topology_generator import GENERATED_DIR, generate_session_topo
 
 _sessions: dict[str, dict] = {}
 
+BASE_STUDENT_HINTS = [
+    "Check IP addressing and subnet masks.",
+    "Verify interface status before testing connectivity.",
+    "Review routing and default gateway configuration.",
+]
+
+DIFFICULTY_STUDENT_HINTS = {
+    Difficulty.easy: [
+        "Start with basic connectivity tests between directly connected devices.",
+    ],
+    Difficulty.medium: [
+        "Compare addressing, interfaces, and routing step by step across the topology.",
+    ],
+    Difficulty.hard: [
+        "Break the troubleshooting process into addressing, interface status, VLAN, and routing checks.",
+    ],
+}
 
 def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
     session_id = f"lab-{uuid4().hex[:8]}"
@@ -108,16 +126,55 @@ def get_cli_access_response(session_id: str) -> CliAccessResponse:
 
 
 def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
+    """
+    Builds student-safe response / öğrenciye güvenli yanıt.
+
+    injected_errors intentionally stays inside internal session metadata,
+    but it is not exposed through the default student-facing API response.
+    """
+
     return LabSessionResponse(
         session_id=session["session_id"],
         student_id=session["student_id"],
         difficulty=session["difficulty"],
         status=session["status"],
         topology=session["topology"],
-        injected_errors=session["injected_errors"],
         cli_access=session["cli_access"],
+        hints=build_student_hints(session["difficulty"]),
         message=message,
     )
+
+
+def to_lab_session_debug_response(session: dict, message: str) -> LabSessionDebugResponse:
+    """
+    Builds instructor/debug response / eğitmen veya debug yanıtı.
+
+    This response includes injected_errors and should only be used by
+    explicit debug/instructor endpoints.
+    """
+
+    return LabSessionDebugResponse(
+        session_id=session["session_id"],
+        student_id=session["student_id"],
+        difficulty=session["difficulty"],
+        status=session["status"],
+        topology=session["topology"],
+        cli_access=session["cli_access"],
+        hints=build_student_hints(session["difficulty"]),
+        injected_errors=session["injected_errors"],
+        message=message,
+    )
+
+
+def build_student_hints(difficulty: Difficulty) -> list[str]:
+    """
+    Returns generic troubleshooting hints / genel hata giderme ipuçları.
+
+    These hints are intentionally broad. They must not reveal exact injected
+    error codes, devices, interfaces, expected fixes, or solution details.
+    """
+
+    return BASE_STUDENT_HINTS + DIFFICULTY_STUDENT_HINTS.get(difficulty, [])
 
 
 def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:

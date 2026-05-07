@@ -39,15 +39,44 @@ class CliAccessResponse(BaseModel):
 
 
 class LabSessionResponse(BaseModel):
+    """
+    Student-safe lab session response / öğrenciye güvenli lab oturumu yanıtı.
+
+    This response is safe for the student dashboard.
+    It intentionally does not include injected_errors, expected fixes,
+    solution data, answer data, or internal debug fields.
+    """
+
     success: bool = True
     session_id: str
     student_id: str
     difficulty: Difficulty
     status: SessionStatus
     topology: Topology
-    injected_errors: list[ErrorItem]
     cli_access: list[CliAccess]
+    hints: list[str] = Field(
+        default_factory=list,
+        examples=[
+            [
+                "Check IP addressing and subnet masks.",
+                "Verify interface status before testing connectivity.",
+                "Review routing and default gateway configuration.",
+            ]
+        ],
+    )
     message: str
+
+
+class LabSessionDebugResponse(LabSessionResponse):
+    """
+    Instructor/debug lab session response / eğitmen veya debug lab oturumu yanıtı.
+
+    This response keeps injected_errors visible for debugging,
+    instructor review, and backend development purposes.
+    It must not be used by the student-facing frontend screen.
+    """
+
+    injected_errors: list[ErrorItem]
 
 
 class ActionResponse(BaseModel):
