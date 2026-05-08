@@ -7,53 +7,48 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
 ).replace(/\/$/, "");
 
+const DEFAULT_STUDENT_HINTS = [
+  "Check IP addressing and subnet masks.",
+  "Verify interface status before testing connectivity.",
+  "Review routing and default gateway configuration.",
+  "Compare addressing, interfaces, and routing step by step across the topology."
+];
+
 export function isMockApiEnabled() {
   return USE_MOCK_API;
 }
 
-const ERROR_COUNT_BY_DIFFICULTY = {
-  easy: 2,
-  medium: 3,
-  hard: 5
-};
-
-const MOCK_ERROR_POOL = [
-  {
-    code: "IP_ADDRESS_MISMATCH",
-    topic: "IP Addressing",
-    device: "r1",
-    description: "Incorrect IP address configured on r1 eth1.",
-    severity: "low"
-  },
-  {
-    code: "WRONG_SUBNET_MASK",
-    topic: "IP Addressing",
-    device: "r2",
-    description: "Wrong subnet mask configured on r2 eth1.",
-    severity: "low"
-  },
-  {
-    code: "VLAN_MISMATCH",
-    topic: "VLAN",
-    device: "r1",
-    description: "VLAN ID mismatch on r1 interface.",
-    severity: "medium"
-  },
-  {
-    code: "MISSING_ROUTE",
-    topic: "Routing",
-    device: "r2",
-    description: "Static route is missing on r2.",
-    severity: "medium"
-  },
-  {
-    code: "ACL_DENY_ANY",
-    topic: "ACL",
-    device: "r1",
-    description: "ACL rule blocks all traffic unexpectedly.",
-    severity: "high"
+function sanitizeStudentSession(session) {
+  if (!session || typeof session !== "object") {
+    return session;
   }
-];
+
+  const safeSession = {
+    ...session
+  };
+
+  delete safeSession.injected_errors;
+  delete safeSession.expected_fix;
+  delete safeSession.solution;
+  delete safeSession.answer;
+  delete safeSession.debug;
+
+  return {
+    ...safeSession,
+    topology: safeSession.topology || {
+      name: "basic-two-router",
+      nodes: [],
+      links: []
+    },
+    cli_access: Array.isArray(safeSession.cli_access)
+      ? safeSession.cli_access
+      : [],
+    hints:
+      Array.isArray(safeSession.hints) && safeSession.hints.length > 0
+        ? safeSession.hints
+        : DEFAULT_STUDENT_HINTS
+  };
+}
 
 function wait(ms = 300) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -286,10 +281,9 @@ export function getErrorDetails(error) {
 }
 
 function createMockLabSession({ student_id, difficulty, topology_template }) {
-  const errorCount = ERROR_COUNT_BY_DIFFICULTY[difficulty] || 2;
-
-  return {
+  return sanitizeStudentSession({
     ...mockLabSession,
+    success: true,
     session_id: `lab-${Date.now()}`,
     student_id,
     difficulty,
@@ -298,25 +292,27 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
       ...mockLabSession.topology,
       name: topology_template
     },
-    injected_errors: MOCK_ERROR_POOL.slice(0, errorCount),
     cli_access: [
       {
-        device_name: "r1",
+        device_id: "r1",
+        name: "Router 1",
         container_name: "clab-autonetlab-mock-r1",
         access_method: "docker_exec",
         command: "docker exec -it clab-autonetlab-mock-r1 sh",
         description: "Open CLI access for router r1."
       },
       {
-        device_name: "r2",
+        device_id: "r2",
+        name: "Router 2",
         container_name: "clab-autonetlab-mock-r2",
         access_method: "docker_exec",
         command: "docker exec -it clab-autonetlab-mock-r2 sh",
         description: "Open CLI access for router r2."
       }
     ],
+    hints: DEFAULT_STUDENT_HINTS,
     message: "Lab session created successfully."
-  };
+  });
 }
 
 function normalizeValidationResult(result) {
@@ -344,6 +340,7 @@ function normalizeCliAccess(cli, index) {
   return {
     device_name:
       cli.device_name ||
+      cli.name ||
       cli.device ||
       cli.device_id ||
       cli.container_name ||
@@ -396,7 +393,7 @@ export async function createSession({
     });
   }
 
-  return request("/labs", {
+  const result = await request("/labs", {
     method: "POST",
     body: JSON.stringify({
       student_id,
@@ -404,6 +401,8 @@ export async function createSession({
       topology_template
     })
   });
+
+  return sanitizeStudentSession(result);
 }
 
 export async function getSession(sessionId) {
@@ -414,13 +413,15 @@ export async function getSession(sessionId) {
   if (USE_MOCK_API) {
     await wait();
 
-    return {
+    return sanitizeStudentSession({
       ...mockLabSession,
       session_id: sessionId || mockLabSession.session_id
-    };
+    });
   }
 
-  return request(`/labs/${sessionId}`);
+  const result = await request(`/labs/${sessionId}`);
+
+  return sanitizeStudentSession(result);
 }
 
 export async function getTopology(sessionId) {
@@ -429,8 +430,8 @@ export async function getTopology(sessionId) {
   return {
     session_id: session.session_id,
     topology: session.topology || null,
-    injected_errors: session.injected_errors || [],
-    cli_access: session.cli_access || []
+    cli_access: session.cli_access || [],
+    hints: session.hints || DEFAULT_STUDENT_HINTS
   };
 }
 

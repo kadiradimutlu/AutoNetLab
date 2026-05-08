@@ -665,3 +665,174 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.topology-card {
+  overflow: hidden;
+}
+
+.topology-summary-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.topology-summary-row div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.topology-summary-row span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.topology-map-panel {
+  background: linear-gradient(135deg, #eff6ff, #f8fafc);
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 16px 0 20px;
+}
+
+.topology-node-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.topology-node-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.topology-node-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.topology-node-card p {
+  margin: 4px 0 0;
+}
+
+.topology-link-strip {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.topology-link-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: #111827;
+  color: white;
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.topology-link-pill strong {
+  color: #93c5fd;
+}
+
+.device-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.device-detail-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.device-detail-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.device-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.link-path-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.link-path-row span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.hints-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.hint-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.hint-item p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.hint-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .topology-summary-row,
+  .topology-node-grid,
+  .device-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-link-pill {
+    border-radius: 12px;
+  }
+}
