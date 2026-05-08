@@ -1,4 +1,5 @@
 {
+  "success": true,
   "session_id": "lab-demo-001",
   "student_id": "muhammed",
   "difficulty": "easy",
@@ -34,31 +35,29 @@
       }
     ]
   },
-  "injected_errors": [
-    {
-      "code": "IP_ADDRESS_MISMATCH",
-      "topic": "IP Addressing",
-      "device": "r1",
-      "description": "Incorrect IP address configured on r1 eth1.",
-      "severity": "low"
-    },
-    {
-      "code": "MISSING_ROUTE",
-      "topic": "Routing",
-      "device": "r2",
-      "description": "Static route is missing on r2.",
-      "severity": "medium"
-    }
-  ],
   "cli_access": [
     {
       "device_id": "r1",
-      "command": "docker exec -it clab-autonetlab-r1 sh"
+      "name": "Router 1",
+      "container_name": "clab-autonetlab-r1",
+      "access_method": "docker_exec",
+      "command": "docker exec -it clab-autonetlab-r1 sh",
+      "description": "Open CLI access for router r1."
     },
     {
       "device_id": "r2",
-      "command": "docker exec -it clab-autonetlab-r2 sh"
+      "name": "Router 2",
+      "container_name": "clab-autonetlab-r2",
+      "access_method": "docker_exec",
+      "command": "docker exec -it clab-autonetlab-r2 sh",
+      "description": "Open CLI access for router r2."
     }
+  ],
+  "hints": [
+    "Check IP addressing and subnet masks.",
+    "Verify interface status before testing connectivity.",
+    "Review routing and default gateway configuration.",
+    "Compare addressing, interfaces, and routing step by step across the topology."
   ],
   "message": "Lab session created successfully."
 }

@@ -17,10 +17,18 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
+const DEFAULT_STUDENT_HINTS = [
+  "Check IP addressing and subnet masks.",
+  "Verify interface status before testing connectivity.",
+  "Review routing and default gateway configuration.",
+  "Compare addressing, interfaces, and routing step by step across the topology."
+];
+
 function normalizeCliAccess(cli, index) {
   return {
     deviceName:
       cli.device_name ||
+      cli.name ||
       cli.device ||
       cli.device_id ||
       cli.container_name ||
@@ -119,12 +127,15 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     );
   }
 
-  const injectedErrors = labSession.injected_errors || [];
   const fallbackCliAccess = (labSession.cli_access || []).map((cli, index) =>
     normalizeCliAccess(cli, index)
   );
   const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const difficultyClass = getDifficultyClass(labSession.difficulty);
+  const studentHints =
+    Array.isArray(labSession.hints) && labSession.hints.length > 0
+      ? labSession.hints
+      : DEFAULT_STUDENT_HINTS;
 
   async function refreshCurrentSession() {
     const updatedLabSession = await getLab(labSession.session_id);
@@ -212,6 +223,12 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
       <section className="card">
         <h2>{t("labSessionDetail")}</h2>
 
+        <MessageBox
+          type="info"
+          title="Student View"
+          message="This screen intentionally hides injected error details. Use the topology, CLI access, and general hints to troubleshoot the lab."
+        />
+
         <div className="info-row">
           <span>{t("sessionId")}</span>
           <strong>{labSession.session_id}</strong>
@@ -234,35 +251,22 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
           <strong>{formatStatus(labSession.status, t)}</strong>
         </div>
 
-        <div className="info-row">
-          <span>{t("injectedErrors")}</span>
-          <strong>{injectedErrors.length}</strong>
-        </div>
-
-        <h4>{t("injectedErrors")}</h4>
-        <div className="result-list">
-          {injectedErrors.length === 0 && (
-            <p className="muted">No injected errors found.</p>
-          )}
-
-          {injectedErrors.map((error) => (
-            <div className="list-item" key={`${error.code}-${error.device}`}>
-              <div className="result-title-row">
-                <strong>{error.code}</strong>
-                <span className={`badge ${error.severity || ""}`}>
-                  {error.severity || "unknown"}
-                </span>
-              </div>
-
-              <p>{error.description}</p>
-              <p className="muted">
-                {t("topic")}: {error.topic} | {t("device")}: {error.device}
-              </p>
+        <h4>General Hints</h4>
+        <div className="hints-list">
+          {studentHints.map((hint, index) => (
+            <div className="hint-item" key={`${hint}-${index}`}>
+              <span className="hint-number">{index + 1}</span>
+              <p>{hint}</p>
             </div>
           ))}
         </div>
 
         <h4>{t("cliAccess")}</h4>
+
+        <p className="muted">
+          Use these commands in your terminal to access each network device.
+          Browser-based CLI is outside the scope of this sprint.
+        </p>
 
         {cliAccessWarning && (
           <>
@@ -318,7 +322,8 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
                 </div>
 
                 <p className="muted">
-                  Description: Use this command to access {cli.deviceName} through the CLI.
+                  {cli.description ||
+                    `Use this command to access ${cli.deviceName} through the CLI.`}
                 </p>
 
                 {cli.dockerExecCommand && (
@@ -440,7 +445,11 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         <p className="footer-note">{t("backendFormatNote")}</p>
       </section>
 
-      <TopologyCard topology={labSession.topology} />
+      <TopologyCard
+        topology={labSession.topology}
+        difficulty={labSession.difficulty}
+        status={labSession.status}
+      />
     </div>
   );
 }
