@@ -521,6 +521,18 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
     student_id,
     difficulty,
     status: "created",
+    cli_access_mode: "local_docker_exec_demo",
+    scenario_overview: {
+      summary:
+        difficulty === "hard"
+          ? "This hard scenario combines multiple troubleshooting topics while keeping exact injected errors hidden from the student view."
+          : "This scenario provides student-safe troubleshooting guidance without revealing injected errors.",
+      topics:
+        difficulty === "hard"
+          ? ["IP Addressing", "Routing", "Interface Status", "Connectivity"]
+          : ["IP Addressing", "Interface Status"],
+      hints: DEFAULT_STUDENT_HINTS
+    },
     topology: {
       ...mockLabSession.topology,
       name: topology_template
@@ -530,7 +542,8 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
         device_id: "r1",
         name: "Router 1",
         container_name: "clab-autonetlab-mock-r1",
-        access_method: "docker_exec",
+        access_method: "local_docker_exec_demo",
+        mode: "local_docker_exec_demo",
         command: "docker exec -it clab-autonetlab-mock-r1 sh",
         description: "Open CLI access for router r1."
       },
@@ -538,7 +551,8 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
         device_id: "r2",
         name: "Router 2",
         container_name: "clab-autonetlab-mock-r2",
-        access_method: "docker_exec",
+        access_method: "local_docker_exec_demo",
+        mode: "local_docker_exec_demo",
         command: "docker exec -it clab-autonetlab-mock-r2 sh",
         description: "Open CLI access for router r2."
       }
@@ -548,17 +562,73 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
   });
 }
 
+function normalizeCheckPassed(check) {
+  const status = String(check?.status || "").toLowerCase();
+
+  if (status.includes("pass") || status === "success") {
+    return true;
+  }
+
+  if (status.includes("fail") || status === "error") {
+    return false;
+  }
+
+  return Boolean(check?.passed);
+}
+
+function normalizeValidationCheck(check, index) {
+  const safeCheck = check && typeof check === "object" ? check : {};
+  const passed = normalizeCheckPassed(safeCheck);
+
+  return {
+    ...safeCheck,
+    check_id: safeCheck.check_id || safeCheck.id || `check-${index + 1}`,
+    topic: safeCheck.topic || safeCheck.category || "General",
+    description:
+      safeCheck.description ||
+      safeCheck.message ||
+      safeCheck.name ||
+      `Validation check ${index + 1}`,
+    status: safeCheck.status || (passed ? "passed" : "failed"),
+    passed,
+    points: safeCheck.points ?? safeCheck.score ?? 0,
+    max_points: safeCheck.max_points ?? safeCheck.maxPoints ?? 0,
+    message:
+      safeCheck.message ||
+      (passed
+        ? "This validation check passed."
+        : "This validation check failed. Review the topic and try again."),
+    hint:
+      safeCheck.hint ||
+      safeCheck.student_hint ||
+      "Review this topic and re-check the device configuration."
+  };
+}
+
 function normalizeValidationResult(result, recommendationPayload = null) {
-  const checks = Array.isArray(result?.checks) ? result.checks : [];
+  const checks = Array.isArray(result?.checks)
+    ? result.checks.map((check, index) => normalizeValidationCheck(check, index))
+    : [];
   const passedChecks = checks.filter((check) => check.passed).length;
   const totalChecks = checks.length;
+  const computedScoreMax = checks.reduce(
+    (total, check) => total + Number(check.max_points || 0),
+    0
+  );
+  const computedScoreValue = checks.reduce(
+    (total, check) => total + Number(check.points || 0),
+    0
+  );
+  const computedScore = computedScoreMax
+    ? Math.round((computedScoreValue / computedScoreMax) * 100)
+    : 0;
 
   const fallbackRecommendationPayload = {
     success: true,
     session_id: result?.session_id || "",
     status: result?.status || "",
-    score: result?.score ?? null,
-    passed: result?.passed ?? null,
+    score: result?.score ?? computedScore,
+    passed: result?.passed ?? passedChecks === totalChecks,
     source: result?.source || "rule_based",
     fallback_used: Boolean(result?.fallback_used),
     recommendations: result?.recommendations || result?.recommendation || [],
@@ -572,8 +642,8 @@ function normalizeValidationResult(result, recommendationPayload = null) {
 
   return {
     ...result,
-    passed: Boolean(result?.passed),
-    score: result?.score ?? 0,
+    passed: result?.passed ?? passedChecks === totalChecks,
+    score: result?.score ?? computedScore,
     checks,
     passed_checks: result?.passed_checks ?? passedChecks,
     total_checks: result?.total_checks ?? totalChecks,
@@ -586,35 +656,70 @@ function normalizeValidationResult(result, recommendationPayload = null) {
 }
 
 function normalizeCliAccess(cli, index) {
+  const safeCli = cli && typeof cli === "object" ? cli : {};
+
   return {
     device_name:
-      cli.device_name ||
-      cli.name ||
-      cli.device ||
-      cli.device_id ||
-      cli.container_name ||
+      safeCli.device_name ||
+      safeCli.name ||
+      safeCli.device ||
+      safeCli.device_id ||
+      safeCli.container_name ||
       `device-${index + 1}`,
     container_name:
-      cli.container_name ||
-      cli.container ||
-      cli.container_id ||
+      safeCli.container_name ||
+      safeCli.container ||
+      safeCli.container_id ||
       "-",
     access_method:
-      cli.access_method ||
-      cli.method ||
-      "docker_exec",
+      safeCli.access_method ||
+      safeCli.method ||
+      safeCli.mode ||
+      "local_docker_exec_demo",
+    mode:
+      safeCli.mode ||
+      safeCli.cli_mode ||
+      safeCli.access_mode ||
+      safeCli.access_method ||
+      "local_docker_exec_demo",
     docker_exec_command:
-      cli.docker_exec_command ||
-      cli.command ||
-      cli.exec_command ||
+      safeCli.docker_exec_command ||
+      safeCli.command ||
+      safeCli.exec_command ||
       "",
     ssh_command:
-      cli.ssh_command ||
-      cli.ssh ||
+      safeCli.ssh_command ||
+      safeCli.ssh ||
       "",
     description:
-      cli.description ||
+      safeCli.description ||
       ""
+  };
+}
+
+function normalizeCliAccessResponse(result, sessionId = "") {
+  const safeResult =
+    result && typeof result === "object" && !Array.isArray(result)
+      ? result
+      : {};
+  const cliAccess = Array.isArray(result)
+    ? result
+    : safeResult.cli_access || safeResult.devices || safeResult.items || [];
+
+  return {
+    success: safeResult.success ?? true,
+    session_id: safeResult.session_id || sessionId || "",
+    mode:
+      safeResult.mode ||
+      safeResult.cli_mode ||
+      safeResult.access_mode ||
+      "local_docker_exec_demo",
+    browser_cli_available: Boolean(safeResult.browser_cli_available),
+    ssh_gateway_available: Boolean(safeResult.ssh_gateway_available),
+    cli_access: Array.isArray(cliAccess)
+      ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
+      : [],
+    message: safeResult.message || ""
   };
 }
 
@@ -694,30 +799,48 @@ export async function getCliAccess(sessionId) {
 
     const session = createMockLabSession({
       student_id: "muhammed",
-      difficulty: "easy",
+      difficulty: "hard",
       topology_template: "basic-two-router"
     });
 
-    return (session.cli_access || []).map((cli, index) =>
-      normalizeCliAccess(cli, index)
+    return normalizeCliAccessResponse(
+      {
+        success: true,
+        session_id: sessionId,
+        mode: session.cli_access_mode || "local_docker_exec_demo",
+        cli_access: session.cli_access,
+        browser_cli_available: false,
+        ssh_gateway_available: false,
+        message: "MOCK: CLI access metadata loaded."
+      },
+      sessionId
     );
   }
 
   try {
     const result = await request(`/labs/${sessionId}/cli`);
-    const cliAccess = result?.cli_access || result?.items || result || [];
 
-    return Array.isArray(cliAccess)
-      ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
-      : [];
+    return normalizeCliAccessResponse(result, sessionId);
   } catch (error) {
     if (error.status === 404) {
       const session = await getSession(sessionId);
-      const cliAccess = session.cli_access || [];
 
-      return Array.isArray(cliAccess)
-        ? cliAccess.map((cli, index) => normalizeCliAccess(cli, index))
-        : [];
+      return normalizeCliAccessResponse(
+        {
+          success: true,
+          session_id: sessionId,
+          mode:
+            session.cli_access_mode ||
+            session.cli_mode ||
+            session.access_mode ||
+            "local_docker_exec_demo",
+          cli_access: session.cli_access || [],
+          browser_cli_available: false,
+          ssh_gateway_available: false,
+          message: "CLI endpoint was not available. Session CLI access data is being used."
+        },
+        sessionId
+      );
     }
 
     throw error;

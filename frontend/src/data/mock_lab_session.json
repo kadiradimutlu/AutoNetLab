@@ -2,7 +2,7 @@
   "success": true,
   "session_id": "lab-demo-001",
   "student_id": "muhammed",
-  "difficulty": "easy",
+  "difficulty": "hard",
   "status": "created",
   "topology": {
     "name": "basic-two-router",
@@ -40,17 +40,19 @@
       "device_id": "r1",
       "name": "Router 1",
       "container_name": "clab-autonetlab-r1",
-      "access_method": "docker_exec",
+      "access_method": "local_docker_exec_demo",
       "command": "docker exec -it clab-autonetlab-r1 sh",
-      "description": "Open CLI access for router r1."
+      "description": "Open CLI access for router r1.",
+      "mode": "local_docker_exec_demo"
     },
     {
       "device_id": "r2",
       "name": "Router 2",
       "container_name": "clab-autonetlab-r2",
-      "access_method": "docker_exec",
+      "access_method": "local_docker_exec_demo",
       "command": "docker exec -it clab-autonetlab-r2 sh",
-      "description": "Open CLI access for router r2."
+      "description": "Open CLI access for router r2.",
+      "mode": "local_docker_exec_demo"
     }
   ],
   "hints": [
@@ -59,5 +61,20 @@
     "Review routing and default gateway configuration.",
     "Compare addressing, interfaces, and routing step by step across the topology."
   ],
-  "message": "Lab session created successfully."
+  "message": "Lab session created successfully.",
+  "cli_access_mode": "local_docker_exec_demo",
+  "scenario_overview": {
+    "summary": "This hard scenario combines multiple troubleshooting topics while keeping exact injected errors hidden from the student view.",
+    "topics": [
+      "IP Addressing",
+      "Routing",
+      "Interface Status",
+      "Connectivity"
+    ],
+    "hints": [
+      "Start with interface status and addressing before checking routes.",
+      "Use device CLI commands to compare both sides of each link.",
+      "Validate only after checking each topic area carefully."
+    ]
+  }
 }
