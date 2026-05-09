@@ -1,4 +1,4 @@
-{
+﻿{
   "session_id": "lab-demo-001",
   "status": "validated",
   "passed": false,
@@ -8,16 +8,18 @@
       "check_id": "check_1_ip_address_mismatch",
       "topic": "IP Addressing",
       "passed": false,
-      "message": "IP Addressing issue still exists: Incorrect IP address configured on r1 eth1."
+      "message": "IP Addressing issue still exists: Incorrect IP address configured on r1 eth1.",
+      "expected": "r1 eth1 should be in the same subnet as r2 eth1.",
+      "actual": "r1 eth1 has an incorrect address."
     },
     {
       "check_id": "check_2_missing_route",
       "topic": "Routing",
       "passed": true,
-      "message": "Routing check passed."
+      "message": "Routing check passed.",
+      "expected": "Route exists.",
+      "actual": "Route exists."
     }
   ],
-  "recommendations": [
-    "Review topic: IP Addressing"
-  ]
+  "recommendations": []
 }

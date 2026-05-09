@@ -1,6 +1,7 @@
 import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
+import mockRecommendation from "../data/mock_recommendation.json";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
 const API_BASE_URL = (
@@ -160,6 +161,123 @@ function sanitizeStudentSession(session) {
 function wait(ms = 300) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+function normalizeRecommendationSource(source) {
+  const normalizedSource = String(source || "rule_based").toLowerCase();
+
+  if (normalizedSource === "ml_prototype") {
+    return "ml_prototype";
+  }
+
+  if (normalizedSource === "hybrid") {
+    return "hybrid";
+  }
+
+  return "rule_based";
+}
+
+function normalizeRecommendationConfidence(confidence) {
+  if (confidence === undefined || confidence === null || confidence === "") {
+    return null;
+  }
+
+  const numericConfidence = Number(confidence);
+
+  if (Number.isNaN(numericConfidence)) {
+    return null;
+  }
+
+  if (numericConfidence > 1) {
+    return Math.min(Math.max(numericConfidence, 0), 100) / 100;
+  }
+
+  return Math.min(Math.max(numericConfidence, 0), 1);
+}
+
+function normalizeRecommendationList(value) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  return [value];
+}
+
+function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
+  if (typeof item === "string") {
+    return {
+      id: `recommendation-${index + 1}`,
+      topic: `recommendation_${index + 1}`,
+      label: `Recommendation ${index + 1}`,
+      reason: item,
+      explanation: "This recommendation was generated from the validation result.",
+      priority: "medium",
+      confidence: null,
+      source: normalizeRecommendationSource(parentSource),
+      fallback_used: false,
+      next_actions: [],
+      related_failed_checks: []
+    };
+  }
+
+  if (!item || typeof item !== "object") {
+    return {
+      id: `recommendation-${index + 1}`,
+      topic: `recommendation_${index + 1}`,
+      label: `Recommendation ${index + 1}`,
+      reason: "No recommendation detail is available.",
+      explanation: "Run validation again if this recommendation looks incomplete.",
+      priority: "medium",
+      confidence: null,
+      source: normalizeRecommendationSource(parentSource),
+      fallback_used: false,
+      next_actions: [],
+      related_failed_checks: []
+    };
+  }
+
+  const topic = item.topic || item.title || `recommendation_${index + 1}`;
+
+  return {
+    id: item.id || `${topic}-${index}`,
+    topic,
+    label: item.label || item.topic_label || item.display_name || String(topic).replace(/_/g, " "),
+    reason: item.reason || item.message || item.description || "This topic was selected based on the validation result.",
+    explanation: item.explanation || item.details || item.text || "Review this topic before attempting a harder lab.",
+    priority: String(item.priority || item.severity || item.level || "medium").toLowerCase(),
+    confidence: normalizeRecommendationConfidence(item.confidence),
+    source: normalizeRecommendationSource(item.source || parentSource),
+    fallback_used: Boolean(item.fallback_used),
+    next_actions: normalizeRecommendationList(item.next_actions || item.nextActions || item.actions),
+    related_failed_checks: normalizeRecommendationList(
+      item.related_failed_checks || item.failed_checks || item.relatedChecks
+    )
+  };
+}
+
+function normalizeRecommendationPayload(payload, sessionId = "") {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const source = normalizeRecommendationSource(safePayload.source);
+  const recommendations = normalizeRecommendationList(safePayload.recommendations).map(
+    (item, index) => normalizeRecommendationItem(item, index, source)
+  );
+
+  return {
+    success: safePayload.success ?? true,
+    session_id: safePayload.session_id || sessionId || "",
+    status: safePayload.status || "",
+    score: safePayload.score ?? null,
+    passed: safePayload.passed ?? null,
+    source,
+    fallback_used: Boolean(safePayload.fallback_used),
+    recommendations,
+    message: safePayload.message || ""
+  };
+}
+
 
 function getRequestMethod(options = {}) {
   return options.method || "GET";
@@ -430,13 +548,27 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
   });
 }
 
-function normalizeValidationResult(result) {
+function normalizeValidationResult(result, recommendationPayload = null) {
   const checks = Array.isArray(result?.checks) ? result.checks : [];
   const passedChecks = checks.filter((check) => check.passed).length;
   const totalChecks = checks.length;
 
-  const recommendations =
-    result?.recommendations || result?.recommendation || [];
+  const fallbackRecommendationPayload = {
+    success: true,
+    session_id: result?.session_id || "",
+    status: result?.status || "",
+    score: result?.score ?? null,
+    passed: result?.passed ?? null,
+    source: result?.source || "rule_based",
+    fallback_used: Boolean(result?.fallback_used),
+    recommendations: result?.recommendations || result?.recommendation || [],
+    message: result?.message || ""
+  };
+
+  const normalizedRecommendationPayload = normalizeRecommendationPayload(
+    recommendationPayload || fallbackRecommendationPayload,
+    result?.session_id || ""
+  );
 
   return {
     ...result,
@@ -445,9 +577,11 @@ function normalizeValidationResult(result) {
     checks,
     passed_checks: result?.passed_checks ?? passedChecks,
     total_checks: result?.total_checks ?? totalChecks,
-    recommendations: Array.isArray(recommendations)
-      ? recommendations
-      : [recommendations].filter(Boolean)
+    recommendations: normalizedRecommendationPayload.recommendations,
+    recommendation_payload: normalizedRecommendationPayload,
+    recommendation_source: normalizedRecommendationPayload.source,
+    recommendation_fallback_used: normalizedRecommendationPayload.fallback_used,
+    recommendation_message: normalizedRecommendationPayload.message
   };
 }
 
@@ -630,6 +764,28 @@ export async function destroySession(sessionId) {
   });
 }
 
+export async function getRecommendations(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    return normalizeRecommendationPayload(
+      {
+        ...mockRecommendation,
+        session_id: sessionId || mockRecommendation.session_id
+      },
+      sessionId
+    );
+  }
+
+  const result = await request(`/labs/${sessionId}/recommendations`);
+
+  return normalizeRecommendationPayload(result, sessionId);
+}
+
 export async function validateSession(sessionId) {
   if (!sessionId) {
     throw new Error("sessionId is required.");
@@ -638,18 +794,45 @@ export async function validateSession(sessionId) {
   if (USE_MOCK_API) {
     await wait(600);
 
-    return normalizeValidationResult({
-      ...mockValidationResult,
-      session_id: sessionId || mockValidationResult.session_id,
-      status: "validated"
-    });
+    const recommendationPayload = await getRecommendations(sessionId);
+
+    return normalizeValidationResult(
+      {
+        ...mockValidationResult,
+        session_id: sessionId || mockValidationResult.session_id,
+        status: "validated"
+      },
+      recommendationPayload
+    );
   }
 
-  const result = await request(`/labs/${sessionId}/validate`, {
+  const validationResult = await request(`/labs/${sessionId}/validate`, {
     method: "POST"
   });
 
-  return normalizeValidationResult(result);
+  let recommendationPayload = null;
+
+  try {
+    recommendationPayload = await getRecommendations(sessionId);
+  } catch (error) {
+    recommendationPayload = normalizeRecommendationPayload(
+      {
+        success: false,
+        session_id: sessionId,
+        status: validationResult?.status || "validated",
+        score: validationResult?.score ?? null,
+        passed: validationResult?.passed ?? null,
+        source: "rule_based",
+        fallback_used: true,
+        recommendations: validationResult?.recommendations || [],
+        message:
+          "Validation completed, but recommendation endpoint could not be loaded. Please try again."
+      },
+      sessionId
+    );
+  }
+
+  return normalizeValidationResult(validationResult, recommendationPayload);
 }
 
 export async function getInstructorSummary() {
