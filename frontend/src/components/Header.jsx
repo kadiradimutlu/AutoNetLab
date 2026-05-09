@@ -7,7 +7,8 @@ function Header({ currentPage, onNavigate }) {
     { id: "home", label: t("navHome") },
     { id: "create", label: t("navCreateLab") },
     { id: "session", label: t("navSessionDetail") },
-    { id: "result", label: t("navValidationResult") }
+    { id: "result", label: t("navValidationResult") },
+    { id: "instructor", label: "Instructor Dashboard" }
   ];
 
   return (
