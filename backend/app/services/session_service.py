@@ -238,6 +238,7 @@ def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
                 name=node.id,
                 container_name=container_name,
                 access_method="docker_exec",
+                mode="local_docker_exec_demo",
                 command=f"docker exec -it {container_name} sh",
                 description=(
                     f"{node.id.upper()} cihazına CLI üzerinden bağlanmak için "
@@ -376,6 +377,7 @@ def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
         name=raw_cli.get("name", device_id),
         container_name=container_name,
         access_method=raw_cli.get("access_method", "docker_exec"),
+        mode=raw_cli.get("mode", "local_docker_exec_demo"),
         command=raw_cli.get("command", f"docker exec -it {container_name} sh"),
         description=raw_cli.get(
             "description",

@@ -7,9 +7,12 @@ TOPIC_LABELS = {
     "subnetting": "Subnetting",
     "interface_status": "Interface Status",
     "routing": "Routing",
+    "static_routing": "Static Routing",
     "default_gateway": "Default Gateway",
     "vlan": "VLAN",
+    "vlan_like": "VLAN-like Configuration",
     "acl": "ACL",
+    "acl_like": "ACL-like Policy",
     "connectivity": "Connectivity",
     "trunk_configuration": "Trunk Configuration",
     "unknown": "Unknown",
@@ -34,6 +37,11 @@ TOPIC_NEXT_ACTIONS = {
         "Review static route or default route configuration.",
         "Check next-hop addresses and reachable networks.",
     ],
+    "static_routing": [
+    "Review static route destination networks.",
+    "Check next-hop addresses and reachable networks.",
+    "Verify that return routes exist when testing end-to-end connectivity.",
+    ],
     "default_gateway": [
         "Verify the configured default gateway.",
         "Check whether the gateway address belongs to the correct subnet.",
@@ -42,9 +50,17 @@ TOPIC_NEXT_ACTIONS = {
         "Review VLAN IDs on access ports.",
         "Check whether both sides use consistent VLAN configuration.",
     ],
+    "vlan_like": [
+    "Review VLAN-like interface settings on both sides of the link.",
+    "Check whether the same logical segment is expected on connected interfaces.",
+    ],
     "acl": [
         "Review ACL rules and their direction.",
         "Check whether traffic is blocked by an unintended deny rule.",
+    ],
+    "acl_like": [
+    "Review policy-like deny rules and their direction.",
+    "Check whether expected troubleshooting traffic is blocked by an unintended rule.",
     ],
     "connectivity": [
         "Start with ping tests between directly connected devices.",
@@ -68,6 +84,15 @@ def normalize_topic(value: Any) -> str:
     text = str(value).strip().lower()
     text = re.sub(r"[^a-z0-9]+", "_", text)
     text = text.strip("_")
+
+    if text in {"routing", "static_route", "static_routes"}:
+        return "static_routing"
+
+    if text in {"vlan", "vlan_mismatch"}:
+        return "vlan_like"
+
+    if text in {"acl", "access_control", "access_control_list"}:
+        return "acl_like"
 
     return text or "unknown"
 

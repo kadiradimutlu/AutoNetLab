@@ -15,9 +15,12 @@ TOPIC_LABELS = {
     "subnetting": "Subnetting",
     "interface_status": "Interface Status",
     "routing": "Routing",
+    "static_routing": "Static Routing",
     "default_gateway": "Default Gateway",
     "vlan": "VLAN",
+    "vlan_like": "VLAN-like Configuration",
     "acl": "ACL",
+    "acl_like": "ACL-like Policy",
     "connectivity": "Connectivity",
     "unknown": "Unknown",
 }
@@ -319,6 +322,15 @@ def _normalize_topic(value: Any) -> str:
     text = str(value).strip().lower()
     text = re.sub(r"[^a-z0-9]+", "_", text)
     text = text.strip("_")
+
+    if text in {"routing", "static_route", "static_routes"}:
+        return "static_routing"
+
+    if text in {"vlan", "vlan_mismatch"}:
+        return "vlan_like"
+
+    if text in {"acl", "access_control", "access_control_list"}:
+        return "acl_like"
 
     return text or "unknown"
 
