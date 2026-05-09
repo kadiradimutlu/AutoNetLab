@@ -712,3 +712,167 @@ recommendations boşsa validation henüz çalışmamıştır; empty state göste
 reason, explanation, next_actions alanları recommendation card içinde kullanılabilir.
 related_failed_checks alanı expandable detail olarak gösterilebilir.
 
+---
+
+# Sprint 8 Backend Contract Addendum
+
+Sprint 8 adds advanced scenarios / ileri senaryolar, richer validation checks / daha detaylı doğrulama kontrolleri, canonical topic taxonomy / standart konu sınıflandırması, and CLI access mode metadata / CLI erişim modu bilgisi.
+
+## Error taxonomy / Hata sınıflandırması
+
+Canonical topic values:
+
+```text
+ip_addressing
+subnetting
+interface_status
+default_gateway
+static_routing
+vlan_like
+acl_like
+connectivity
+```
+
+Frontend should treat these as stable topic keys.
+
+Recommended labels:
+
+```text
+ip_addressing -> IP Addressing
+subnetting -> Subnetting
+interface_status -> Interface Status
+default_gateway -> Default Gateway
+static_routing -> Static Routing
+vlan_like -> VLAN-like Configuration
+acl_like -> ACL-like Policy
+connectivity -> Connectivity
+```
+
+## Validation result check format
+
+Endpoint:
+
+```text
+POST /api/v1/labs/{session_id}/validate
+```
+
+Each check now includes:
+
+```json
+{
+  "check_id": "check_1_static_routing",
+  "topic": "static_routing",
+  "description": "Validate whether Static Routing related configuration state is correct on r3.",
+  "status": "failed",
+  "passed": false,
+  "points": 0,
+  "max_points": 20,
+  "message": "Static Routing validation failed on r3. The related issue still appears unresolved.",
+  "hint": "Review static route destination networks and next-hop addresses.",
+  "evidence": {
+    "validation_mode": "config_marker_check",
+    "device": "r3",
+    "config_file": "r3.conf",
+    "config_file_present": true,
+    "observed_state": "issue marker is still present"
+  }
+}
+```
+
+## Student view / Öğrenci görünümü
+
+Student-facing frontend may show:
+
+- check_id
+- topic
+- description
+- status
+- passed
+- points
+- max_points
+- message
+- hint
+
+Student-facing frontend should not show exact injected_errors from the default lab session response.
+
+## Instructor/debug view / Eğitmen veya debug görünümü
+
+Instructor/debug screens may show:
+
+- evidence
+- observed_state
+- config_file
+- validation_mode
+- injected_errors from `/labs/{session_id}/debug`
+
+## CLI access response
+
+Endpoint:
+
+```text
+GET /api/v1/labs/{session_id}/cli
+```
+
+Sprint 8 adds:
+
+```json
+{
+  "current_mode": "local_docker_exec_demo",
+  "mode_info": {
+    "current_mode": "local_docker_exec_demo",
+    "default_mode": "local_docker_exec_demo",
+    "planned_modes": [
+      "ssh_gateway_planned",
+      "browser_cli_future_work"
+    ],
+    "decision": "Sprint 8 keeps docker exec local demo mode as the stable CLI access model.",
+    "reason": "The project prioritizes stable validation, scenario quality, and demo reliability."
+  }
+}
+```
+
+Each device includes:
+
+```json
+{
+  "device_id": "r1",
+  "name": "r1",
+  "container_name": "clab-autonetlab-lab-abc12345-r1",
+  "access_method": "docker_exec",
+  "mode": "local_docker_exec_demo",
+  "command": "docker exec -it clab-autonetlab-lab-abc12345-r1 sh"
+}
+```
+
+## CLI access mode metadata
+
+Endpoint:
+
+```text
+GET /api/v1/meta/cli-access-modes
+```
+
+Possible mode values:
+
+```text
+local_docker_exec_demo
+ssh_gateway_planned
+browser_cli_future_work
+```
+
+Current Sprint 8 mode:
+
+```text
+local_docker_exec_demo
+```
+
+## Frontend notes for Muhammed
+
+Muhammed frontend tarafında:
+
+- Validation cards can show `description`, `status`, `points/max_points`, `message`, and `hint`.
+- `evidence` should be hidden from the normal student view or shown only in instructor/debug view.
+- Topic values should use the canonical keys listed above.
+- Recommendation cards already receive compatible topic values.
+- CLI page should show `current_mode = local_docker_exec_demo`.
+- SSH Gateway and Browser-based CLI should be shown as planned/future work only if needed.

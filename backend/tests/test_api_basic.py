@@ -355,3 +355,106 @@ def test_validation_persists_topic_performance_for_ml_ready_history():
     assert "attempt_count" in first_topic
     assert "fail_count" in first_topic
     assert "failure_rate" in first_topic
+
+def test_sprint8_validation_checks_include_advanced_fields():
+    response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "sprint8-validation-student",
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert response.status_code == 201
+
+    session_id = response.json()["session_id"]
+
+    validate_response = client.post(f"/api/v1/labs/{session_id}/validate")
+    assert validate_response.status_code == 200
+
+    data = validate_response.json()
+
+    assert data["success"] is True
+    assert data["status"] == "validated"
+    assert len(data["checks"]) == 5
+
+    allowed_topics = {
+        "ip_addressing",
+        "subnetting",
+        "interface_status",
+        "default_gateway",
+        "static_routing",
+        "vlan_like",
+        "acl_like",
+        "connectivity",
+    }
+
+    for check in data["checks"]:
+        assert "check_id" in check
+        assert check["topic"] in allowed_topics
+        assert "description" in check
+        assert check["status"] in ["passed", "failed", "warning", "skipped"]
+        assert "passed" in check
+        assert "points" in check
+        assert "max_points" in check
+        assert "message" in check
+        assert "hint" in check
+        assert "evidence" in check
+        assert isinstance(check["evidence"], dict)
+        assert check["evidence"]["validation_mode"] == "config_marker_check"
+
+
+def test_sprint8_cli_access_response_includes_mode_info():
+    response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "sprint8-cli-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert response.status_code == 201
+
+    session_id = response.json()["session_id"]
+
+    cli_response = client.get(f"/api/v1/labs/{session_id}/cli")
+    assert cli_response.status_code == 200
+
+    data = cli_response.json()
+
+    assert data["success"] is True
+    assert data["current_mode"] == "local_docker_exec_demo"
+    assert data["mode_info"]["current_mode"] == "local_docker_exec_demo"
+    assert "ssh_gateway_planned" in data["mode_info"]["planned_modes"]
+    assert "browser_cli_future_work" in data["mode_info"]["planned_modes"]
+
+    assert len(data["devices"]) >= 1
+
+    for device in data["devices"]:
+        assert device["access_method"] == "docker_exec"
+        assert device["mode"] == "local_docker_exec_demo"
+        assert device["command"].startswith("docker exec -it")
+
+
+def test_sprint8_cli_access_modes_metadata_endpoint():
+    response = client.get("/api/v1/meta/cli-access-modes")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["success"] is True
+    assert data["current_mode"] == "local_docker_exec_demo"
+    assert data["default_mode"] == "local_docker_exec_demo"
+
+    modes_by_value = {
+        item["value"]: item
+        for item in data["modes"]
+    }
+
+    assert modes_by_value["local_docker_exec_demo"]["status"] == "active"
+    assert modes_by_value["ssh_gateway_planned"]["status"] == "planned"
+    assert modes_by_value["browser_cli_future_work"]["status"] == "future_work"
+    assert "Sprint 8 keeps docker exec local demo mode" in data["decision"]
