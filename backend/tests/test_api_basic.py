@@ -252,3 +252,106 @@ def test_instructor_analytics_endpoints_after_validation():
     assert recent["success"] is True
     assert isinstance(recent["recent_sessions"], list)
     assert any(item["session_id"] == session_id for item in recent["recent_sessions"])
+
+
+
+def test_recommendations_endpoint_before_validation_returns_empty_state():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "recommendation-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    recommendation_response = client.get(f"/api/v1/labs/{session_id}/recommendations")
+
+    assert recommendation_response.status_code == 200
+
+    data = recommendation_response.json()
+    assert data["success"] is True
+    assert data["session_id"] == session_id
+    assert data["source"] == "rule_based"
+    assert data["fallback_used"] is True
+    assert data["recommendations"] == []
+    assert "Run validation" in data["message"]
+
+
+def test_recommendations_endpoint_after_validation_returns_explanatory_items():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "recommendation-student",
+            "difficulty": "medium",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    validate_response = client.post(f"/api/v1/labs/{session_id}/validate")
+    assert validate_response.status_code == 200
+
+    recommendation_response = client.get(f"/api/v1/labs/{session_id}/recommendations")
+    assert recommendation_response.status_code == 200
+
+    data = recommendation_response.json()
+    assert data["success"] is True
+    assert data["session_id"] == session_id
+    assert data["source"] in ["rule_based", "ml_prototype", "hybrid"]
+    assert isinstance(data["fallback_used"], bool)
+    assert isinstance(data["recommendations"], list)
+    assert len(data["recommendations"]) >= 1
+
+    first_item = data["recommendations"][0]
+    assert "topic" in first_item
+    assert "label" in first_item
+    assert "reason" in first_item
+    assert "explanation" in first_item
+    assert first_item["priority"] in ["low", "medium", "high"]
+    assert 0 <= first_item["confidence"] <= 1
+    assert first_item["source"] in ["rule_based", "ml_prototype", "hybrid"]
+    assert isinstance(first_item["next_actions"], list)
+    assert isinstance(first_item["related_failed_checks"], list)
+
+
+def test_validation_persists_topic_performance_for_ml_ready_history():
+    import json
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "ml-ready-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    validate_response = client.post(f"/api/v1/labs/{session_id}/validate")
+    assert validate_response.status_code == 200
+
+    metadata_path = GENERATED_DIR / session_id / "session.json"
+    assert metadata_path.exists()
+
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+
+    assert "topic_performance" in payload
+    assert isinstance(payload["topic_performance"], list)
+    assert len(payload["topic_performance"]) >= 1
+
+    first_topic = payload["topic_performance"][0]
+    assert "topic" in first_topic
+    assert "attempt_count" in first_topic
+    assert "fail_count" in first_topic
+    assert "failure_rate" in first_topic
