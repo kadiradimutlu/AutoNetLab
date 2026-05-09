@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import TopologyCard from "../components/TopologyCard";
 import MessageBox from "../components/MessageBox";
+import CliAccessPanel from "../components/CliAccessPanel";
+import ScenarioOverview from "../components/ScenarioOverview";
 import {
   deployLab,
   destroyLab,
@@ -17,16 +19,10 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
-const DEFAULT_STUDENT_HINTS = [
-  "Check IP addressing and subnet masks.",
-  "Verify interface status before testing connectivity.",
-  "Review routing and default gateway configuration.",
-  "Compare addressing, interfaces, and routing step by step across the topology."
-];
-
 function normalizeCliAccess(cli, index) {
   return {
     deviceName:
+      cli.deviceName ||
       cli.device_name ||
       cli.name ||
       cli.device ||
@@ -34,20 +30,24 @@ function normalizeCliAccess(cli, index) {
       cli.container_name ||
       `device-${index + 1}`,
     containerName:
+      cli.containerName ||
       cli.container_name ||
       cli.container ||
       cli.container_id ||
       "-",
     accessMethod:
+      cli.accessMethod ||
       cli.access_method ||
       cli.method ||
-      "docker_exec",
+      "local_docker_exec_demo",
     dockerExecCommand:
+      cli.dockerExecCommand ||
       cli.docker_exec_command ||
       cli.command ||
       cli.exec_command ||
       "",
     sshCommand:
+      cli.sshCommand ||
       cli.ssh_command ||
       cli.ssh ||
       "",
@@ -55,6 +55,43 @@ function normalizeCliAccess(cli, index) {
       cli.description ||
       ""
   };
+}
+
+function normalizeCliAccessResponse(result) {
+  if (Array.isArray(result)) {
+    return {
+      mode: "local_docker_exec_demo",
+      cliAccess: result.map((cli, index) => normalizeCliAccess(cli, index))
+    };
+  }
+
+  const safeResult = result && typeof result === "object" ? result : {};
+  const items =
+    safeResult.cli_access ||
+    safeResult.devices ||
+    safeResult.items ||
+    [];
+
+  return {
+    mode:
+      safeResult.mode ||
+      safeResult.cli_mode ||
+      safeResult.access_mode ||
+      "local_docker_exec_demo",
+    cliAccess: Array.isArray(items)
+      ? items.map((cli, index) => normalizeCliAccess(cli, index))
+      : []
+  };
+}
+
+function getFallbackCliMode(labSession) {
+  return (
+    labSession.cli_access_mode ||
+    labSession.cli_mode ||
+    labSession.access_mode ||
+    labSession.mode ||
+    "local_docker_exec_demo"
+  );
 }
 
 function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
@@ -70,6 +107,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   const [copiedCommandKey, setCopiedCommandKey] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const [cliAccessList, setCliAccessList] = useState([]);
+  const [cliAccessMode, setCliAccessMode] = useState("local_docker_exec_demo");
 
   useEffect(() => {
     let isMounted = true;
@@ -79,21 +117,21 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         setCliAccessList([]);
         setCliAccessWarning("");
         setCliAccessDetails("");
+        setCliAccessMode("local_docker_exec_demo");
         return;
       }
 
       setCliAccessWarning("");
       setCliAccessDetails("");
+      setCliAccessMode(getFallbackCliMode(labSession));
 
       try {
         const result = await getCliAccess(labSession.session_id);
 
         if (isMounted) {
-          const normalizedResult = Array.isArray(result)
-            ? result.map((cli, index) => normalizeCliAccess(cli, index))
-            : [];
-
-          setCliAccessList(normalizedResult);
+          const normalizedResult = normalizeCliAccessResponse(result);
+          setCliAccessList(normalizedResult.cliAccess);
+          setCliAccessMode(normalizedResult.mode);
         }
       } catch (error) {
         console.error("CLI access fetch failed. Falling back to session data.", error);
@@ -116,7 +154,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     return () => {
       isMounted = false;
     };
-  }, [labSession?.session_id]);
+  }, [labSession]);
 
   if (!labSession) {
     return (
@@ -132,10 +170,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   );
   const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const difficultyClass = getDifficultyClass(labSession.difficulty);
-  const studentHints =
-    Array.isArray(labSession.hints) && labSession.hints.length > 0
-      ? labSession.hints
-      : DEFAULT_STUDENT_HINTS;
+  const effectiveCliMode = cliAccessMode || getFallbackCliMode(labSession);
 
   async function refreshCurrentSession() {
     const updatedLabSession = await getLab(labSession.session_id);
@@ -223,11 +258,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
       <section className="card">
         <h2>{t("labSessionDetail")}</h2>
 
-        <MessageBox
-          type="info"
-          title="Student View"
-          message="This screen intentionally hides injected error details. Use the topology, CLI access, and general hints to troubleshoot the lab."
-        />
+        <ScenarioOverview labSession={labSession} t={t} />
 
         <div className="info-row">
           <span>{t("sessionId")}</span>
@@ -251,127 +282,15 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
           <strong>{formatStatus(labSession.status, t)}</strong>
         </div>
 
-        <h4>General Hints</h4>
-        <div className="hints-list">
-          {studentHints.map((hint, index) => (
-            <div className="hint-item" key={`${hint}-${index}`}>
-              <span className="hint-number">{index + 1}</span>
-              <p>{hint}</p>
-            </div>
-          ))}
-        </div>
-
-        <h4>{t("cliAccess")}</h4>
-
-        <p className="muted">
-          Use these commands in your terminal to access each network device.
-          Browser-based CLI is outside the scope of this sprint.
-        </p>
-
-        {cliAccessWarning && (
-          <>
-            <MessageBox
-              type="error"
-              title="CLI access warning"
-              message={cliAccessWarning}
-            />
-
-            {cliAccessDetails && (
-              <div className="technical-detail-box">
-                <strong>Technical detail</strong>
-                <p>{cliAccessDetails}</p>
-              </div>
-            )}
-          </>
-        )}
-
-        {copyNotice && (
-          <MessageBox
-            type="info"
-            title="Copy successful"
-            message={copyNotice}
-          />
-        )}
-
-        <div className="result-list">
-          {cliAccess.length === 0 && (
-            <p className="muted">CLI access information is not available yet.</p>
-          )}
-
-          {cliAccess.map((cli, index) => {
-            const dockerCommandKey = `${cli.deviceName}-docker-${index}`;
-            const sshCommandKey = `${cli.deviceName}-ssh-${index}`;
-
-            return (
-              <div className="list-item cli-card" key={`${cli.deviceName}-${index}`}>
-                <div className="result-title-row">
-                  <strong>{cli.deviceName}</strong>
-                  <span className="badge">CLI</span>
-                </div>
-
-                <div className="cli-meta-grid">
-                  <div>
-                    <span className="muted">Container Name</span>
-                    <strong>{cli.containerName}</strong>
-                  </div>
-
-                  <div>
-                    <span className="muted">Access Method</span>
-                    <strong>{cli.accessMethod}</strong>
-                  </div>
-                </div>
-
-                <p className="muted">
-                  {cli.description ||
-                    `Use this command to access ${cli.deviceName} through the CLI.`}
-                </p>
-
-                {cli.dockerExecCommand && (
-                  <div className="command-section">
-                    <p className="muted">Docker Exec Command:</p>
-
-                    <div className="command-row">
-                      <code className="command-box">{cli.dockerExecCommand}</code>
-
-                      <button
-                        className="secondary-button"
-                        onClick={() =>
-                          handleCopyCommand(
-                            cli.dockerExecCommand,
-                            dockerCommandKey
-                          )
-                        }
-                      >
-                        {copiedCommandKey === dockerCommandKey
-                          ? "Copied"
-                          : "Copy"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {cli.sshCommand && (
-                  <div className="command-section">
-                    <p className="muted">SSH Command:</p>
-
-                    <div className="command-row">
-                      <code className="command-box">{cli.sshCommand}</code>
-
-                      <button
-                        className="secondary-button"
-                        onClick={() =>
-                          handleCopyCommand(cli.sshCommand, sshCommandKey)
-                        }
-                      >
-                        {copiedCommandKey === sshCommandKey ? "Copied" : "Copy"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <CliAccessPanel
+          cliAccess={cliAccess}
+          mode={effectiveCliMode}
+          warning={cliAccessWarning}
+          details={cliAccessDetails}
+          copyNotice={copyNotice}
+          copiedCommandKey={copiedCommandKey}
+          onCopyCommand={handleCopyCommand}
+        />
 
         <h4>Containerlab Runtime</h4>
 

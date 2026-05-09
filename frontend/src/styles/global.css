@@ -1151,3 +1151,136 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 8 CLI access and advanced validation polish */
+.cli-access-panel,
+.scenario-overview {
+  margin-top: 20px;
+}
+
+.cli-mode-note {
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.cli-mode-note strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.cli-mode-note p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.scenario-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.scenario-meta-grid div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.scenario-meta-grid span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.topic-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+
+.topic-pill {
+  display: inline-block;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.validation-topic-list {
+  display: grid;
+  gap: 14px;
+}
+
+.validation-topic-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.validation-topic-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.validation-topic-header h4 {
+  margin: 4px 0 0;
+}
+
+.advanced-check-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.debug-evidence-panel {
+  margin-top: 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  padding: 10px;
+}
+
+.debug-evidence-panel summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.debug-evidence-panel span {
+  display: block;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 800;
+  margin-top: 10px;
+}
+
+.debug-evidence-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .scenario-meta-grid,
+  .advanced-check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .validation-topic-header {
+    flex-direction: column;
+  }
+}
