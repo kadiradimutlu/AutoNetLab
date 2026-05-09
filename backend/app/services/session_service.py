@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -78,6 +79,11 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
         "lab_name": generated_topology["lab_name"],
         "injected_errors": injected_errors,
         "cli_access": cli_access,
+        "created_at": _utc_now_iso(),
+        "completed_at": None,
+        "validation_result": None,
+        "score": None,
+        "passed": None,
     }
 
     _sessions[session_id] = session
@@ -110,6 +116,34 @@ def get_lab_session(session_id: str) -> dict:
 def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
     session = get_lab_session(session_id)
     session["status"] = new_status
+    _save_session_metadata(session)
+    return session
+
+
+def update_session_validation_result(session_id: str, validation_result) -> dict:
+    """
+    Persists validation result / doğrulama sonucunu session metadata içine kaydeder.
+
+    Sprint 6 analytics endpointleri session.json dosyalarını read-only şekilde okuyacağı için
+    score, passed, checks ve recommendations alanlarının kalıcı olması gerekir.
+    """
+
+    session = get_lab_session(session_id)
+
+    if hasattr(validation_result, "model_dump"):
+        result_payload = validation_result.model_dump(mode="json")
+    else:
+        result_payload = dict(validation_result)
+
+    session["status"] = SessionStatus.validated
+    session["validation_result"] = result_payload
+    session["score"] = result_payload.get("score")
+    session["passed"] = result_payload.get("passed")
+    session["completed_at"] = _utc_now_iso()
+
+    if not session.get("created_at"):
+        session["created_at"] = _utc_now_iso()
+
     _save_session_metadata(session)
     return session
 
@@ -235,6 +269,11 @@ def _save_session_metadata(session: dict) -> None:
             cli.model_dump() if hasattr(cli, "model_dump") else cli
             for cli in session["cli_access"]
         ],
+        "created_at": session.get("created_at") or _utc_now_iso(),
+        "completed_at": session.get("completed_at"),
+        "validation_result": session.get("validation_result"),
+        "score": session.get("score"),
+        "passed": session.get("passed"),
     }
 
     metadata_path.write_text(
@@ -290,6 +329,11 @@ def _load_session_metadata(session_id: str) -> dict | None:
             for error in payload.get("injected_errors", [])
         ],
         "cli_access": cli_access,
+        "created_at": payload.get("created_at"),
+        "completed_at": payload.get("completed_at"),
+        "validation_result": payload.get("validation_result"),
+        "score": payload.get("score"),
+        "passed": payload.get("passed"),
     }
 
     return session
@@ -333,6 +377,10 @@ def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
             f"{device_id.upper()} cihazına CLI üzerinden bağlanmak için bu komutu kullanın.",
         ),
     )
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _enum_value(value) -> str:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+﻿from fastapi import APIRouter, status
 
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import (
@@ -17,6 +17,7 @@ from app.services.session_service import (
     to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
+    update_session_validation_result,
 )
 from app.services.validation_service import validate_session
 
@@ -105,6 +106,6 @@ def validate_lab(session_id: str) -> ValidationResult:
 
     result = validate_session(session)
 
-    update_session_status(session_id, SessionStatus.validated)
+    update_session_validation_result(session_id, result)
 
     return result
