@@ -1,23 +1,48 @@
-{
-  "sessionId": "sess-001",
+﻿{
+  "success": true,
+  "session_id": "lab-demo-001",
+  "status": "validated",
+  "score": 50,
+  "passed": false,
+  "source": "rule_based",
+  "fallback_used": true,
   "recommendations": [
     {
-      "id": "rec-001",
-      "topic": "VLAN Trunking",
-      "priority": "High",
-      "message": "Review how trunk ports carry VLAN traffic between switches."
+      "topic": "ip_addressing",
+      "label": "IP Addressing",
+      "reason": "Failed validation checks indicate weakness in IP Addressing.",
+      "explanation": "One validation check related to IP Addressing failed. The student should review interface IP addresses and subnet masks before attempting a harder lab.",
+      "priority": "high",
+      "confidence": 0.9,
+      "source": "rule_based",
+      "next_actions": [
+        "Review IP address and subnet mask configuration.",
+        "Compare both router interfaces that are connected to the same link.",
+        "Run basic connectivity tests after fixing addressing issues."
+      ],
+      "related_failed_checks": [
+        {
+          "check_id": "check_1_ip_address_mismatch",
+          "topic": "IP Addressing",
+          "message": "Incorrect IP address configured on r1 eth1."
+        }
+      ]
     },
     {
-      "id": "rec-002",
-      "topic": "End-to-End Connectivity",
-      "priority": "Medium",
-      "message": "Practice using ping and interface status commands to verify connectivity."
-    },
-    {
-      "id": "rec-003",
-      "topic": "Troubleshooting Methodology",
-      "priority": "Medium",
-      "message": "Follow a step-by-step approach: physical link, VLAN, trunk, IP address, then connectivity test."
+      "topic": "routing",
+      "label": "Routing",
+      "reason": "Routing should still be reviewed because it affects end-to-end connectivity.",
+      "explanation": "Even when the routing check passes, students should confirm route tables after fixing addressing problems.",
+      "priority": "medium",
+      "confidence": 0.72,
+      "source": "rule_based",
+      "next_actions": [
+        "Check the routing table on each router.",
+        "Verify next-hop addresses.",
+        "Test connectivity again after each configuration change."
+      ],
+      "related_failed_checks": []
     }
-  ]
+  ],
+  "message": "Rule-based fallback recommendations generated successfully. ML prototype is experimental and not required for this demo."
 }
