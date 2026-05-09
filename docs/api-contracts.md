@@ -613,3 +613,18 @@ solution
 answer
 debug
 
+---
+
+# Sprint 6 Backend Addendum - Instructor Analytics
+
+Sprint 6 ile backend tarafına instructor dashboard / eğitmen paneli için read-only analytics endpointleri eklenmiştir.
+
+Bu endpointler lab runtime state / lab çalışma durumunu değiştirmez. Sadece mevcut session metadata / oturum metadata dosyalarını okur.
+
+## Added Endpoints
+
+```text
+GET /api/v1/instructor/analytics/summary
+GET /api/v1/instructor/analytics/difficulty-distribution
+GET /api/v1/instructor/analytics/topic-weaknesses
+GET /api/v1/instructor/sessions/recent

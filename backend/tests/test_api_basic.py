@@ -202,3 +202,53 @@ topology:
     assert result["status"] == "error"
     assert result["error_code"] == "CONTAINERLAB_NOT_FOUND"
     assert "suggestion" in result
+def test_instructor_analytics_endpoints_after_validation():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "analytics-student",
+            "difficulty": "medium",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    validate_response = client.post(f"/api/v1/labs/{session_id}/validate")
+
+    assert validate_response.status_code == 200
+
+    summary_response = client.get("/api/v1/instructor/analytics/summary")
+    assert summary_response.status_code == 200
+
+    summary = summary_response.json()
+    assert summary["success"] is True
+    assert summary["total_sessions"] >= 1
+    assert summary["completed_sessions"] >= 1
+    assert "average_score" in summary
+    assert "pass_rate" in summary
+
+    distribution_response = client.get("/api/v1/instructor/analytics/difficulty-distribution")
+    assert distribution_response.status_code == 200
+
+    distribution = distribution_response.json()
+    assert distribution["success"] is True
+    assert isinstance(distribution["distribution"], list)
+    assert any(item["difficulty"] == "medium" for item in distribution["distribution"])
+
+    weaknesses_response = client.get("/api/v1/instructor/analytics/topic-weaknesses")
+    assert weaknesses_response.status_code == 200
+
+    weaknesses = weaknesses_response.json()
+    assert weaknesses["success"] is True
+    assert isinstance(weaknesses["topic_weaknesses"], list)
+
+    recent_response = client.get("/api/v1/instructor/sessions/recent")
+    assert recent_response.status_code == 200
+
+    recent = recent_response.json()
+    assert recent["success"] is True
+    assert isinstance(recent["recent_sessions"], list)
+    assert any(item["session_id"] == session_id for item in recent["recent_sessions"])
