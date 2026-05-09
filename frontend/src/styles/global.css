@@ -836,3 +836,135 @@ select {
     border-radius: 12px;
   }
 }
+
+.analytics-summary-grid {
+  margin-bottom: 18px;
+}
+
+.analytics-stat-card p {
+  margin: 0;
+}
+
+.analytics-main-grid {
+  margin-bottom: 16px;
+}
+
+.analytics-card {
+  margin-bottom: 16px;
+}
+
+.analytics-empty-state {
+  border: 1px dashed #cbd5e1;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.analytics-empty-state strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.analytics-empty-state p {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.analytics-bar-list,
+.topic-weakness-list {
+  display: grid;
+  gap: 14px;
+}
+
+.analytics-bar-row,
+.topic-weakness-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.analytics-bar-header,
+.topic-weakness-header,
+.analytics-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.topic-weakness-header {
+  align-items: flex-start;
+}
+
+.topic-weakness-header p {
+  margin: 5px 0 0;
+}
+
+.analytics-bar-track {
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 12px 0 10px;
+}
+
+.analytics-bar-fill {
+  width: var(--bar-width);
+  height: 100%;
+  background: #2563eb;
+  border-radius: 999px;
+}
+
+.analytics-bar-fill.danger {
+  background: #dc2626;
+}
+
+.analytics-bar-meta {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.analytics-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.analytics-table th {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 800;
+}
+
+.analytics-table td {
+  color: #1f2937;
+}
+
+.badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+@media (max-width: 900px) {
+  .analytics-bar-header,
+  .topic-weakness-header,
+  .analytics-bar-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

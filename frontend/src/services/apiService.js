@@ -14,6 +14,113 @@ const DEFAULT_STUDENT_HINTS = [
   "Compare addressing, interfaces, and routing step by step across the topology."
 ];
 
+const MOCK_INSTRUCTOR_SUMMARY = {
+  success: true,
+  total_sessions: 12,
+  completed_sessions: 9,
+  active_sessions: 3,
+  passed_sessions: 6,
+  average_score: 74.44,
+  pass_rate: 66.67,
+  message: "MOCK: Instructor analytics summary loaded."
+};
+
+const MOCK_DIFFICULTY_DISTRIBUTION = {
+  success: true,
+  distribution: [
+    {
+      difficulty: "easy",
+      session_count: 4,
+      completed_count: 4,
+      average_score: 86.25
+    },
+    {
+      difficulty: "medium",
+      session_count: 5,
+      completed_count: 3,
+      average_score: 72.33
+    },
+    {
+      difficulty: "hard",
+      session_count: 3,
+      completed_count: 2,
+      average_score: 58.5
+    }
+  ],
+  message: "MOCK: Difficulty distribution loaded."
+};
+
+const MOCK_TOPIC_WEAKNESSES = {
+  success: true,
+  topic_weaknesses: [
+    {
+      topic: "ip_addressing",
+      label: "IP Addressing",
+      fail_count: 5,
+      attempt_count: 9,
+      failure_rate: 55.56,
+      average_score: 64.25,
+      severity: "high"
+    },
+    {
+      topic: "routing",
+      label: "Routing",
+      fail_count: 3,
+      attempt_count: 8,
+      failure_rate: 37.5,
+      average_score: 71.5,
+      severity: "medium"
+    },
+    {
+      topic: "interface_status",
+      label: "Interface Status",
+      fail_count: 1,
+      attempt_count: 6,
+      failure_rate: 16.67,
+      average_score: 84,
+      severity: "low"
+    }
+  ],
+  message: "MOCK: Topic weaknesses loaded."
+};
+
+const MOCK_RECENT_SESSIONS = {
+  success: true,
+  recent_sessions: [
+    {
+      session_id: "lab-demo-001",
+      student_id: "muhammed",
+      difficulty: "medium",
+      status: "validated",
+      score: 75,
+      passed: false,
+      created_at: "2026-05-09T10:00:00",
+      completed_at: "2026-05-09T10:18:00"
+    },
+    {
+      session_id: "lab-demo-002",
+      student_id: "kadir",
+      difficulty: "easy",
+      status: "validated",
+      score: 90,
+      passed: true,
+      created_at: "2026-05-09T09:30:00",
+      completed_at: "2026-05-09T09:42:00"
+    },
+    {
+      session_id: "lab-demo-003",
+      student_id: "muhammed",
+      difficulty: "hard",
+      status: "deployed",
+      score: null,
+      passed: null,
+      created_at: "2026-05-09T08:50:00",
+      completed_at: null
+    }
+  ],
+  message: "MOCK: Recent sessions loaded."
+};
+
 export function isMockApiEnabled() {
   return USE_MOCK_API;
 }
@@ -112,6 +219,10 @@ function getFriendlyErrorMessage({ status, path, method }) {
       return "CLI access information could not be found. Please check the CLI endpoint or the session data.";
     }
 
+    if (path.includes("/instructor")) {
+      return "Instructor analytics endpoint could not be found. Please make sure the Sprint 6 backend is running.";
+    }
+
     return "Invalid session ID or endpoint not found. Please create a new lab or check the API path.";
   }
 
@@ -134,6 +245,10 @@ function getFriendlyErrorMessage({ status, path, method }) {
 
     if (path.includes("/validate")) {
       return "Validation operation failed on the backend side. Please try again.";
+    }
+
+    if (path.includes("/instructor")) {
+      return "Instructor analytics could not be generated on the backend side. Please check the FastAPI terminal output.";
     }
 
     return "An unexpected backend error occurred. Please check the FastAPI terminal output.";
@@ -535,6 +650,51 @@ export async function validateSession(sessionId) {
   });
 
   return normalizeValidationResult(result);
+}
+
+export async function getInstructorSummary() {
+  if (USE_MOCK_API) {
+    await wait();
+
+    return MOCK_INSTRUCTOR_SUMMARY;
+  }
+
+  return request("/instructor/analytics/summary");
+}
+
+export async function getDifficultyDistribution() {
+  if (USE_MOCK_API) {
+    await wait();
+
+    return MOCK_DIFFICULTY_DISTRIBUTION;
+  }
+
+  return request("/instructor/analytics/difficulty-distribution");
+}
+
+export async function getTopicWeaknesses() {
+  if (USE_MOCK_API) {
+    await wait();
+
+    return MOCK_TOPIC_WEAKNESSES;
+  }
+
+  return request("/instructor/analytics/topic-weaknesses");
+}
+
+export async function getRecentSessions(limit = 10) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    return {
+      ...MOCK_RECENT_SESSIONS,
+      recent_sessions: MOCK_RECENT_SESSIONS.recent_sessions.slice(0, safeLimit)
+    };
+  }
+
+  return request(`/instructor/sessions/recent?limit=${safeLimit}`);
 }
 
 // Backward-compatible aliases.

@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import CreateLab from "./pages/CreateLab";
 import SessionDetail from "./pages/SessionDetail";
 import ValidationResult from "./pages/ValidationResult";
+import InstructorDashboardPage from "./pages/InstructorDashboardPage";
 import { getLab, isMockApiEnabled } from "./services/apiService";
 
 const ACTIVE_SESSION_STORAGE_KEY = "autonetlab_active_session_id";
@@ -87,6 +88,8 @@ function App() {
       {currentPage === "result" && (
         <ValidationResult labSession={labSession} />
       )}
+
+      {currentPage === "instructor" && <InstructorDashboardPage />}
     </Layout>
   );
 }
