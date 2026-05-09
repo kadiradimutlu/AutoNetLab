@@ -9,6 +9,7 @@ from app.schemas.lab import (
     LabSessionResponse,
 )
 from app.schemas.validation import ValidationResult
+from app.schemas.recommendation import RecommendationResponse
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.session_service import (
     create_lab_session,
@@ -20,6 +21,7 @@ from app.services.session_service import (
     update_session_validation_result,
 )
 from app.services.validation_service import validate_session
+from app.services.recommendation.engine import build_recommendations_for_session
 
 router = APIRouter(prefix="/labs", tags=["Lab Sessions"])
 
@@ -109,3 +111,12 @@ def validate_lab(session_id: str) -> ValidationResult:
     update_session_validation_result(session_id, result)
 
     return result
+
+
+@router.get("/{session_id}/recommendations", response_model=RecommendationResponse)
+def get_lab_recommendations(session_id: str) -> RecommendationResponse:
+    session = get_lab_session(session_id)
+
+    return RecommendationResponse(
+        **build_recommendations_for_session(session)
+    )

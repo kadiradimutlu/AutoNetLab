@@ -17,6 +17,7 @@ from app.schemas.lab import (
 from app.schemas.topology import Topology
 from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
+from app.services.recommendation.features import build_topic_performance
 
 
 _sessions: dict[str, dict] = {}
@@ -82,6 +83,7 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
         "created_at": _utc_now_iso(),
         "completed_at": None,
         "validation_result": None,
+        "topic_performance": None,
         "score": None,
         "passed": None,
     }
@@ -139,6 +141,7 @@ def update_session_validation_result(session_id: str, validation_result) -> dict
     session["validation_result"] = result_payload
     session["score"] = result_payload.get("score")
     session["passed"] = result_payload.get("passed")
+    session["topic_performance"] = build_topic_performance(result_payload)
     session["completed_at"] = _utc_now_iso()
 
     if not session.get("created_at"):
@@ -272,6 +275,7 @@ def _save_session_metadata(session: dict) -> None:
         "created_at": session.get("created_at") or _utc_now_iso(),
         "completed_at": session.get("completed_at"),
         "validation_result": session.get("validation_result"),
+        "topic_performance": session.get("topic_performance"),
         "score": session.get("score"),
         "passed": session.get("passed"),
     }
@@ -332,6 +336,7 @@ def _load_session_metadata(session_id: str) -> dict | None:
         "created_at": payload.get("created_at"),
         "completed_at": payload.get("completed_at"),
         "validation_result": payload.get("validation_result"),
+        "topic_performance": payload.get("topic_performance"),
         "score": payload.get("score"),
         "passed": payload.get("passed"),
     }
