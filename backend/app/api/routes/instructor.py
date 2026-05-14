@@ -1,5 +1,7 @@
-﻿from fastapi import APIRouter, Query
+﻿from fastapi import APIRouter, Depends, Query
 
+from app.core.auth import require_instructor
+from app.schemas.auth import AuthenticatedUser
 from app.schemas.instructor import (
     AnalyticsSummaryResponse,
     DifficultyDistributionResponse,
@@ -20,7 +22,9 @@ router = APIRouter(prefix="/instructor", tags=["Instructor Analytics"])
     "/analytics/summary",
     response_model=AnalyticsSummaryResponse,
 )
-def instructor_analytics_summary() -> AnalyticsSummaryResponse:
+def instructor_analytics_summary(
+    _current_user: AuthenticatedUser = Depends(require_instructor),
+) -> AnalyticsSummaryResponse:
     return AnalyticsSummaryResponse(**get_analytics_summary())
 
 
@@ -28,7 +32,9 @@ def instructor_analytics_summary() -> AnalyticsSummaryResponse:
     "/analytics/difficulty-distribution",
     response_model=DifficultyDistributionResponse,
 )
-def instructor_difficulty_distribution() -> DifficultyDistributionResponse:
+def instructor_difficulty_distribution(
+    _current_user: AuthenticatedUser = Depends(require_instructor),
+) -> DifficultyDistributionResponse:
     return DifficultyDistributionResponse(**get_difficulty_distribution())
 
 
@@ -36,7 +42,9 @@ def instructor_difficulty_distribution() -> DifficultyDistributionResponse:
     "/analytics/topic-weaknesses",
     response_model=TopicWeaknessResponse,
 )
-def instructor_topic_weaknesses() -> TopicWeaknessResponse:
+def instructor_topic_weaknesses(
+    _current_user: AuthenticatedUser = Depends(require_instructor),
+) -> TopicWeaknessResponse:
     return TopicWeaknessResponse(**get_topic_weaknesses())
 
 
@@ -46,5 +54,6 @@ def instructor_topic_weaknesses() -> TopicWeaknessResponse:
 )
 def instructor_recent_sessions(
     limit: int = Query(default=10, ge=1, le=50),
+    _current_user: AuthenticatedUser = Depends(require_instructor),
 ) -> RecentSessionsResponse:
     return RecentSessionsResponse(**get_recent_sessions(limit=limit))
