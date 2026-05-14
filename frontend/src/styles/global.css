@@ -1641,3 +1641,140 @@ select {
     flex-direction: column;
   }
 }
+
+/* Sprint 11 Web CLI MVP */
+.web-cli-panel {
+  margin: 18px 0;
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.web-cli-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 14px 0;
+}
+
+.web-cli-controls .form-group {
+  margin-bottom: 0;
+}
+
+.web-cli-controls select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: white;
+}
+
+.web-cli-button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.web-cli-terminal {
+  min-height: 280px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: #020617;
+  color: #d1fae5;
+  border: 1px solid #111827;
+  border-radius: 12px;
+  padding: 14px;
+  font-family: "Consolas", "Courier New", monospace;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.web-cli-line {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.web-cli-line.system {
+  color: #93c5fd;
+}
+
+.web-cli-line.command {
+  color: #fde68a;
+}
+
+.web-cli-line.error {
+  color: #fecaca;
+}
+
+.web-cli-line.output {
+  color: #d1fae5;
+}
+
+.web-cli-command-form {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  background: #111827;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.web-cli-command-form span {
+  color: #93c5fd;
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: 800;
+}
+
+.web-cli-command-form input {
+  border: 1px solid #374151;
+  background: #020617;
+  color: #d1fae5;
+  border-radius: 9px;
+  padding: 11px;
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.web-cli-command-form input:disabled {
+  color: #9ca3af;
+  background: #1f2937;
+}
+
+@media (max-width: 800px) {
+  .web-cli-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .web-cli-command-form {
+    grid-template-columns: auto 1fr;
+  }
+
+  .web-cli-command-form button {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Sprint 11 signed-in student lab ownership */
+.readonly-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #f9fafb;
+  color: #111827;
+  font: inherit;
+  font-weight: 700;
+}
+
+.form-helper {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}

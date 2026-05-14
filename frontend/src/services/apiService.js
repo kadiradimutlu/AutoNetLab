@@ -19,7 +19,7 @@ const DEMO_AUTH_USERS = {
       username: "student",
       display_name: "Student Demo User",
       role: "student",
-      student_id: "student"
+      student_id: "demo-student"
     },
     message: "Demo student login successful."
   },
@@ -210,6 +210,18 @@ export async function getCurrentUser() {
     throw error;
   }
 }
+
+const MOCK_CLI_ACCESS_MODES = {
+  success: true,
+  current_mode: "browser_cli_mvp",
+  default_mode: "browser_cli_mvp",
+  fallback_mode: "local_docker_exec_demo_fallback",
+  websocket: {
+    path_template: "/api/v1/labs/{session_id}/cli/ws/{device_id}",
+    auth_query_param: "token"
+  },
+  message: "MOCK: CLI access modes loaded."
+};
 
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
@@ -1004,6 +1016,12 @@ function normalizeCliAccess(cli, index) {
   const safeCli = cli && typeof cli === "object" ? cli : {};
 
   return {
+    device_id:
+      safeCli.device_id ||
+      safeCli.deviceId ||
+      safeCli.device ||
+      safeCli.name ||
+      `device-${index + 1}`,
     device_name:
       safeCli.device_name ||
       safeCli.name ||
@@ -1058,7 +1076,8 @@ function normalizeCliAccessResponse(result, sessionId = "") {
       safeResult.mode ||
       safeResult.cli_mode ||
       safeResult.access_mode ||
-      "local_docker_exec_demo",
+      safeResult.current_mode ||
+      "browser_cli_mvp",
     browser_cli_available: Boolean(safeResult.browser_cli_available),
     ssh_gateway_available: Boolean(safeResult.ssh_gateway_available),
     cli_access: Array.isArray(cliAccess)
@@ -1132,6 +1151,45 @@ export async function getTopology(sessionId) {
     cli_access: session.cli_access || [],
     hints: session.hints || DEFAULT_STUDENT_HINTS
   };
+}
+
+function getWebSocketBaseUrl() {
+  if (API_BASE_URL.startsWith("https://")) {
+    return API_BASE_URL.replace(/^https:\/\//, "wss://");
+  }
+
+  if (API_BASE_URL.startsWith("http://")) {
+    return API_BASE_URL.replace(/^http:\/\//, "ws://");
+  }
+
+  return API_BASE_URL;
+}
+
+export function getWebCliUrl({ sessionId, deviceId }) {
+  if (!sessionId) {
+    throw new Error("sessionId is required for Web CLI.");
+  }
+
+  if (!deviceId) {
+    throw new Error("deviceId is required for Web CLI.");
+  }
+
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("A login token is required for Web CLI.");
+  }
+
+  return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/cli/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
+}
+
+export async function getCliAccessModes() {
+  if (USE_MOCK_API) {
+    await wait();
+    return MOCK_CLI_ACCESS_MODES;
+  }
+
+  return request("/meta/cli-access-modes");
 }
 
 export async function getCliAccess(sessionId) {

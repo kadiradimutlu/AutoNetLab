@@ -176,6 +176,7 @@ function App() {
 
       {authUser.role === "student" && effectivePage === "create" && (
         <CreateLab
+          authUser={authUser}
           onLabCreated={handleLabCreated}
           onNavigate={handleNavigate}
         />

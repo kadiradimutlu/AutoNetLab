@@ -7,15 +7,30 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
-function CreateLab({ onLabCreated }) {
+function getSignedInStudentId(authUser) {
+  return (
+    authUser?.student_id ||
+    authUser?.studentId ||
+    authUser?.username ||
+    "student"
+  );
+}
+
+function CreateLab({ authUser, onLabCreated }) {
   const { t } = useLanguage();
 
-  const [studentId, setStudentId] = useState("muhammed");
+  const signedInStudentId = getSignedInStudentId(authUser);
+
+  const [studentId, setStudentId] = useState(signedInStudentId);
   const [difficulty, setDifficulty] = useState("easy");
   const [topologyTemplate, setTopologyTemplate] = useState("basic-two-router");
   const [difficulties, setDifficulties] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    setStudentId(signedInStudentId);
+  }, [signedInStudentId]);
 
   useEffect(() => {
     async function loadDifficulties() {
@@ -41,7 +56,7 @@ function CreateLab({ onLabCreated }) {
 
     try {
       const newLab = await createLab({
-        student_id: studentId,
+        student_id: signedInStudentId,
         difficulty,
         topology_template: topologyTemplate
       });
@@ -72,14 +87,15 @@ function CreateLab({ onLabCreated }) {
 
         <div className="form-group">
           <label htmlFor="studentId">{t("studentId")}</label>
-          <select
+          <input
             id="studentId"
             value={studentId}
-            onChange={(event) => setStudentId(event.target.value)}
-          >
-            <option value="muhammed">Muhammed</option>
-            <option value="kadir">Kadir</option>
-          </select>
+            readOnly
+            className="readonly-input"
+          />
+          <p className="form-helper">
+            Student ID is locked to the signed-in student for Web CLI access.
+          </p>
         </div>
 
         <div className="form-group">
