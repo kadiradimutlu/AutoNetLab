@@ -969,3 +969,73 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
     assert data["devices"][0]["device_id"] == "r1"
     assert data["devices"][0]["container_running"] is True
     assert data["devices"][0]["ready"] is True
+
+
+def test_sprint13_runtime_readiness_endpoint_returns_environment_status():
+    response = client.get("/api/v1/meta/runtime-readiness")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["success"] is True
+    assert "ready" in data
+    assert "platform" in data
+    assert "recommended_backend_environment" in data
+    assert "project_root" in data
+    assert "templates_dir_exists" in data
+    assert "generated_dir_exists" in data
+    assert "docker_available" in data
+    assert "docker_ps_ok" in data
+    assert "containerlab_available" in data
+    assert "current_mode" in data
+    assert data["current_mode"] == "browser_cli_mvp"
+    assert data["fallback_mode"] == "local_docker_exec_demo_fallback"
+    assert isinstance(data["checks"], list)
+    assert len(data["checks"]) >= 1
+
+
+def test_sprint13_runtime_readiness_can_report_ready_environment(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.meta.shutil.which",
+        lambda command_name: f"/usr/bin/{command_name}"
+        if command_name in {"docker", "containerlab"}
+        else None,
+    )
+
+    class FakeCompletedProcess:
+        def __init__(self, stdout: str):
+            self.returncode = 0
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(command, *args, **kwargs):
+        if command == ["docker", "--version"]:
+            return FakeCompletedProcess("Docker version 27.5.1, build 9f9e405\n")
+
+        if command == ["docker", "ps"]:
+            return FakeCompletedProcess("CONTAINER ID   IMAGE   COMMAND\n")
+
+        if command == ["containerlab", "version"]:
+            return FakeCompletedProcess("version: 0.75.0\n")
+
+        return FakeCompletedProcess("ok\n")
+
+    monkeypatch.setattr(
+        "app.api.routes.meta.subprocess.run",
+        fake_run,
+    )
+
+    response = client.get("/api/v1/meta/runtime-readiness")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["success"] is True
+    assert data["ready"] is True
+    assert data["docker_available"] is True
+    assert data["docker_ps_ok"] is True
+    assert data["containerlab_available"] is True
+    assert "Docker version 27.5.1" in data["docker_version"]
+    assert "version: 0.75.0" in data["containerlab_version"]

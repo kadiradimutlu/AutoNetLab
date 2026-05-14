@@ -1249,4 +1249,81 @@ Device readiness fields:
 - For device-specific readiness, call /cli/readiness/{device_id}.
 - Keep local docker exec fallback visible for demo recovery.
 - Sprint 12 improves runtime readiness and UX stability; full VM demo validation continues in Sprint 13.
+---
+
+# Sprint 13 Backend Contract Addendum - Demo Runtime Readiness
+
+Sprint 13 adds runtime readiness metadata for free cloud VM and final demo preparation.
+
+## Demo environment target
+
+Primary target:
+
+- Free cloud VM/server
+- Ubuntu Linux
+- Docker + Containerlab installed
+- Backend and frontend running on the VM
+- Presentation laptop opens AutoNetLab from browser only
+
+Backup target:
+
+- Local laptop WSL2 environment
+- Local docker exec fallback commands
+
+## New endpoint
+
+- GET /api/v1/meta/runtime-readiness
+
+This endpoint reports whether the backend runtime environment is ready for Docker, Containerlab, and Web CLI demo workflows.
+
+## Response fields
+
+- success
+- ready
+- platform
+- platform_release
+- recommended_backend_environment
+- project_root
+- templates_dir
+- templates_dir_exists
+- generated_dir
+- generated_dir_exists
+- docker_available
+- docker_version
+- docker_ps_ok
+- containerlab_available
+- containerlab_version
+- current_mode
+- fallback_mode
+- checks[]
+- message
+
+## Check item fields
+
+- name
+- ok
+- message
+
+## Expected demo-ready values
+
+- ready: true
+- docker_available: true
+- docker_ps_ok: true
+- containerlab_available: true
+- templates_dir_exists: true
+
+## Notes
+
+- This endpoint is for demo/runtime diagnostics.
+- It does not mutate lab runtime state.
+- It helps distinguish frontend issues from Docker/Containerlab runtime issues.
+- Recommended backend runtime environment is WSL/Ubuntu or a Linux VM with Docker and Containerlab.
+- Sprint 14 will focus on actual free VM provisioning and deployment.
+- Sprint 15 will focus on production-like serving through one public VM address.
+
+## Related docs
+
+- docs/demo-vm-setup.md
+- docs/final-demo-runbook.md
+- docs/runtime-preflight-checklist.md
 
