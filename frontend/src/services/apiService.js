@@ -288,6 +288,139 @@ const MOCK_TOPIC_WEAKNESSES = {
   message: "MOCK: Topic weaknesses loaded."
 };
 
+const MOCK_INSTRUCTOR_STUDENTS = {
+  success: true,
+  students: [
+    {
+      student_id: "demo-student",
+      total_sessions: 8,
+      completed_sessions: 6,
+      active_sessions: 1,
+      average_score: 76.5,
+      pass_rate: 66.7,
+      last_activity_at: "2026-05-14T12:30:00"
+    },
+    {
+      student_id: "muhammed",
+      total_sessions: 5,
+      completed_sessions: 4,
+      active_sessions: 0,
+      average_score: 82.25,
+      pass_rate: 75,
+      last_activity_at: "2026-05-13T16:20:00"
+    },
+    {
+      student_id: "kadir",
+      total_sessions: 4,
+      completed_sessions: 3,
+      active_sessions: 1,
+      average_score: 68,
+      pass_rate: 33.3,
+      last_activity_at: "2026-05-12T09:45:00"
+    }
+  ],
+  message: "MOCK: Instructor student list loaded."
+};
+
+const MOCK_STUDENT_DETAIL = {
+  "demo-student": {
+    summary: {
+      success: true,
+      student_id: "demo-student",
+      total_sessions: 8,
+      completed_sessions: 6,
+      active_sessions: 1,
+      passed_sessions: 4,
+      average_score: 76.5,
+      pass_rate: 66.7,
+      first_seen_at: "2026-05-01T09:00:00",
+      last_activity_at: "2026-05-14T12:30:00",
+      message: "MOCK: Student summary loaded."
+    },
+    sessions: [
+      {
+        session_id: "lab-demo-301",
+        student_id: "demo-student",
+        difficulty: "easy",
+        status: "validated",
+        score: 90,
+        passed: true,
+        created_at: "2026-05-10T09:00:00",
+        completed_at: "2026-05-10T09:18:00"
+      },
+      {
+        session_id: "lab-demo-302",
+        student_id: "demo-student",
+        difficulty: "medium",
+        status: "validated",
+        score: 70,
+        passed: false,
+        created_at: "2026-05-12T11:20:00",
+        completed_at: "2026-05-12T11:47:00"
+      },
+      {
+        session_id: "lab-demo-303",
+        student_id: "demo-student",
+        difficulty: "hard",
+        status: "deployed",
+        score: null,
+        passed: null,
+        created_at: "2026-05-14T12:30:00",
+        completed_at: null
+      }
+    ],
+    topic_weaknesses: [
+      {
+        topic: "static_routing",
+        label: "Static Routing",
+        fail_count: 3,
+        attempt_count: 6,
+        failure_rate: 50,
+        average_score: 62,
+        severity: "high"
+      },
+      {
+        topic: "ip_addressing",
+        label: "IP Addressing",
+        fail_count: 2,
+        attempt_count: 7,
+        failure_rate: 28.6,
+        average_score: 74,
+        severity: "medium"
+      }
+    ],
+    score_trend: [
+      {
+        session_id: "lab-demo-299",
+        difficulty: "easy",
+        status: "validated",
+        score: 65,
+        passed: false,
+        created_at: "2026-05-08T10:00:00",
+        completed_at: "2026-05-08T10:18:00"
+      },
+      {
+        session_id: "lab-demo-301",
+        difficulty: "easy",
+        status: "validated",
+        score: 90,
+        passed: true,
+        created_at: "2026-05-10T09:00:00",
+        completed_at: "2026-05-10T09:18:00"
+      },
+      {
+        session_id: "lab-demo-302",
+        difficulty: "medium",
+        status: "validated",
+        score: 70,
+        passed: false,
+        created_at: "2026-05-12T11:20:00",
+        completed_at: "2026-05-12T11:47:00"
+      }
+    ]
+  }
+};
+
 const MOCK_RECENT_SESSIONS = {
   success: true,
   recent_sessions: [
@@ -1168,6 +1301,113 @@ export async function validateSession(sessionId) {
   }
 
   return normalizeValidationResult(validationResult, recommendationPayload);
+}
+
+function getMockStudentDetail(studentId) {
+  const fallbackDetail = MOCK_STUDENT_DETAIL["demo-student"];
+  return MOCK_STUDENT_DETAIL[studentId] || {
+    ...fallbackDetail,
+    summary: {
+      ...fallbackDetail.summary,
+      student_id: studentId
+    },
+    sessions: fallbackDetail.sessions.map((session) => ({
+      ...session,
+      student_id: studentId,
+      session_id: session.session_id.replace("demo", studentId || "student")
+    })),
+    topic_weaknesses: fallbackDetail.topic_weaknesses,
+    score_trend: fallbackDetail.score_trend.map((item) => ({
+      ...item,
+      session_id: item.session_id.replace("demo", studentId || "student")
+    }))
+  };
+}
+
+export async function getInstructorStudents() {
+  if (USE_MOCK_API) {
+    await wait();
+    return MOCK_INSTRUCTOR_STUDENTS;
+  }
+
+  return request("/instructor/students");
+}
+
+export async function getInstructorStudentSummary(studentId) {
+  if (!studentId) {
+    throw new Error("studentId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+    return getMockStudentDetail(studentId).summary;
+  }
+
+  return request(`/instructor/students/${encodeURIComponent(studentId)}/summary`);
+}
+
+export async function getInstructorStudentSessions(studentId, limit = 50) {
+  if (!studentId) {
+    throw new Error("studentId is required.");
+  }
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+
+  if (USE_MOCK_API) {
+    await wait();
+    const detail = getMockStudentDetail(studentId);
+
+    return {
+      success: true,
+      student_id: studentId,
+      sessions: detail.sessions.slice(0, safeLimit),
+      message: "MOCK: Student sessions loaded."
+    };
+  }
+
+  return request(`/instructor/students/${encodeURIComponent(studentId)}/sessions?limit=${safeLimit}`);
+}
+
+export async function getInstructorStudentTopicWeaknesses(studentId) {
+  if (!studentId) {
+    throw new Error("studentId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+    const detail = getMockStudentDetail(studentId);
+
+    return {
+      success: true,
+      student_id: studentId,
+      topic_weaknesses: detail.topic_weaknesses,
+      message: "MOCK: Student topic weaknesses loaded."
+    };
+  }
+
+  return request(`/instructor/students/${encodeURIComponent(studentId)}/topic-weaknesses`);
+}
+
+export async function getInstructorStudentScoreTrend(studentId, limit = 50) {
+  if (!studentId) {
+    throw new Error("studentId is required.");
+  }
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+
+  if (USE_MOCK_API) {
+    await wait();
+    const detail = getMockStudentDetail(studentId);
+
+    return {
+      success: true,
+      student_id: studentId,
+      score_trend: detail.score_trend.slice(0, safeLimit),
+      message: "MOCK: Student score trend loaded."
+    };
+  }
+
+  return request(`/instructor/students/${encodeURIComponent(studentId)}/score-trend?limit=${safeLimit}`);
 }
 
 export async function getInstructorSummary() {
