@@ -1,6 +1,6 @@
 ﻿from fastapi import APIRouter, Depends, WebSocket, status
 
-from app.core.auth import require_instructor
+from app.core.auth import get_current_user, require_instructor
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import (
@@ -9,6 +9,7 @@ from app.schemas.lab import (
     CreateLabRequest,
     LabSessionDebugResponse,
     LabSessionResponse,
+    WebCliReadinessResponse,
 )
 from app.schemas.recommendation import RecommendationResponse
 from app.schemas.validation import ValidationResult
@@ -27,6 +28,7 @@ from app.services.validation_service import validate_session
 from app.services.web_cli_service import (
     WebCliError,
     build_web_cli_context,
+    get_web_cli_readiness,
     run_web_cli_bridge,
 )
 
@@ -68,6 +70,34 @@ def get_lab_debug(
 @router.get("/{session_id}/cli", response_model=CliAccessResponse)
 def get_lab_cli_access(session_id: str) -> CliAccessResponse:
     return get_cli_access_response(session_id)
+
+
+@router.get("/{session_id}/cli/readiness", response_model=WebCliReadinessResponse)
+def get_lab_cli_readiness(
+    session_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> WebCliReadinessResponse:
+    return WebCliReadinessResponse(
+        **get_web_cli_readiness(
+            session_id=session_id,
+            current_user=current_user,
+        )
+    )
+
+
+@router.get("/{session_id}/cli/readiness/{device_id}", response_model=WebCliReadinessResponse)
+def get_lab_device_cli_readiness(
+    session_id: str,
+    device_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> WebCliReadinessResponse:
+    return WebCliReadinessResponse(
+        **get_web_cli_readiness(
+            session_id=session_id,
+            device_id=device_id,
+            current_user=current_user,
+        )
+    )
 
 
 @router.websocket("/{session_id}/cli/ws/{device_id}")

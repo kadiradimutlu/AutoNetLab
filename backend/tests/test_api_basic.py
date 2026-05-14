@@ -843,3 +843,129 @@ def test_sprint11_web_cli_context_allows_own_deployed_student_session():
     assert context.container_name.startswith("clab-")
     assert context.username == "student"
     assert context.role == "student"
+
+
+def test_sprint12_web_cli_readiness_requires_auth_token():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    response = client.get(f"/api/v1/labs/{session_id}/cli/readiness")
+
+    assert response.status_code == 401
+
+
+def test_sprint12_web_cli_readiness_reports_not_deployed_state():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    response = client.get(
+        f"/api/v1/labs/{session_id}/cli/readiness",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["session_id"] == session_id
+    assert data["current_mode"] == "browser_cli_mvp"
+    assert data["lab_status"] == "created"
+    assert data["lab_deployed"] is False
+    assert data["ready"] is False
+    assert data["error_code"] == "LAB_NOT_DEPLOYED_FOR_WEB_CLI"
+    assert len(data["devices"]) >= 1
+    assert data["devices"][0]["ready"] is False
+
+
+def test_sprint12_web_cli_device_readiness_rejects_unknown_device():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    response = client.get(
+        f"/api/v1/labs/{session_id}/cli/readiness/not-a-device",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+
+    assert response.status_code == 404
+
+
+def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    monkeypatch.setattr(
+        "app.services.web_cli_service.shutil.which",
+        lambda command_name: "/usr/bin/docker" if command_name == "docker" else None,
+    )
+
+    class FakeCompletedProcess:
+        returncode = 0
+        stdout = "true\n"
+        stderr = ""
+
+    monkeypatch.setattr(
+        "app.services.web_cli_service.subprocess.run",
+        lambda *args, **kwargs: FakeCompletedProcess(),
+    )
+
+    response = client.get(
+        f"/api/v1/labs/{session_id}/cli/readiness/r1",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["session_id"] == session_id
+    assert data["lab_deployed"] is True
+    assert data["ready"] is True
+    assert data["error_code"] is None
+    assert len(data["devices"]) == 1
+    assert data["devices"][0]["device_id"] == "r1"
+    assert data["devices"][0]["container_running"] is True
+    assert data["devices"][0]["ready"] is True

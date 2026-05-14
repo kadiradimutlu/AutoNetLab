@@ -1,4 +1,6 @@
 ﻿import asyncio
+import shutil
+import subprocess
 from dataclasses import dataclass
 from typing import Any
 
@@ -358,3 +360,205 @@ async def _safe_close(websocket: WebSocket, code: int = 1000) -> None:
         await websocket.close(code=code)
     except RuntimeError:
         pass
+
+
+
+def get_web_cli_readiness(
+    session_id: str,
+    current_user: AuthenticatedUser,
+    device_id: str | None = None,
+) -> dict[str, Any]:
+    session = _get_session_or_web_cli_error(session_id)
+
+    _authorize_web_cli_access(
+        session=session,
+        current_user=current_user,
+    )
+
+    cli_items = session.get("cli_access", [])
+
+    if device_id is not None:
+        cli_items = [
+            cli_item
+            for cli_item in cli_items
+            if _get_cli_value(cli_item, "device_id") == device_id
+        ]
+
+        if not cli_items:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Device '{device_id}' is not part of this lab session.",
+            )
+
+    lab_status = _enum_value(session.get("status"))
+    lab_deployed = lab_status == SessionStatus.deployed.value
+
+    devices = [
+        _build_device_readiness(
+            cli_item=cli_item,
+            lab_deployed=lab_deployed,
+        )
+        for cli_item in cli_items
+    ]
+
+    ready = bool(devices) and all(device["ready"] for device in devices)
+
+    error_code = None
+
+    if not lab_deployed:
+        error_code = "LAB_NOT_DEPLOYED_FOR_WEB_CLI"
+    elif not ready:
+        error_code = _first_device_error_code(devices)
+
+    return {
+        "success": True,
+        "session_id": session_id,
+        "current_mode": "browser_cli_mvp",
+        "lab_status": lab_status,
+        "lab_deployed": lab_deployed,
+        "ready": ready,
+        "devices": devices,
+        "error_code": error_code,
+        "message": _readiness_message(
+            lab_deployed=lab_deployed,
+            ready=ready,
+            device_count=len(devices),
+        ),
+    }
+
+
+def _build_device_readiness(
+    cli_item: Any,
+    lab_deployed: bool,
+) -> dict[str, Any]:
+    device_id = _get_cli_value(cli_item, "device_id") or "unknown"
+    container_name = _get_cli_value(cli_item, "container_name")
+
+    if not lab_deployed:
+        return {
+            "device_id": device_id,
+            "container_name": container_name,
+            "docker_available": False,
+            "container_running": False,
+            "ready": False,
+            "error_code": "LAB_NOT_DEPLOYED_FOR_WEB_CLI",
+            "message": "Deploy the lab before opening Web CLI.",
+        }
+
+    if not container_name:
+        return {
+            "device_id": device_id,
+            "container_name": None,
+            "docker_available": False,
+            "container_running": False,
+            "ready": False,
+            "error_code": "WEB_CLI_CONTAINER_METADATA_MISSING",
+            "message": "Container metadata is missing for this device.",
+        }
+
+    if shutil.which("docker") is None:
+        return {
+            "device_id": device_id,
+            "container_name": container_name,
+            "docker_available": False,
+            "container_running": False,
+            "ready": False,
+            "error_code": "DOCKER_NOT_FOUND_FOR_WEB_CLI",
+            "message": "Docker command is not available in the backend runtime environment.",
+        }
+
+    try:
+        completed = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "-f",
+                "{{.State.Running}}",
+                container_name,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except PermissionError as exc:
+        return {
+            "device_id": device_id,
+            "container_name": container_name,
+            "docker_available": True,
+            "container_running": False,
+            "ready": False,
+            "error_code": "DOCKER_PERMISSION_DENIED_FOR_WEB_CLI",
+            "message": f"Permission denied while checking Docker container: {exc}",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "device_id": device_id,
+            "container_name": container_name,
+            "docker_available": True,
+            "container_running": False,
+            "ready": False,
+            "error_code": "WEB_CLI_CONTAINER_CHECK_TIMEOUT",
+            "message": "Docker container readiness check timed out.",
+        }
+    except OSError as exc:
+        return {
+            "device_id": device_id,
+            "container_name": container_name,
+            "docker_available": True,
+            "container_running": False,
+            "ready": False,
+            "error_code": "WEB_CLI_CONTAINER_CHECK_FAILED",
+            "message": f"Docker container readiness check failed: {exc}",
+        }
+
+    container_running = completed.returncode == 0 and completed.stdout.strip().lower() == "true"
+
+    if not container_running:
+        return {
+            "device_id": device_id,
+            "container_name": container_name,
+            "docker_available": True,
+            "container_running": False,
+            "ready": False,
+            "error_code": "WEB_CLI_CONTAINER_NOT_RUNNING",
+            "message": (
+                "The expected lab container is not running. "
+                "Deploy the lab or check Containerlab/Docker runtime state."
+            ),
+        }
+
+    return {
+        "device_id": device_id,
+        "container_name": container_name,
+        "docker_available": True,
+        "container_running": True,
+        "ready": True,
+        "error_code": None,
+        "message": "Device container is ready for Web CLI.",
+    }
+
+
+def _first_device_error_code(devices: list[dict[str, Any]]) -> str | None:
+    for device in devices:
+        if device.get("error_code"):
+            return device["error_code"]
+
+    return None
+
+
+def _readiness_message(
+    lab_deployed: bool,
+    ready: bool,
+    device_count: int,
+) -> str:
+    if not lab_deployed:
+        return "Lab is not deployed yet. Deploy the lab before opening Web CLI."
+
+    if device_count == 0:
+        return "No CLI devices were found for this lab session."
+
+    if ready:
+        return "Web CLI runtime is ready."
+
+    return "Web CLI runtime is not ready. Check device readiness details."
