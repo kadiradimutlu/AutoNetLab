@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
 import MessageBox from "../components/MessageBox";
@@ -104,6 +104,7 @@ function ValidationResult({ labSession }) {
         />
 
         <RecommendationCard
+          recommendationData={validationResult}
           recommendations={validationResult?.recommendations || []}
         />
       </div>
