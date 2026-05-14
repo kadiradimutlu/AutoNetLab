@@ -1,4 +1,4 @@
-from typing import Literal
+﻿from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -7,7 +7,9 @@ from app.schemas.topology import Topology
 
 
 CliAccessMode = Literal[
+    "browser_cli_mvp",
     "local_docker_exec_demo",
+    "local_docker_exec_demo_fallback",
     "ssh_gateway_planned",
     "browser_cli_future_work",
 ]
@@ -39,21 +41,22 @@ class CliAccess(BaseModel):
     command: str = Field(..., examples=["docker exec -it clab-autonetlab-lab-12345678-r1 sh"])
     description: str = Field(
         ...,
-        examples=["R1 cihazına CLI üzerinden bağlanmak için bu komutu kullanın."],
+        examples=["R1 cihazÄ±na CLI Ã¼zerinden baÄŸlanmak iÃ§in bu komutu kullanÄ±n."],
     )
 
 
 class CliAccessModeInfo(BaseModel):
     current_mode: CliAccessMode = Field(
-        default="local_docker_exec_demo",
-        examples=["local_docker_exec_demo"],
+        default="browser_cli_mvp",
+        examples=["browser_cli_mvp"],
     )
     default_mode: CliAccessMode = Field(
-        default="local_docker_exec_demo",
-        examples=["local_docker_exec_demo"],
+        default="browser_cli_mvp",
+        examples=["browser_cli_mvp"],
     )
     planned_modes: list[CliAccessMode] = Field(
         default_factory=lambda: [
+            "local_docker_exec_demo_fallback",
             "ssh_gateway_planned",
             "browser_cli_future_work",
         ],
@@ -78,8 +81,8 @@ class CliAccessResponse(BaseModel):
     session_id: str
     lab_name: str
     current_mode: CliAccessMode = Field(
-        default="local_docker_exec_demo",
-        examples=["local_docker_exec_demo"],
+        default="browser_cli_mvp",
+        examples=["browser_cli_mvp"],
     )
     mode_info: CliAccessModeInfo = Field(default_factory=CliAccessModeInfo)
     devices: list[CliAccess]
@@ -88,7 +91,7 @@ class CliAccessResponse(BaseModel):
 
 class LabSessionResponse(BaseModel):
     """
-    Student-safe lab session response / öğrenciye güvenli lab oturumu yanıtı.
+    Student-safe lab session response / Ã¶ÄŸrenciye gÃ¼venli lab oturumu yanÄ±tÄ±.
 
     This response is safe for the student dashboard.
     It intentionally does not include injected_errors, expected fixes,
@@ -117,7 +120,7 @@ class LabSessionResponse(BaseModel):
 
 class LabSessionDebugResponse(LabSessionResponse):
     """
-    Instructor/debug lab session response / eğitmen veya debug lab oturumu yanıtı.
+    Instructor/debug lab session response / eÄŸitmen veya debug lab oturumu yanÄ±tÄ±.
 
     This response keeps injected_errors visible for debugging,
     instructor review, and backend development purposes.

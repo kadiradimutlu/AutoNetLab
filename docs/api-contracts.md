@@ -1086,4 +1086,108 @@ Score trend item fields:
 - Student users must not access these endpoints.
 - Existing global analytics endpoints still work and were not removed.
 - These endpoints read session metadata only; they do not mutate lab runtime state.
+---
+
+# Sprint 11 Backend Contract Addendum - Web-based CLI MVP
+
+Sprint 11 adds a WebSocket-based Web CLI MVP for browser-based lab troubleshooting.
+
+## CLI mode
+
+Current primary CLI mode:
+
+- browser_cli_mvp
+
+Fallback mode:
+
+- local_docker_exec_demo_fallback
+
+The existing docker exec command information remains available as a fallback.
+
+## WebSocket endpoint
+
+- WS /api/v1/labs/{session_id}/cli/ws/{device_id}?token=<access_token>
+
+Example local URL:
+
+- ws://127.0.0.1:8000/api/v1/labs/lab-abc12345/cli/ws/r1?token=demo-student-token
+
+## Auth rules
+
+- token query parameter is required
+- student users may only access their own lab sessions
+- instructor users may access lab sessions for instruction/debug workflows
+- container_name is never accepted from the browser
+- backend resolves container_name from trusted session metadata
+
+## Runtime rules
+
+- The lab must be deployed before Web CLI opens
+- Unknown device_id is rejected
+- Docker/container runtime errors are returned as WebSocket error payloads
+- Sprint 11 uses WebSocket bridge MVP; Sprint 12 will harden lifecycle and terminal behavior
+
+## Initial WebSocket messages
+
+On accepted backend connection:
+
+- type: connected
+- success: true
+- session_id
+- device_id
+- container_name
+- mode: browser_cli_mvp
+- message
+
+If runtime process starts successfully:
+
+- type: runtime_started
+- success: true
+- session_id
+- device_id
+- container_name
+- message
+
+Error payload shape:
+
+- type: error
+- success: false
+- status_code
+- error_code
+- message
+
+Important error codes:
+
+- WEB_CLI_AUTH_REQUIRED
+- WEB_CLI_INVALID_TOKEN
+- WEB_CLI_FORBIDDEN
+- WEB_CLI_SESSION_NOT_FOUND
+- WEB_CLI_DEVICE_NOT_FOUND
+- LAB_NOT_DEPLOYED_FOR_WEB_CLI
+- DOCKER_NOT_FOUND_FOR_WEB_CLI
+- DOCKER_PERMISSION_DENIED_FOR_WEB_CLI
+- WEB_CLI_PROCESS_START_FAILED
+
+## CLI mode metadata endpoint
+
+- GET /api/v1/meta/cli-access-modes
+
+Important response fields:
+
+- current_mode: browser_cli_mvp
+- default_mode: browser_cli_mvp
+- fallback_mode: local_docker_exec_demo_fallback
+- websocket.path_template: /api/v1/labs/{session_id}/cli/ws/{device_id}
+- websocket.auth_query_param: token
+
+## Frontend notes for Muhammed
+
+- Build WebSocket URL from session_id, device_id, and access token.
+- Use token query parameter for Sprint 11 MVP.
+- Show clear error state if LAB_NOT_DEPLOYED_FOR_WEB_CLI is returned.
+- Keep local docker exec command as fallback UI information.
+- Do not allow users to type or override container_name.
+- Device selection should use cli_access device_id values.
+- Sprint 11 frontend can implement xterm.js or a minimal terminal-like UI.
+- Sprint 12 will improve lifecycle, terminal resizing, and UX hardening.
 
