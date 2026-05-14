@@ -1778,3 +1778,88 @@ select {
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* Sprint 12 Web CLI readiness */
+.web-cli-readiness-card {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.web-cli-readiness-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.web-cli-readiness-card.not-ready {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.web-cli-readiness-card.neutral {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+}
+
+.web-cli-readiness-card p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+.web-cli-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.web-cli-readiness-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.web-cli-readiness-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.web-cli-readiness-grid strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .web-cli-readiness-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .web-cli-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 12 disabled action polish */
+button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+.primary-button:disabled {
+  background: #9ca3af;
+  color: #f9fafb;
+}
+
+.secondary-button:disabled {
+  background: #e5e7eb;
+  color: #6b7280;
+}
