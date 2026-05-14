@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MessageBox from "./MessageBox";
 import {
   getAuthToken,
+  getErrorDetails,
   getErrorMessage,
+  getWebCliDeviceReadiness,
   getWebCliUrl
 } from "../services/apiService";
 
@@ -13,8 +15,12 @@ const READABLE_WEB_CLI_ERRORS = {
   WEB_CLI_SESSION_NOT_FOUND: "The selected lab session could not be found.",
   WEB_CLI_DEVICE_NOT_FOUND: "The selected device is not available for this lab session.",
   LAB_NOT_DEPLOYED_FOR_WEB_CLI: "Deploy the lab before opening Web CLI.",
+  WEB_CLI_CONTAINER_METADATA_MISSING: "Container metadata is missing for the selected device.",
   DOCKER_NOT_FOUND_FOR_WEB_CLI: "Docker is not available for Web CLI on the backend host.",
   DOCKER_PERMISSION_DENIED_FOR_WEB_CLI: "The backend does not have permission to access Docker for Web CLI.",
+  WEB_CLI_CONTAINER_CHECK_TIMEOUT: "The backend timed out while checking the selected device container.",
+  WEB_CLI_CONTAINER_CHECK_FAILED: "The backend could not check the selected device container.",
+  WEB_CLI_CONTAINER_NOT_RUNNING: "The selected device container is not running.",
   WEB_CLI_PROCESS_START_FAILED: "The backend could not start the Web CLI runtime process."
 };
 
@@ -40,6 +46,14 @@ function getDeviceLabel(device, index) {
   );
 }
 
+function getReadableWebCliError(errorCode, fallbackMessage = "") {
+  return (
+    READABLE_WEB_CLI_ERRORS[errorCode] ||
+    fallbackMessage ||
+    "Web CLI is not ready for the selected device."
+  );
+}
+
 function parseWebCliMessage(rawMessage) {
   if (!rawMessage) {
     return {
@@ -52,10 +66,10 @@ function parseWebCliMessage(rawMessage) {
     const parsedMessage = JSON.parse(rawMessage);
 
     if (parsedMessage?.type === "error") {
-      const friendlyMessage =
-        READABLE_WEB_CLI_ERRORS[parsedMessage.error_code] ||
-        parsedMessage.message ||
-        "Web CLI returned an error.";
+      const friendlyMessage = getReadableWebCliError(
+        parsedMessage.error_code,
+        parsedMessage.message
+      );
 
       return {
         kind: "error",
@@ -93,6 +107,124 @@ function parseWebCliMessage(rawMessage) {
   }
 }
 
+function getReadinessDevice(readiness) {
+  if (!readiness || typeof readiness !== "object") {
+    return null;
+  }
+
+  if (Array.isArray(readiness.devices) && readiness.devices.length > 0) {
+    return readiness.devices[0];
+  }
+
+  if (readiness.device && typeof readiness.device === "object") {
+    return readiness.device;
+  }
+
+  if (readiness.device_id || readiness.container_name || readiness.container_running !== undefined) {
+    return readiness;
+  }
+
+  return null;
+}
+
+function formatReadinessMessage(readiness) {
+  if (!readiness) {
+    return "Readiness has not been checked yet.";
+  }
+
+  const device = getReadinessDevice(readiness);
+  const errorCode = device?.error_code || readiness.error_code;
+
+  if (readiness.lab_deployed === false) {
+    return getReadableWebCliError("LAB_NOT_DEPLOYED_FOR_WEB_CLI");
+  }
+
+  if (device?.ready === false || readiness.ready === false) {
+    return getReadableWebCliError(
+      errorCode,
+      device?.message || readiness.message || "Selected device is not ready for Web CLI."
+    );
+  }
+
+  if (readiness.ready === true || device?.ready === true) {
+    return readiness.message || device?.message || "Selected device is ready for Web CLI.";
+  }
+
+  return readiness.message || device?.message || "Readiness state is unknown.";
+}
+
+function ReadinessDetails({ readiness }) {
+  if (!readiness) {
+    return (
+      <div className="web-cli-readiness-card neutral">
+        <strong>Readiness</strong>
+        <p>Readiness has not been checked yet.</p>
+      </div>
+    );
+  }
+
+  const device = getReadinessDevice(readiness);
+  const isReady = readiness.ready === true || device?.ready === true;
+  const statusClass = isReady ? "ready" : "not-ready";
+
+  return (
+    <div className={`web-cli-readiness-card ${statusClass}`}>
+      <div className="result-title-row">
+        <div>
+          <strong>{isReady ? "Device ready" : "Device not ready"}</strong>
+          <p>{formatReadinessMessage(readiness)}</p>
+        </div>
+
+        <span className={`badge ${isReady ? "pass" : "fail"}`}>
+          {isReady ? "READY" : "NOT READY"}
+        </span>
+      </div>
+
+      <div className="web-cli-readiness-grid">
+        <div>
+          <span>Lab Status</span>
+          <strong>{readiness.lab_status || "-"}</strong>
+        </div>
+
+        <div>
+          <span>Lab Deployed</span>
+          <strong>{readiness.lab_deployed === true ? "Yes" : readiness.lab_deployed === false ? "No" : "-"}</strong>
+        </div>
+
+        <div>
+          <span>Current Mode</span>
+          <strong>{readiness.current_mode || "-"}</strong>
+        </div>
+
+        <div>
+          <span>Device</span>
+          <strong>{device?.device_id || readiness.device_id || "-"}</strong>
+        </div>
+
+        <div>
+          <span>Docker Available</span>
+          <strong>{device?.docker_available === true ? "Yes" : device?.docker_available === false ? "No" : "-"}</strong>
+        </div>
+
+        <div>
+          <span>Container Running</span>
+          <strong>{device?.container_running === true ? "Yes" : device?.container_running === false ? "No" : "-"}</strong>
+        </div>
+
+        <div>
+          <span>Error Code</span>
+          <strong>{device?.error_code || readiness.error_code || "-"}</strong>
+        </div>
+
+        <div>
+          <span>Container Name</span>
+          <strong>{device?.container_name || "-"}</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WebCliTerminal({
   sessionId,
   devices = [],
@@ -112,15 +244,17 @@ function WebCliTerminal({
   }, [devices]);
 
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
-  const [connectionState, setConnectionState] = useState("disconnected");
+  const [connectionState, setConnectionState] = useState("idle");
   const [command, setCommand] = useState("");
   const [terminalLines, setTerminalLines] = useState([
     {
       kind: "system",
-      text: "Web CLI is ready. Select a device and connect after deploying the lab."
+      text: "Web CLI is ready. Select a device and check readiness before connecting."
     }
   ]);
   const [webCliError, setWebCliError] = useState("");
+  const [webCliErrorDetails, setWebCliErrorDetails] = useState("");
+  const [readiness, setReadiness] = useState(null);
 
   useEffect(() => {
     if (!selectedDeviceId && normalizedDevices.length > 0) {
@@ -131,6 +265,22 @@ function WebCliTerminal({
   useEffect(() => {
     outputEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [terminalLines]);
+
+  useEffect(() => {
+    if (!sessionId || !selectedDeviceId) {
+      setReadiness(null);
+      setConnectionState("idle");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      checkReadiness({
+        silent: true
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [sessionId, selectedDeviceId]);
 
   useEffect(() => {
     return () => {
@@ -158,21 +308,117 @@ function WebCliTerminal({
     setConnectionState("disconnected");
   }
 
-  function connectWebCli() {
+  function normalizeReadinessPayload(payload) {
+    const safePayload = payload && typeof payload === "object" ? payload : {};
+    const device = getReadinessDevice(safePayload);
+
+    return {
+      ...safePayload,
+      ready: safePayload.ready === true || device?.ready === true,
+      devices: Array.isArray(safePayload.devices)
+        ? safePayload.devices
+        : device
+          ? [device]
+          : []
+    };
+  }
+
+  function setReadinessFailureFromError(error) {
+    const data = error?.data && typeof error.data === "object" ? error.data : {};
+    const normalizedReadiness = normalizeReadinessPayload({
+      success: false,
+      session_id: sessionId,
+      lab_deployed: data.lab_deployed,
+      ready: false,
+      error_code: data.error_code || data.detail?.error_code,
+      message:
+        data.message ||
+        data.detail?.message ||
+        error.technicalMessage ||
+        error.message ||
+        "Readiness check failed."
+    });
+
+    setReadiness(normalizedReadiness);
+
+    const message = formatReadinessMessage(normalizedReadiness);
+    setWebCliError(message);
+    setWebCliErrorDetails(getErrorDetails(error));
+    setConnectionState("error");
+    appendTerminalLine("error", message);
+  }
+
+  async function checkReadiness({ silent = false } = {}) {
     setWebCliError("");
+    setWebCliErrorDetails("");
 
     if (!sessionId) {
-      setWebCliError("A lab session is required before opening Web CLI.");
-      return;
+      const message = "A lab session is required before checking Web CLI readiness.";
+      setWebCliError(message);
+      setConnectionState("error");
+      return null;
     }
 
     if (!selectedDeviceId) {
-      setWebCliError("Select a device before opening Web CLI.");
-      return;
+      const message = "Select a device before checking Web CLI readiness.";
+      setWebCliError(message);
+      setConnectionState("error");
+      return null;
     }
 
     if (!getAuthToken()) {
-      setWebCliError("A login token is required before opening Web CLI.");
+      const message = "A login token is required before checking Web CLI readiness.";
+      setWebCliError(message);
+      setConnectionState("error");
+      return null;
+    }
+
+    setConnectionState("checking readiness");
+
+    if (!silent) {
+      appendTerminalLine("system", `Checking Web CLI readiness for ${selectedDeviceId}...`);
+    }
+
+    try {
+      const result = await getWebCliDeviceReadiness(sessionId, selectedDeviceId);
+      const normalizedReadiness = normalizeReadinessPayload(result);
+      const message = formatReadinessMessage(normalizedReadiness);
+
+      setReadiness(normalizedReadiness);
+
+      if (normalizedReadiness.ready) {
+        setConnectionState("ready");
+
+        if (!silent) {
+          appendTerminalLine("system", message);
+        }
+
+        return normalizedReadiness;
+      }
+
+      setConnectionState("error");
+      setWebCliError(message);
+
+      if (!silent) {
+        appendTerminalLine("error", message);
+      }
+
+      return normalizedReadiness;
+    } catch (error) {
+      setReadinessFailureFromError(error);
+      return null;
+    }
+  }
+
+  async function connectWebCli() {
+    setWebCliError("");
+    setWebCliErrorDetails("");
+
+    const readinessResult = await checkReadiness({
+      silent: false
+    });
+
+    if (!readinessResult?.ready) {
       return;
     }
 
@@ -200,6 +446,7 @@ function WebCliTerminal({
 
         if (parsedMessage.kind === "error") {
           setWebCliError(parsedMessage.text);
+          setConnectionState("error");
         }
       };
 
@@ -216,6 +463,7 @@ function WebCliTerminal({
     } catch (error) {
       setConnectionState("error");
       setWebCliError(getErrorMessage(error, "Web CLI could not be opened."));
+      setWebCliErrorDetails(getErrorDetails(error));
       appendTerminalLine("error", error.message || "Web CLI could not be opened.");
     }
   }
@@ -238,8 +486,12 @@ function WebCliTerminal({
     setCommand("");
   }
 
+  const isCheckingReadiness = connectionState === "checking readiness";
+  const isReady = connectionState === "ready";
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
+  const canConnect = isReady && normalizedDevices.length > 0;
+  const statusBadgeClass = isConnected || isReady ? "pass" : connectionState === "error" ? "fail" : "neutral";
 
   return (
     <section className="web-cli-panel">
@@ -247,11 +499,11 @@ function WebCliTerminal({
         <div>
           <h4>Web CLI MVP</h4>
           <p className="muted">
-            Open a browser-based CLI session for the selected lab device. Deploy the lab before connecting.
+            Check runtime readiness before opening a browser-based CLI session for the selected lab device.
           </p>
         </div>
 
-        <span className={`badge ${isConnected ? "pass" : "neutral"}`}>
+        <span className={`badge ${statusBadgeClass}`}>
           {connectionState}
         </span>
       </div>
@@ -263,11 +515,20 @@ function WebCliTerminal({
       />
 
       {webCliError && (
-        <MessageBox
-          type="error"
-          title="Web CLI message"
-          message={webCliError}
-        />
+        <>
+          <MessageBox
+            type="error"
+            title="Web CLI readiness"
+            message={webCliError}
+          />
+
+          {webCliErrorDetails && (
+            <div className="technical-detail-box">
+              <strong>Technical detail</strong>
+              <p>{webCliErrorDetails}</p>
+            </div>
+          )}
+        </>
       )}
 
       <div className="web-cli-controls">
@@ -276,8 +537,14 @@ function WebCliTerminal({
           <select
             id="web-cli-device"
             value={selectedDeviceId}
-            onChange={(event) => setSelectedDeviceId(event.target.value)}
-            disabled={isConnected || isConnecting}
+            onChange={(event) => {
+              setSelectedDeviceId(event.target.value);
+              setReadiness(null);
+              setWebCliError("");
+              setWebCliErrorDetails("");
+              setConnectionState("idle");
+            }}
+            disabled={isConnected || isConnecting || isCheckingReadiness}
           >
             {normalizedDevices.length === 0 && (
               <option value="">No devices available</option>
@@ -293,12 +560,22 @@ function WebCliTerminal({
 
         <div className="web-cli-button-row">
           <button
-            className="primary-button"
-            onClick={connectWebCli}
-            disabled={isConnected || isConnecting || normalizedDevices.length === 0}
+            className="secondary-button"
+            onClick={() => checkReadiness({ silent: false })}
+            disabled={isConnected || isConnecting || isCheckingReadiness || normalizedDevices.length === 0}
             type="button"
           >
-            {isConnecting ? "Connecting..." : "Connect Web CLI"}
+            {isCheckingReadiness ? "Checking..." : "Check Readiness"}
+          </button>
+
+          <button
+            className="primary-button"
+            onClick={connectWebCli}
+            disabled={!canConnect || isConnected || isConnecting || isCheckingReadiness}
+            title={!canConnect ? "Check readiness and deploy the lab before connecting." : "Connect to the selected device."}
+            type="button"
+          >
+            {isConnecting ? "Connecting..." : canConnect ? "Connect Web CLI" : "Not Ready"}
           </button>
 
           <button
@@ -311,6 +588,8 @@ function WebCliTerminal({
           </button>
         </div>
       </div>
+
+      <ReadinessDetails readiness={readiness} />
 
       <div className="web-cli-terminal" role="log" aria-label="Web CLI terminal output">
         {terminalLines.map((line, index) => (

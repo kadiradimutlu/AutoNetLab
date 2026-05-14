@@ -223,6 +223,37 @@ const MOCK_CLI_ACCESS_MODES = {
   message: "MOCK: CLI access modes loaded."
 };
 
+const MOCK_WEB_CLI_READINESS = {
+  success: true,
+  session_id: "lab-demo-001",
+  current_mode: "browser_cli_mvp",
+  lab_status: "deployed",
+  lab_deployed: true,
+  ready: true,
+  devices: [
+    {
+      device_id: "r1",
+      container_name: "clab-autonetlab-mock-r1",
+      docker_available: true,
+      container_running: true,
+      ready: true,
+      error_code: null,
+      message: "MOCK: Device r1 is ready for Web CLI."
+    },
+    {
+      device_id: "r2",
+      container_name: "clab-autonetlab-mock-r2",
+      docker_available: true,
+      container_running: true,
+      ready: true,
+      error_code: null,
+      message: "MOCK: Device r2 is ready for Web CLI."
+    }
+  ],
+  error_code: null,
+  message: "MOCK: Web CLI readiness check completed."
+};
+
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
   "Verify interface status before testing connectivity.",
@@ -1163,6 +1194,69 @@ function getWebSocketBaseUrl() {
   }
 
   return API_BASE_URL;
+}
+
+function getMockWebCliReadiness(sessionId, deviceId = "") {
+  const devices = MOCK_WEB_CLI_READINESS.devices.map((device) => ({
+    ...device
+  }));
+
+  const filteredDevices = deviceId
+    ? devices.filter((device) => device.device_id === deviceId)
+    : devices;
+
+  return {
+    ...MOCK_WEB_CLI_READINESS,
+    session_id: sessionId,
+    devices: filteredDevices.length > 0
+      ? filteredDevices
+      : [
+          {
+            device_id: deviceId,
+            container_name: "-",
+            docker_available: true,
+            container_running: false,
+            ready: false,
+            error_code: "WEB_CLI_DEVICE_NOT_FOUND",
+            message: "MOCK: Selected device is not available for this lab session."
+          }
+        ],
+    ready: filteredDevices.length > 0 && filteredDevices.every((device) => device.ready),
+    error_code: filteredDevices.length > 0 ? null : "WEB_CLI_DEVICE_NOT_FOUND",
+    message: filteredDevices.length > 0
+      ? "MOCK: Web CLI readiness check completed."
+      : "MOCK: Selected device is not available for this lab session."
+  };
+}
+
+export async function getWebCliReadiness(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required for Web CLI readiness.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+    return getMockWebCliReadiness(sessionId);
+  }
+
+  return request(`/labs/${encodeURIComponent(sessionId)}/cli/readiness`);
+}
+
+export async function getWebCliDeviceReadiness(sessionId, deviceId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required for Web CLI readiness.");
+  }
+
+  if (!deviceId) {
+    throw new Error("deviceId is required for Web CLI readiness.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+    return getMockWebCliReadiness(sessionId, deviceId);
+  }
+
+  return request(`/labs/${encodeURIComponent(sessionId)}/cli/readiness/${encodeURIComponent(deviceId)}`);
 }
 
 export function getWebCliUrl({ sessionId, deviceId }) {
