@@ -254,6 +254,49 @@ const MOCK_WEB_CLI_READINESS = {
   message: "MOCK: Web CLI readiness check completed."
 };
 
+const MOCK_RUNTIME_READINESS = {
+  success: true,
+  ready: true,
+  platform: "Linux",
+  platform_release: "Ubuntu demo environment",
+  recommended_backend_environment: "Linux VM or WSL2 Ubuntu with Docker and Containerlab",
+  project_root: "/opt/autonetlab",
+  templates_dir: "/opt/autonetlab/containerlab/templates",
+  templates_dir_exists: true,
+  generated_dir: "/opt/autonetlab/containerlab/generated",
+  generated_dir_exists: true,
+  docker_available: true,
+  docker_version: "MOCK Docker 29.x",
+  docker_ps_ok: true,
+  containerlab_available: true,
+  containerlab_version: "MOCK containerlab 0.75.0",
+  current_mode: "browser_cli_mvp",
+  fallback_mode: "local_docker_exec_demo_fallback",
+  checks: [
+    {
+      name: "Docker command",
+      ok: true,
+      message: "Docker command is available."
+    },
+    {
+      name: "Docker daemon",
+      ok: true,
+      message: "Docker daemon responds to docker ps."
+    },
+    {
+      name: "Containerlab command",
+      ok: true,
+      message: "Containerlab command is available."
+    },
+    {
+      name: "Templates directory",
+      ok: true,
+      message: "Containerlab templates directory exists."
+    }
+  ],
+  message: "MOCK: Demo runtime environment is ready."
+};
+
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
   "Verify interface status before testing connectivity.",
@@ -1275,6 +1318,15 @@ export function getWebCliUrl({ sessionId, deviceId }) {
   }
 
   return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/cli/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
+}
+
+export async function getRuntimeReadiness() {
+  if (USE_MOCK_API) {
+    await wait();
+    return MOCK_RUNTIME_READINESS;
+  }
+
+  return request("/meta/runtime-readiness");
 }
 
 export async function getCliAccessModes() {
