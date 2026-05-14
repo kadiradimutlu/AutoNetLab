@@ -1190,4 +1190,63 @@ Important response fields:
 - Device selection should use cli_access device_id values.
 - Sprint 11 frontend can implement xterm.js or a minimal terminal-like UI.
 - Sprint 12 will improve lifecycle, terminal resizing, and UX hardening.
+---
+
+# Sprint 12 Backend Contract Addendum - Web CLI Stabilization
+
+Sprint 12 adds Web CLI readiness endpoints and runtime stabilization notes.
+
+## New readiness endpoints
+
+- GET /api/v1/labs/{session_id}/cli/readiness
+- GET /api/v1/labs/{session_id}/cli/readiness/{device_id}
+
+Both endpoints require authentication.
+
+Auth behavior:
+
+- No token -> 401 Unauthorized
+- Student token can access only the student's own lab session
+- Instructor token can access lab sessions for instruction/debug workflows
+
+## Readiness response fields
+
+- success
+- session_id
+- current_mode
+- lab_status
+- lab_deployed
+- ready
+- devices[]
+- error_code
+- message
+
+Device readiness fields:
+
+- device_id
+- container_name
+- docker_available
+- container_running
+- ready
+- error_code
+- message
+
+## Important readiness error codes
+
+- LAB_NOT_DEPLOYED_FOR_WEB_CLI
+- WEB_CLI_CONTAINER_METADATA_MISSING
+- DOCKER_NOT_FOUND_FOR_WEB_CLI
+- DOCKER_PERMISSION_DENIED_FOR_WEB_CLI
+- WEB_CLI_CONTAINER_CHECK_TIMEOUT
+- WEB_CLI_CONTAINER_CHECK_FAILED
+- WEB_CLI_CONTAINER_NOT_RUNNING
+
+## Frontend notes for Muhammed
+
+- Before opening Web CLI, frontend can call readiness endpoint.
+- If lab_deployed is false, show Deploy the lab before opening Web CLI.
+- If ready is false, show device-level readiness details.
+- For device-specific readiness, call /cli/readiness/{device_id}.
+- Keep local docker exec fallback visible for demo recovery.
+- Sprint 12 improves runtime readiness and UX stability; full VM demo validation continues in Sprint 13.
 

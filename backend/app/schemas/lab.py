@@ -89,6 +89,27 @@ class CliAccessResponse(BaseModel):
     message: str
 
 
+
+class WebCliDeviceReadiness(BaseModel):
+    device_id: str = Field(..., examples=["r1"])
+    container_name: str | None = Field(default=None, examples=["clab-autonetlab-lab-abc12345-r1"])
+    docker_available: bool = Field(default=False)
+    container_running: bool = Field(default=False)
+    ready: bool = Field(default=False)
+    error_code: str | None = Field(default=None)
+    message: str
+
+
+class WebCliReadinessResponse(BaseModel):
+    success: bool = True
+    session_id: str
+    current_mode: CliAccessMode = Field(default="browser_cli_mvp")
+    lab_status: SessionStatus
+    lab_deployed: bool
+    ready: bool
+    devices: list[WebCliDeviceReadiness]
+    error_code: str | None = Field(default=None)
+    message: str
 class LabSessionResponse(BaseModel):
     """
     Student-safe lab session response / Ã¶ÄŸrenciye gÃ¼venli lab oturumu yanÄ±tÄ±.
@@ -144,3 +165,5 @@ class ActionResponse(BaseModel):
     error_code: str | None = None
     detail: str | None = None
     suggestion: str | None = None
+
+
