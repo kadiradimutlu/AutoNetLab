@@ -29,6 +29,26 @@ class RecentSessionItem(BaseModel):
     completed_at: str | None = Field(default=None)
 
 
+class StudentListItem(BaseModel):
+    student_id: str = Field(..., examples=["demo-student"])
+    total_sessions: int = Field(..., ge=0, examples=[6])
+    completed_sessions: int = Field(..., ge=0, examples=[4])
+    active_sessions: int = Field(..., ge=0, examples=[2])
+    average_score: float = Field(..., ge=0, le=100, examples=[72.5])
+    pass_rate: float = Field(..., ge=0, le=100, examples=[50.0])
+    last_activity_at: str | None = Field(default=None)
+
+
+class ScoreTrendItem(BaseModel):
+    session_id: str = Field(..., examples=["lab-abc12345"])
+    difficulty: str = Field(..., examples=["medium"])
+    status: str = Field(..., examples=["validated"])
+    score: int | None = Field(default=None, ge=0, le=100, examples=[75])
+    passed: bool | None = Field(default=None, examples=[False])
+    created_at: str | None = Field(default=None)
+    completed_at: str | None = Field(default=None)
+
+
 class AnalyticsSummaryResponse(BaseModel):
     success: bool = True
     total_sessions: int = Field(..., ge=0)
@@ -55,4 +75,45 @@ class TopicWeaknessResponse(BaseModel):
 class RecentSessionsResponse(BaseModel):
     success: bool = True
     recent_sessions: list[RecentSessionItem]
+    message: str
+
+
+class StudentListResponse(BaseModel):
+    success: bool = True
+    students: list[StudentListItem]
+    message: str
+
+
+class StudentSummaryResponse(BaseModel):
+    success: bool = True
+    student_id: str
+    total_sessions: int = Field(..., ge=0)
+    completed_sessions: int = Field(..., ge=0)
+    active_sessions: int = Field(..., ge=0)
+    passed_sessions: int = Field(..., ge=0)
+    average_score: float = Field(..., ge=0, le=100)
+    pass_rate: float = Field(..., ge=0, le=100)
+    first_seen_at: str | None = Field(default=None)
+    last_activity_at: str | None = Field(default=None)
+    message: str
+
+
+class StudentSessionsResponse(BaseModel):
+    success: bool = True
+    student_id: str
+    sessions: list[RecentSessionItem]
+    message: str
+
+
+class StudentTopicWeaknessResponse(BaseModel):
+    success: bool = True
+    student_id: str
+    topic_weaknesses: list[TopicWeaknessItem]
+    message: str
+
+
+class StudentScoreTrendResponse(BaseModel):
+    success: bool = True
+    student_id: str
+    score_trend: list[ScoreTrendItem]
     message: str
