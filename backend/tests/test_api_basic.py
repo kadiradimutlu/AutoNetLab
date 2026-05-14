@@ -597,3 +597,114 @@ def test_sprint9_debug_lab_endpoint_requires_instructor_role():
     )
     assert instructor_response.status_code == 200
     assert "injected_errors" in instructor_response.json()
+
+
+def test_sprint10_instructor_students_endpoint_requires_instructor_role():
+    no_auth_response = client.get("/api/v1/instructor/students")
+    assert no_auth_response.status_code == 401
+
+    student_response = client.get(
+        "/api/v1/instructor/students",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+    assert student_response.status_code == 403
+
+    instructor_response = client.get(
+        "/api/v1/instructor/students",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert instructor_response.status_code == 200
+
+    data = instructor_response.json()
+    assert data["success"] is True
+    assert "students" in data
+    assert isinstance(data["students"], list)
+
+
+def test_sprint10_instructor_student_detail_endpoints_return_student_history():
+    student_id = "sprint10-dashboard-student"
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "medium",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    validate_response = client.post(f"/api/v1/labs/{session_id}/validate")
+    assert validate_response.status_code == 200
+
+    students_response = client.get(
+        "/api/v1/instructor/students",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert students_response.status_code == 200
+
+    students_data = students_response.json()
+    assert any(
+        item["student_id"] == student_id
+        for item in students_data["students"]
+    )
+
+    summary_response = client.get(
+        f"/api/v1/instructor/students/{student_id}/summary",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert summary_response.status_code == 200
+
+    summary = summary_response.json()
+    assert summary["success"] is True
+    assert summary["student_id"] == student_id
+    assert summary["total_sessions"] >= 1
+    assert summary["completed_sessions"] >= 1
+    assert "average_score" in summary
+    assert "pass_rate" in summary
+    assert "first_seen_at" in summary
+    assert "last_activity_at" in summary
+
+    sessions_response = client.get(
+        f"/api/v1/instructor/students/{student_id}/sessions",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert sessions_response.status_code == 200
+
+    sessions_data = sessions_response.json()
+    assert sessions_data["success"] is True
+    assert sessions_data["student_id"] == student_id
+    assert isinstance(sessions_data["sessions"], list)
+    assert any(
+        item["session_id"] == session_id
+        for item in sessions_data["sessions"]
+    )
+
+    weaknesses_response = client.get(
+        f"/api/v1/instructor/students/{student_id}/topic-weaknesses",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert weaknesses_response.status_code == 200
+
+    weaknesses_data = weaknesses_response.json()
+    assert weaknesses_data["success"] is True
+    assert weaknesses_data["student_id"] == student_id
+    assert isinstance(weaknesses_data["topic_weaknesses"], list)
+
+    trend_response = client.get(
+        f"/api/v1/instructor/students/{student_id}/score-trend",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert trend_response.status_code == 200
+
+    trend_data = trend_response.json()
+    assert trend_data["success"] is True
+    assert trend_data["student_id"] == student_id
+    assert isinstance(trend_data["score_trend"], list)
+    assert any(
+        item["session_id"] == session_id
+        for item in trend_data["score_trend"]
+    )

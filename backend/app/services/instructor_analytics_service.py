@@ -359,3 +359,287 @@ def _file_timestamp(path: Path) -> str:
 
 def _sort_timestamp(session: dict[str, Any]) -> str:
     return session.get("completed_at") or session.get("created_at") or ""
+
+
+def get_students(limit: int = 100) -> dict:
+    sessions = _load_session_records()
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for session in sessions:
+        student_id = _normalize_student_id(session.get("student_id"))
+        grouped[student_id].append(session)
+
+    students = []
+
+    for student_id, student_sessions in grouped.items():
+        completed_sessions = [
+            session
+            for session in student_sessions
+            if _is_completed(session)
+        ]
+        active_sessions = [
+            session
+            for session in student_sessions
+            if _normalize_status(session.get("status")) in {"created", "deployed"}
+        ]
+        scores = [
+            score
+            for session in completed_sessions
+            if (score := _extract_score(session)) is not None
+        ]
+        passed_sessions = [
+            session
+            for session in completed_sessions
+            if _extract_passed(session) is True
+        ]
+
+        pass_rate = (
+            round((len(passed_sessions) / len(completed_sessions)) * 100, 2)
+            if completed_sessions
+            else 0.0
+        )
+
+        students.append(
+            {
+                "student_id": student_id,
+                "total_sessions": len(student_sessions),
+                "completed_sessions": len(completed_sessions),
+                "active_sessions": len(active_sessions),
+                "average_score": _safe_average(scores),
+                "pass_rate": pass_rate,
+                "last_activity_at": _latest_activity(student_sessions),
+            }
+        )
+
+    students.sort(
+        key=lambda item: item.get("last_activity_at") or "",
+        reverse=True,
+    )
+
+    return {
+        "success": True,
+        "students": students[:limit],
+        "message": "Instructor student list generated successfully.",
+    }
+
+
+def get_student_summary(student_id: str) -> dict:
+    student_sessions = _get_sessions_for_student(student_id)
+
+    completed_sessions = [
+        session
+        for session in student_sessions
+        if _is_completed(session)
+    ]
+    active_sessions = [
+        session
+        for session in student_sessions
+        if _normalize_status(session.get("status")) in {"created", "deployed"}
+    ]
+    passed_sessions = [
+        session
+        for session in completed_sessions
+        if _extract_passed(session) is True
+    ]
+    scores = [
+        score
+        for session in completed_sessions
+        if (score := _extract_score(session)) is not None
+    ]
+
+    pass_rate = (
+        round((len(passed_sessions) / len(completed_sessions)) * 100, 2)
+        if completed_sessions
+        else 0.0
+    )
+
+    return {
+        "success": True,
+        "student_id": student_id,
+        "total_sessions": len(student_sessions),
+        "completed_sessions": len(completed_sessions),
+        "active_sessions": len(active_sessions),
+        "passed_sessions": len(passed_sessions),
+        "average_score": _safe_average(scores),
+        "pass_rate": pass_rate,
+        "first_seen_at": _first_activity(student_sessions),
+        "last_activity_at": _latest_activity(student_sessions),
+        "message": "Student analytics summary generated successfully.",
+    }
+
+
+def get_student_sessions(student_id: str, limit: int = 50) -> dict:
+    student_sessions = _get_sessions_for_student(student_id)
+
+    sorted_sessions = sorted(
+        student_sessions,
+        key=_sort_timestamp,
+        reverse=True,
+    )
+
+    sessions = [
+        _session_to_recent_item(session)
+        for session in sorted_sessions[:limit]
+    ]
+
+    return {
+        "success": True,
+        "student_id": student_id,
+        "sessions": sessions,
+        "message": "Student lab sessions retrieved successfully.",
+    }
+
+
+def get_student_topic_weaknesses(student_id: str) -> dict:
+    student_sessions = _get_sessions_for_student(student_id)
+
+    topic_stats: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "topic": "unknown",
+            "label": "Unknown",
+            "fail_count": 0,
+            "attempt_count": 0,
+            "scores": [],
+        }
+    )
+
+    for session in student_sessions:
+        validation_result = _extract_validation_result(session)
+
+        if not validation_result:
+            continue
+
+        score = _extract_score(session)
+
+        for check in validation_result.get("checks", []):
+            raw_topic = check.get("topic", "unknown")
+            topic_key = _normalize_topic(raw_topic)
+
+            topic_stats[topic_key]["topic"] = topic_key
+            topic_stats[topic_key]["label"] = TOPIC_LABELS.get(topic_key, raw_topic)
+            topic_stats[topic_key]["attempt_count"] += 1
+
+            if score is not None:
+                topic_stats[topic_key]["scores"].append(score)
+
+            if check.get("passed") is False:
+                topic_stats[topic_key]["fail_count"] += 1
+
+    topic_weaknesses = []
+
+    for topic_key, stats in topic_stats.items():
+        attempt_count = stats["attempt_count"]
+        fail_count = stats["fail_count"]
+        failure_rate = round((fail_count / attempt_count) * 100, 2) if attempt_count else 0.0
+
+        topic_weaknesses.append(
+            {
+                "topic": topic_key,
+                "label": stats["label"],
+                "fail_count": fail_count,
+                "attempt_count": attempt_count,
+                "failure_rate": failure_rate,
+                "average_score": _safe_average(stats["scores"]),
+                "severity": _severity_from_failure_rate(failure_rate),
+            }
+        )
+
+    topic_weaknesses.sort(
+        key=lambda item: (item["fail_count"], item["failure_rate"]),
+        reverse=True,
+    )
+
+    return {
+        "success": True,
+        "student_id": student_id,
+        "topic_weaknesses": topic_weaknesses,
+        "message": "Student topic weakness analytics generated successfully.",
+    }
+
+
+def get_student_score_trend(student_id: str, limit: int = 50) -> dict:
+    student_sessions = _get_sessions_for_student(student_id)
+
+    completed_or_scored_sessions = [
+        session
+        for session in student_sessions
+        if _is_completed(session) or _extract_score(session) is not None
+    ]
+
+    sorted_sessions = sorted(
+        completed_or_scored_sessions,
+        key=_sort_timestamp,
+    )
+
+    score_trend = [
+        {
+            "session_id": session.get("session_id", "unknown"),
+            "difficulty": _normalize_difficulty(session.get("difficulty")),
+            "status": _normalize_status(session.get("status")),
+            "score": _extract_score(session),
+            "passed": _extract_passed(session),
+            "created_at": session.get("created_at"),
+            "completed_at": session.get("completed_at"),
+        }
+        for session in sorted_sessions[-limit:]
+    ]
+
+    return {
+        "success": True,
+        "student_id": student_id,
+        "score_trend": score_trend,
+        "message": "Student score trend generated successfully.",
+    }
+
+
+def _get_sessions_for_student(student_id: str) -> list[dict[str, Any]]:
+    requested_student_id = _normalize_student_id(student_id)
+
+    return [
+        session
+        for session in _load_session_records()
+        if _normalize_student_id(session.get("student_id")) == requested_student_id
+    ]
+
+
+def _normalize_student_id(value: Any) -> str:
+    if value is None:
+        return "unknown"
+
+    text = str(value).strip()
+
+    return text or "unknown"
+
+
+def _session_to_recent_item(session: dict[str, Any]) -> dict:
+    return {
+        "session_id": session.get("session_id", "unknown"),
+        "student_id": _normalize_student_id(session.get("student_id")),
+        "difficulty": _normalize_difficulty(session.get("difficulty")),
+        "status": _normalize_status(session.get("status")),
+        "score": _extract_score(session),
+        "passed": _extract_passed(session),
+        "created_at": session.get("created_at"),
+        "completed_at": session.get("completed_at"),
+    }
+
+
+def _first_activity(sessions: list[dict[str, Any]]) -> str | None:
+    timestamps = [
+        timestamp
+        for session in sessions
+        if (timestamp := (session.get("created_at") or session.get("completed_at")))
+    ]
+
+    return min(timestamps) if timestamps else None
+
+
+def _latest_activity(sessions: list[dict[str, Any]]) -> str | None:
+    timestamps = [
+        timestamp
+        for session in sessions
+        if (timestamp := (session.get("completed_at") or session.get("created_at")))
+    ]
+
+    return max(timestamps) if timestamps else None

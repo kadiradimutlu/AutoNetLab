@@ -966,4 +966,124 @@ Important rules:
 - Student role should route to student lab flow.
 - Instructor role should route to instructor dashboard.
 - Instructor API requests must include the bearer token.
+---
+
+# Sprint 10 Backend Contract Addendum - Instructor Dashboard v2
+
+Sprint 10 adds student-level instructor analytics for the Instructor Dashboard v2.
+
+All Sprint 10 instructor endpoints are read-only and require instructor role.
+
+Required header:
+
+- Authorization: Bearer demo-instructor-token
+
+Expected access behavior:
+
+- No token -> 401 Unauthorized
+- Student token -> 403 Forbidden
+- Instructor token -> 200 OK
+
+## New endpoints
+
+- GET /api/v1/instructor/students
+- GET /api/v1/instructor/students/{student_id}/summary
+- GET /api/v1/instructor/students/{student_id}/sessions
+- GET /api/v1/instructor/students/{student_id}/topic-weaknesses
+- GET /api/v1/instructor/students/{student_id}/score-trend
+
+## GET /api/v1/instructor/students
+
+Returns one summary item per student.
+
+Response fields:
+
+- success
+- students[]
+- students[].student_id
+- students[].total_sessions
+- students[].completed_sessions
+- students[].active_sessions
+- students[].average_score
+- students[].pass_rate
+- students[].last_activity_at
+- message
+
+## GET /api/v1/instructor/students/{student_id}/summary
+
+Returns summary metrics for a single student.
+
+Response fields:
+
+- success
+- student_id
+- total_sessions
+- completed_sessions
+- active_sessions
+- passed_sessions
+- average_score
+- pass_rate
+- first_seen_at
+- last_activity_at
+- message
+
+## GET /api/v1/instructor/students/{student_id}/sessions
+
+Returns recent lab sessions for a single student.
+
+Supported query parameter:
+
+- limit, default 50, min 1, max 200
+
+Session item fields:
+
+- session_id
+- student_id
+- difficulty
+- status
+- score
+- passed
+- created_at
+- completed_at
+
+## GET /api/v1/instructor/students/{student_id}/topic-weaknesses
+
+Returns topic weakness analytics for a single student.
+
+Topic weakness item fields:
+
+- topic
+- label
+- fail_count
+- attempt_count
+- failure_rate
+- average_score
+- severity
+
+## GET /api/v1/instructor/students/{student_id}/score-trend
+
+Returns chronological score trend data for a single student.
+
+Supported query parameter:
+
+- limit, default 50, min 1, max 200
+
+Score trend item fields:
+
+- session_id
+- difficulty
+- status
+- score
+- passed
+- created_at
+- completed_at
+
+## Frontend notes for Muhammed
+
+- Instructor Dashboard v2 can show a student list using GET /api/v1/instructor/students.
+- Clicking a student can load summary, sessions, topic weaknesses, and score trend endpoints.
+- All requests must include the instructor bearer token.
+- Student users must not access these endpoints.
+- Existing global analytics endpoints still work and were not removed.
+- These endpoints read session metadata only; they do not mutate lab runtime state.
 
