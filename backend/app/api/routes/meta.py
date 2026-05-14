@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+﻿from fastapi import APIRouter
 
 from app.schemas.enums import Difficulty
 
@@ -36,16 +36,36 @@ def get_difficulties() -> dict:
 def get_cli_access_modes() -> dict:
     return {
         "success": True,
-        "current_mode": "local_docker_exec_demo",
-        "default_mode": "local_docker_exec_demo",
+        "current_mode": "browser_cli_mvp",
+        "default_mode": "browser_cli_mvp",
+        "fallback_mode": "local_docker_exec_demo_fallback",
         "modes": [
+            {
+                "value": "browser_cli_mvp",
+                "label": "Browser-based CLI MVP",
+                "status": "active",
+                "description": (
+                    "Sprint 11 active CLI access mode. The frontend connects to a "
+                    "backend WebSocket endpoint and the backend bridges the session "
+                    "to the lab container CLI."
+                ),
+            },
             {
                 "value": "local_docker_exec_demo",
                 "label": "Local docker exec demo mode",
-                "status": "active",
+                "status": "supported",
                 "description": (
-                    "Stable Sprint 8 CLI access mode. Students use docker exec commands "
-                    "to access Containerlab nodes in the local demo environment."
+                    "Existing CLI access mode. Students can still use docker exec "
+                    "commands locally as a fallback during development or demo recovery."
+                ),
+            },
+            {
+                "value": "local_docker_exec_demo_fallback",
+                "label": "Local docker exec fallback",
+                "status": "fallback",
+                "description": (
+                    "Fallback mode kept for reliability if browser CLI is unavailable "
+                    "during a local or VM demo."
                 ),
             },
             {
@@ -59,17 +79,25 @@ def get_cli_access_modes() -> dict:
             },
             {
                 "value": "browser_cli_future_work",
-                "label": "Browser-based CLI",
+                "label": "Browser-based CLI hardening",
                 "status": "future_work",
                 "description": (
-                    "Future work. Requires terminal streaming, WebSocket/session control, "
-                    "authorization, and stronger runtime isolation."
+                    "Future hardening work for terminal resizing, PTY support, "
+                    "stronger stream lifecycle handling, and production-grade isolation."
                 ),
             },
         ],
+        "websocket": {
+            "path_template": "/api/v1/labs/{session_id}/cli/ws/{device_id}",
+            "auth_query_param": "token",
+            "example": (
+                "ws://127.0.0.1:8000/api/v1/labs/"
+                "lab-abc12345/cli/ws/r1?token=demo-student-token"
+            ),
+        },
         "decision": (
-            "Sprint 8 keeps docker exec local demo mode as the default and stable CLI access model. "
-            "SSH Gateway and Browser-based CLI are documented but not enabled in the default flow."
+            "Sprint 11 enables browser_cli_mvp as the primary CLI access mode. "
+            "local_docker_exec_demo remains available as fallback."
         ),
         "message": "CLI access mode metadata retrieved successfully.",
     }

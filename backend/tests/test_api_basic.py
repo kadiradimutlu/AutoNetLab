@@ -443,8 +443,8 @@ def test_sprint8_cli_access_response_includes_mode_info():
     data = cli_response.json()
 
     assert data["success"] is True
-    assert data["current_mode"] == "local_docker_exec_demo"
-    assert data["mode_info"]["current_mode"] == "local_docker_exec_demo"
+    assert data["current_mode"] == "browser_cli_mvp"
+    assert data["mode_info"]["current_mode"] == "browser_cli_mvp"
     assert "ssh_gateway_planned" in data["mode_info"]["planned_modes"]
     assert "browser_cli_future_work" in data["mode_info"]["planned_modes"]
 
@@ -464,18 +464,22 @@ def test_sprint8_cli_access_modes_metadata_endpoint():
     data = response.json()
 
     assert data["success"] is True
-    assert data["current_mode"] == "local_docker_exec_demo"
-    assert data["default_mode"] == "local_docker_exec_demo"
+    assert data["current_mode"] == "browser_cli_mvp"
+    assert data["default_mode"] == "browser_cli_mvp"
+    assert data["fallback_mode"] == "local_docker_exec_demo_fallback"
 
     modes_by_value = {
         item["value"]: item
         for item in data["modes"]
     }
 
-    assert modes_by_value["local_docker_exec_demo"]["status"] == "active"
+    assert modes_by_value["browser_cli_mvp"]["status"] == "active"
+    assert modes_by_value["local_docker_exec_demo"]["status"] == "supported"
+    assert modes_by_value["local_docker_exec_demo_fallback"]["status"] == "fallback"
     assert modes_by_value["ssh_gateway_planned"]["status"] == "planned"
     assert modes_by_value["browser_cli_future_work"]["status"] == "future_work"
-    assert "Sprint 8 keeps docker exec local demo mode" in data["decision"]
+    assert data["websocket"]["path_template"] == "/api/v1/labs/{session_id}/cli/ws/{device_id}"
+    assert "Sprint 11 enables browser_cli_mvp" in data["decision"]
 
 
 
@@ -708,3 +712,134 @@ def test_sprint10_instructor_student_detail_endpoints_return_student_history():
         item["session_id"] == session_id
         for item in trend_data["score_trend"]
     )
+
+
+def test_sprint11_web_cli_requires_auth_token():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(f"/api/v1/labs/{session_id}/cli/ws/r1") as websocket:
+        payload = websocket.receive_json()
+
+    assert payload["type"] == "error"
+    assert payload["success"] is False
+    assert payload["status_code"] == 401
+    assert payload["error_code"] == "WEB_CLI_AUTH_REQUIRED"
+
+
+def test_sprint11_web_cli_blocks_student_from_other_students_session():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "another-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/cli/ws/r1?token=demo-student-token"
+    ) as websocket:
+        payload = websocket.receive_json()
+
+    assert payload["type"] == "error"
+    assert payload["success"] is False
+    assert payload["status_code"] == 403
+    assert payload["error_code"] == "WEB_CLI_FORBIDDEN"
+
+
+def test_sprint11_web_cli_requires_deployed_lab_before_runtime_shell():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/cli/ws/r1?token=demo-student-token"
+    ) as websocket:
+        payload = websocket.receive_json()
+
+    assert payload["type"] == "error"
+    assert payload["success"] is False
+    assert payload["status_code"] == 409
+    assert payload["error_code"] == "LAB_NOT_DEPLOYED_FOR_WEB_CLI"
+
+
+def test_sprint11_web_cli_rejects_unknown_device():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/cli/ws/not-a-device?token=demo-student-token"
+    ) as websocket:
+        payload = websocket.receive_json()
+
+    assert payload["type"] == "error"
+    assert payload["success"] is False
+    assert payload["status_code"] == 404
+    assert payload["error_code"] == "WEB_CLI_DEVICE_NOT_FOUND"
+
+
+
+def test_sprint11_web_cli_context_allows_own_deployed_student_session():
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from app.services.web_cli_service import build_web_cli_context
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    context = build_web_cli_context(
+        session_id=session_id,
+        device_id="r1",
+        token="demo-student-token",
+    )
+
+    assert context.session_id == session_id
+    assert context.device_id == "r1"
+    assert context.container_name.startswith("clab-")
+    assert context.username == "student"
+    assert context.role == "student"

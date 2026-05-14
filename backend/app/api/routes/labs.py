@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, status
+﻿from fastapi import APIRouter, Depends, WebSocket, status
 
 from app.core.auth import require_instructor
 from app.schemas.auth import AuthenticatedUser
@@ -10,9 +10,10 @@ from app.schemas.lab import (
     LabSessionDebugResponse,
     LabSessionResponse,
 )
-from app.schemas.validation import ValidationResult
 from app.schemas.recommendation import RecommendationResponse
+from app.schemas.validation import ValidationResult
 from app.services.containerlab_adapter import containerlab_adapter
+from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.session_service import (
     create_lab_session,
     get_cli_access_response,
@@ -23,7 +24,11 @@ from app.services.session_service import (
     update_session_validation_result,
 )
 from app.services.validation_service import validate_session
-from app.services.recommendation.engine import build_recommendations_for_session
+from app.services.web_cli_service import (
+    WebCliError,
+    build_web_cli_context,
+    run_web_cli_bridge,
+)
 
 router = APIRouter(prefix="/labs", tags=["Lab Sessions"])
 
@@ -63,6 +68,44 @@ def get_lab_debug(
 @router.get("/{session_id}/cli", response_model=CliAccessResponse)
 def get_lab_cli_access(session_id: str) -> CliAccessResponse:
     return get_cli_access_response(session_id)
+
+
+@router.websocket("/{session_id}/cli/ws/{device_id}")
+async def web_cli_socket(
+    websocket: WebSocket,
+    session_id: str,
+    device_id: str,
+    token: str | None = None,
+) -> None:
+    await websocket.accept()
+
+    try:
+        context = build_web_cli_context(
+            session_id=session_id,
+            device_id=device_id,
+            token=token,
+        )
+    except WebCliError as exc:
+        await websocket.send_json(exc.to_payload())
+        await websocket.close(code=exc.websocket_code)
+        return
+
+    await websocket.send_json(
+        {
+            "type": "connected",
+            "success": True,
+            "session_id": context.session_id,
+            "device_id": context.device_id,
+            "container_name": context.container_name,
+            "mode": "browser_cli_mvp",
+            "message": "Web CLI connection accepted by backend.",
+        }
+    )
+
+    await run_web_cli_bridge(
+        websocket=websocket,
+        context=context,
+    )
 
 
 @router.post("/{session_id}/deploy", response_model=ActionResponse)
