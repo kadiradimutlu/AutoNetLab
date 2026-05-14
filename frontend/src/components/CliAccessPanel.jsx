@@ -1,11 +1,16 @@
 import MessageBox from "./MessageBox";
 import DeviceCliCard from "./DeviceCliCard";
+import WebCliTerminal from "./WebCliTerminal";
 
 function getModeLabel(mode) {
   const normalizedMode = String(mode || "").toLowerCase();
 
   if (normalizedMode === "local_docker_exec_demo" || normalizedMode === "docker_exec") {
     return "Local Docker Exec Demo Mode";
+  }
+
+  if (normalizedMode.includes("browser_cli_mvp") || normalizedMode.includes("browser")) {
+    return "Browser CLI MVP";
   }
 
   if (normalizedMode.includes("ssh")) {
@@ -26,10 +31,15 @@ function getModeDescription(mode) {
     return "This build uses local terminal commands with docker exec. Open a terminal on the machine running Docker and Containerlab, then copy the command for the target device.";
   }
 
-  return "This panel only shows access methods provided by the backend. Browser-based CLI and SSH Gateway are not shown unless the backend provides them.";
+  if (normalizedMode.includes("browser_cli_mvp") || normalizedMode.includes("browser")) {
+    return "This build supports browser-based Web CLI through the backend WebSocket bridge. Local Docker Exec commands remain visible as a fallback.";
+  }
+
+  return "This panel only shows access methods provided by the backend. Browser CLI, SSH Gateway, and fallback modes are shown only when supported by backend metadata.";
 }
 
 function CliAccessPanel({
+  sessionId = "",
   cliAccess = [],
   mode = "local_docker_exec_demo",
   warning = "",
@@ -55,7 +65,7 @@ function CliAccessPanel({
         <strong>{getModeLabel(mode)}</strong>
         <p>{getModeDescription(mode)}</p>
         <p>
-          Browser-based CLI and SSH Gateway are documented as future work and are not enabled in this frontend build.
+          Web CLI uses the selected device ID and the current login token. Local Docker Exec remains available as a fallback.
         </p>
       </div>
 
@@ -89,6 +99,14 @@ function CliAccessPanel({
           message={copyNotice}
         />
       )}
+
+      <WebCliTerminal
+        sessionId={sessionId}
+        devices={cliAccess}
+        mode={mode}
+      />
+
+      <h4>Local Docker Exec Fallback</h4>
 
       <div className="result-list">
         {cliAccess.length === 0 && (

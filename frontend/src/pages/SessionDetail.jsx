@@ -21,6 +21,13 @@ import {
 
 function normalizeCliAccess(cli, index) {
   return {
+    deviceId:
+      cli.deviceId ||
+      cli.device_id ||
+      cli.device ||
+      cli.name ||
+      cli.device_name ||
+      `device-${index + 1}`,
     deviceName:
       cli.deviceName ||
       cli.device_name ||
@@ -283,6 +290,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         </div>
 
         <CliAccessPanel
+          sessionId={labSession.session_id}
           cliAccess={cliAccess}
           mode={effectiveCliMode}
           warning={cliAccessWarning}
