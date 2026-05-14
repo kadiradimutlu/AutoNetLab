@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AnalyticsEmptyState from "../components/AnalyticsEmptyState";
 import MessageBox from "../components/MessageBox";
+import RuntimeReadinessCard from "../components/RuntimeReadinessCard";
 import {
   getErrorDetails,
   getErrorMessage,
@@ -8,7 +9,8 @@ import {
   getInstructorStudentSessions,
   getInstructorStudentSummary,
   getInstructorStudents,
-  getInstructorStudentTopicWeaknesses
+  getInstructorStudentTopicWeaknesses,
+  getRuntimeReadiness
 } from "../services/apiService";
 
 function formatNumber(value, fallback = "0") {
@@ -405,8 +407,37 @@ function InstructorDashboardPage() {
   const [scoreTrend, setScoreTrend] = useState([]);
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [isStudentDetailLoading, setIsStudentDetailLoading] = useState(false);
+  const [runtimeReadiness, setRuntimeReadiness] = useState(null);
+  const [isRuntimeReadinessLoading, setIsRuntimeReadinessLoading] = useState(false);
+  const [runtimeReadinessError, setRuntimeReadinessError] = useState("");
+  const [runtimeReadinessErrorDetails, setRuntimeReadinessErrorDetails] = useState("");
+  const [runtimeReadinessCheckedAt, setRuntimeReadinessCheckedAt] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
+
+  async function loadRuntimeReadiness() {
+    setIsRuntimeReadinessLoading(true);
+    setRuntimeReadinessError("");
+    setRuntimeReadinessErrorDetails("");
+
+    try {
+      const response = await getRuntimeReadiness();
+      setRuntimeReadiness(response || null);
+      setRuntimeReadinessCheckedAt(new Date());
+    } catch (error) {
+      setRuntimeReadinessError(
+        getErrorMessage(
+          error,
+          "Runtime readiness check is unavailable."
+        )
+      );
+      setRuntimeReadinessErrorDetails(getErrorDetails(error));
+      setRuntimeReadinessCheckedAt(new Date());
+      console.error("Runtime readiness loading failed.", error);
+    } finally {
+      setIsRuntimeReadinessLoading(false);
+    }
+  }
 
   async function loadStudents() {
     setIsStudentsLoading(true);
@@ -492,6 +523,7 @@ function InstructorDashboardPage() {
   }
 
   useEffect(() => {
+    loadRuntimeReadiness();
     loadStudents();
   }, []);
 
@@ -532,6 +564,15 @@ function InstructorDashboardPage() {
           )}
         </div>
       </section>
+
+      <RuntimeReadinessCard
+        readiness={runtimeReadiness}
+        isLoading={isRuntimeReadinessLoading}
+        errorMessage={runtimeReadinessError}
+        errorDetails={runtimeReadinessErrorDetails}
+        lastCheckedAt={runtimeReadinessCheckedAt}
+        onRefresh={loadRuntimeReadiness}
+      />
 
       {errorMessage && (
         <>

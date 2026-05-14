@@ -1863,3 +1863,130 @@ button:disabled,
   background: #e5e7eb;
   color: #6b7280;
 }
+
+/* Sprint 13 runtime readiness */
+.runtime-readiness-card {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+}
+
+.runtime-readiness-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.runtime-readiness-card.not-ready {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.runtime-readiness-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.runtime-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.runtime-metric-card {
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.runtime-metric-card span:first-child {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.runtime-metric-card strong {
+  overflow-wrap: anywhere;
+}
+
+.runtime-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.runtime-info-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.runtime-info-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.runtime-info-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.runtime-check-section {
+  margin-top: 16px;
+}
+
+.runtime-check-list {
+  display: grid;
+  gap: 10px;
+}
+
+.runtime-check-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.runtime-check-item.ok {
+  border-color: #bbf7d0;
+}
+
+.runtime-check-item.failed {
+  border-color: #fecaca;
+}
+
+.runtime-check-item p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+.section-title-row.compact {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1000px) {
+  .runtime-readiness-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .runtime-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .runtime-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
