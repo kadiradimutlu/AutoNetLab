@@ -876,3 +876,94 @@ Muhammed frontend tarafında:
 - Recommendation cards already receive compatible topic values.
 - CLI page should show `current_mode = local_docker_exec_demo`.
 - SSH Gateway and Browser-based CLI should be shown as planned/future work only if needed.
+---
+
+# Sprint 9 Backend Contract Addendum - Auth and Role Separation
+
+Sprint 9 adds demo authentication and role separation for AutoNetLab.
+
+This is a demo/prototype auth layer, not production-grade authentication.
+
+## Roles
+
+Supported roles:
+
+- student
+- instructor
+
+## Demo users
+
+- student / student123
+- instructor / instructor123
+
+## Auth endpoints
+
+- POST /api/v1/auth/login
+- GET /api/v1/auth/me
+
+## Login request example
+
+- username: student
+- password: student123
+
+## Login response fields
+
+- success
+- access_token
+- token_type
+- user.username
+- user.display_name
+- user.role
+- user.student_id
+- message
+
+## Authorization header
+
+Protected requests must include:
+
+- Authorization: Bearer <access_token>
+
+Example tokens:
+
+- demo-student-token
+- demo-instructor-token
+
+## Protected instructor endpoints
+
+The following endpoints require instructor role:
+
+- GET /api/v1/instructor/analytics/summary
+- GET /api/v1/instructor/analytics/difficulty-distribution
+- GET /api/v1/instructor/analytics/topic-weaknesses
+- GET /api/v1/instructor/sessions/recent
+- GET /api/v1/labs/{session_id}/debug
+
+Expected behavior:
+
+- No token -> 401 Unauthorized
+- Student token -> 403 Forbidden
+- Instructor token -> 200 OK
+
+## Student-safe endpoints
+
+Normal student-facing lab endpoints remain available for the demo flow.
+
+Important rules:
+
+- Default lab responses still do not expose injected_errors.
+- /labs/{session_id}/debug is now instructor-only.
+- Frontend must store the access token after login.
+- Frontend must send Authorization: Bearer <token> for instructor-only endpoints.
+- Student UI should not show instructor dashboard links.
+- Instructor UI should use the instructor token for analytics and debug views.
+
+## Frontend notes for Muhammed
+
+- Login page should call POST /api/v1/auth/login.
+- Auth state can be stored in localStorage for Sprint 9 demo usage.
+- GET /api/v1/auth/me can restore the current user after refresh.
+- Header/nav should change based on user.role.
+- Student role should route to student lab flow.
+- Instructor role should route to instructor dashboard.
+- Instructor API requests must include the bearer token.
+

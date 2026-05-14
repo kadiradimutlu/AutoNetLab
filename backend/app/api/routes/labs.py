@@ -1,5 +1,7 @@
-﻿from fastapi import APIRouter, status
+﻿from fastapi import APIRouter, Depends, status
 
+from app.core.auth import require_instructor
+from app.schemas.auth import AuthenticatedUser
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import (
     ActionResponse,
@@ -44,14 +46,19 @@ def get_lab(session_id: str) -> LabSessionResponse:
         message="Lab session retrieved successfully.",
     )
 
+
 @router.get("/{session_id}/debug", response_model=LabSessionDebugResponse)
-def get_lab_debug(session_id: str) -> LabSessionDebugResponse:
+def get_lab_debug(
+    session_id: str,
+    _current_user: AuthenticatedUser = Depends(require_instructor),
+) -> LabSessionDebugResponse:
     session = get_lab_session(session_id)
 
     return to_lab_session_debug_response(
         session,
         message="Debug lab session retrieved successfully.",
     )
+
 
 @router.get("/{session_id}/cli", response_model=CliAccessResponse)
 def get_lab_cli_access(session_id: str) -> CliAccessResponse:

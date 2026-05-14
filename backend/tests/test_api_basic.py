@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -7,6 +7,9 @@ from app.services.containerlab_adapter import GENERATED_DIR, containerlab_adapte
 
 
 client = TestClient(app)
+
+STUDENT_AUTH_HEADERS = {"Authorization": "Bearer demo-student-token"}
+INSTRUCTOR_AUTH_HEADERS = {"Authorization": "Bearer demo-instructor-token"}
 
 
 def test_health_endpoint_returns_ok():
@@ -85,7 +88,10 @@ def test_get_lab_debug_response_includes_injected_errors():
 
     session_id = create_response.json()["session_id"]
 
-    debug_response = client.get(f"/api/v1/labs/{session_id}/debug")
+    debug_response = client.get(
+        f"/api/v1/labs/{session_id}/debug",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
 
     assert debug_response.status_code == 200
 
@@ -220,7 +226,10 @@ def test_instructor_analytics_endpoints_after_validation():
 
     assert validate_response.status_code == 200
 
-    summary_response = client.get("/api/v1/instructor/analytics/summary")
+    summary_response = client.get(
+        "/api/v1/instructor/analytics/summary",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
     assert summary_response.status_code == 200
 
     summary = summary_response.json()
@@ -230,7 +239,10 @@ def test_instructor_analytics_endpoints_after_validation():
     assert "average_score" in summary
     assert "pass_rate" in summary
 
-    distribution_response = client.get("/api/v1/instructor/analytics/difficulty-distribution")
+    distribution_response = client.get(
+        "/api/v1/instructor/analytics/difficulty-distribution",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
     assert distribution_response.status_code == 200
 
     distribution = distribution_response.json()
@@ -238,14 +250,20 @@ def test_instructor_analytics_endpoints_after_validation():
     assert isinstance(distribution["distribution"], list)
     assert any(item["difficulty"] == "medium" for item in distribution["distribution"])
 
-    weaknesses_response = client.get("/api/v1/instructor/analytics/topic-weaknesses")
+    weaknesses_response = client.get(
+        "/api/v1/instructor/analytics/topic-weaknesses",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
     assert weaknesses_response.status_code == 200
 
     weaknesses = weaknesses_response.json()
     assert weaknesses["success"] is True
     assert isinstance(weaknesses["topic_weaknesses"], list)
 
-    recent_response = client.get("/api/v1/instructor/sessions/recent")
+    recent_response = client.get(
+        "/api/v1/instructor/sessions/recent",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
     assert recent_response.status_code == 200
 
     recent = recent_response.json()
@@ -458,3 +476,124 @@ def test_sprint8_cli_access_modes_metadata_endpoint():
     assert modes_by_value["ssh_gateway_planned"]["status"] == "planned"
     assert modes_by_value["browser_cli_future_work"]["status"] == "future_work"
     assert "Sprint 8 keeps docker exec local demo mode" in data["decision"]
+
+
+
+def test_sprint9_auth_login_student_returns_demo_token():
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "student",
+            "password": "student123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["access_token"] == "demo-student-token"
+    assert data["token_type"] == "bearer"
+    assert data["user"]["username"] == "student"
+    assert data["user"]["role"] == "student"
+    assert data["user"]["student_id"] == "demo-student"
+
+
+def test_sprint9_auth_login_instructor_returns_demo_token():
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "instructor",
+            "password": "instructor123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["access_token"] == "demo-instructor-token"
+    assert data["token_type"] == "bearer"
+    assert data["user"]["username"] == "instructor"
+    assert data["user"]["role"] == "instructor"
+    assert data["user"]["student_id"] is None
+
+
+def test_sprint9_auth_login_rejects_invalid_credentials():
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "student",
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_sprint9_auth_me_returns_current_user():
+    response = client.get(
+        "/api/v1/auth/me",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["user"]["username"] == "student"
+    assert data["user"]["role"] == "student"
+
+
+def test_sprint9_auth_me_requires_token():
+    response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+
+
+def test_sprint9_instructor_endpoints_require_instructor_role():
+    no_auth_response = client.get("/api/v1/instructor/analytics/summary")
+    assert no_auth_response.status_code == 401
+
+    student_response = client.get(
+        "/api/v1/instructor/analytics/summary",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+    assert student_response.status_code == 403
+
+    instructor_response = client.get(
+        "/api/v1/instructor/analytics/summary",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert instructor_response.status_code == 200
+
+
+def test_sprint9_debug_lab_endpoint_requires_instructor_role():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "sprint9-debug-student",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    no_auth_response = client.get(f"/api/v1/labs/{session_id}/debug")
+    assert no_auth_response.status_code == 401
+
+    student_response = client.get(
+        f"/api/v1/labs/{session_id}/debug",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+    assert student_response.status_code == 403
+
+    instructor_response = client.get(
+        f"/api/v1/labs/{session_id}/debug",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+    assert instructor_response.status_code == 200
+    assert "injected_errors" in instructor_response.json()
