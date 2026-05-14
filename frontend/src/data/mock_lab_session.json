@@ -1,8 +1,7 @@
 {
-  "success": true,
   "session_id": "lab-demo-001",
   "student_id": "muhammed",
-  "difficulty": "hard",
+  "difficulty": "easy",
   "status": "created",
   "topology": {
     "name": "basic-two-router",
@@ -35,46 +34,31 @@
       }
     ]
   },
+  "injected_errors": [
+    {
+      "code": "IP_ADDRESS_MISMATCH",
+      "topic": "IP Addressing",
+      "device": "r1",
+      "description": "Incorrect IP address configured on r1 eth1.",
+      "severity": "low"
+    },
+    {
+      "code": "MISSING_ROUTE",
+      "topic": "Routing",
+      "device": "r2",
+      "description": "Static route is missing on r2.",
+      "severity": "medium"
+    }
+  ],
   "cli_access": [
     {
       "device_id": "r1",
-      "name": "Router 1",
-      "container_name": "clab-autonetlab-r1",
-      "access_method": "local_docker_exec_demo",
-      "command": "docker exec -it clab-autonetlab-r1 sh",
-      "description": "Open CLI access for router r1.",
-      "mode": "local_docker_exec_demo"
+      "command": "docker exec -it clab-autonetlab-r1 sh"
     },
     {
       "device_id": "r2",
-      "name": "Router 2",
-      "container_name": "clab-autonetlab-r2",
-      "access_method": "local_docker_exec_demo",
-      "command": "docker exec -it clab-autonetlab-r2 sh",
-      "description": "Open CLI access for router r2.",
-      "mode": "local_docker_exec_demo"
+      "command": "docker exec -it clab-autonetlab-r2 sh"
     }
   ],
-  "hints": [
-    "Check IP addressing and subnet masks.",
-    "Verify interface status before testing connectivity.",
-    "Review routing and default gateway configuration.",
-    "Compare addressing, interfaces, and routing step by step across the topology."
-  ],
-  "message": "Lab session created successfully.",
-  "cli_access_mode": "local_docker_exec_demo",
-  "scenario_overview": {
-    "summary": "This hard scenario combines multiple troubleshooting topics while keeping exact injected errors hidden from the student view.",
-    "topics": [
-      "IP Addressing",
-      "Routing",
-      "Interface Status",
-      "Connectivity"
-    ],
-    "hints": [
-      "Start with interface status and addressing before checking routes.",
-      "Use device CLI commands to compare both sides of each link.",
-      "Validate only after checking each topic area carefully."
-    ]
-  }
+  "message": "Lab session created successfully."
 }

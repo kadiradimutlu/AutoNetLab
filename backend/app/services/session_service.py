@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,34 +10,15 @@ from app.schemas.lab import (
     CliAccessResponse,
     CreateLabRequest,
     ErrorItem,
-    LabSessionDebugResponse,
     LabSessionResponse,
 )
 from app.schemas.topology import Topology
 from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
-from app.services.recommendation.features import build_topic_performance
 
 
 _sessions: dict[str, dict] = {}
 
-BASE_STUDENT_HINTS = [
-    "Check IP addressing and subnet masks.",
-    "Verify interface status before testing connectivity.",
-    "Review routing and default gateway configuration.",
-]
-
-DIFFICULTY_STUDENT_HINTS = {
-    Difficulty.easy: [
-        "Start with basic connectivity tests between directly connected devices.",
-    ],
-    Difficulty.medium: [
-        "Compare addressing, interfaces, and routing step by step across the topology.",
-    ],
-    Difficulty.hard: [
-        "Break the troubleshooting process into addressing, interface status, VLAN, and routing checks.",
-    ],
-}
 
 def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
     session_id = f"lab-{uuid4().hex[:8]}"
@@ -80,12 +60,6 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
         "lab_name": generated_topology["lab_name"],
         "injected_errors": injected_errors,
         "cli_access": cli_access,
-        "created_at": _utc_now_iso(),
-        "completed_at": None,
-        "validation_result": None,
-        "topic_performance": None,
-        "score": None,
-        "passed": None,
     }
 
     _sessions[session_id] = session
@@ -122,35 +96,6 @@ def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
     return session
 
 
-def update_session_validation_result(session_id: str, validation_result) -> dict:
-    """
-    Persists validation result / doğrulama sonucunu session metadata içine kaydeder.
-
-    Sprint 6 analytics endpointleri session.json dosyalarını read-only şekilde okuyacağı için
-    score, passed, checks ve recommendations alanlarının kalıcı olması gerekir.
-    """
-
-    session = get_lab_session(session_id)
-
-    if hasattr(validation_result, "model_dump"):
-        result_payload = validation_result.model_dump(mode="json")
-    else:
-        result_payload = dict(validation_result)
-
-    session["status"] = SessionStatus.validated
-    session["validation_result"] = result_payload
-    session["score"] = result_payload.get("score")
-    session["passed"] = result_payload.get("passed")
-    session["topic_performance"] = build_topic_performance(result_payload)
-    session["completed_at"] = _utc_now_iso()
-
-    if not session.get("created_at"):
-        session["created_at"] = _utc_now_iso()
-
-    _save_session_metadata(session)
-    return session
-
-
 def get_cli_access_response(session_id: str) -> CliAccessResponse:
     session = get_lab_session(session_id)
 
@@ -163,55 +108,16 @@ def get_cli_access_response(session_id: str) -> CliAccessResponse:
 
 
 def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
-    """
-    Builds student-safe response / öğrenciye güvenli yanıt.
-
-    injected_errors intentionally stays inside internal session metadata,
-    but it is not exposed through the default student-facing API response.
-    """
-
     return LabSessionResponse(
         session_id=session["session_id"],
         student_id=session["student_id"],
         difficulty=session["difficulty"],
         status=session["status"],
         topology=session["topology"],
-        cli_access=session["cli_access"],
-        hints=build_student_hints(session["difficulty"]),
-        message=message,
-    )
-
-
-def to_lab_session_debug_response(session: dict, message: str) -> LabSessionDebugResponse:
-    """
-    Builds instructor/debug response / eğitmen veya debug yanıtı.
-
-    This response includes injected_errors and should only be used by
-    explicit debug/instructor endpoints.
-    """
-
-    return LabSessionDebugResponse(
-        session_id=session["session_id"],
-        student_id=session["student_id"],
-        difficulty=session["difficulty"],
-        status=session["status"],
-        topology=session["topology"],
-        cli_access=session["cli_access"],
-        hints=build_student_hints(session["difficulty"]),
         injected_errors=session["injected_errors"],
+        cli_access=session["cli_access"],
         message=message,
     )
-
-
-def build_student_hints(difficulty: Difficulty) -> list[str]:
-    """
-    Returns generic troubleshooting hints / genel hata giderme ipuçları.
-
-    These hints are intentionally broad. They must not reveal exact injected
-    error codes, devices, interfaces, expected fixes, or solution details.
-    """
-
-    return BASE_STUDENT_HINTS + DIFFICULTY_STUDENT_HINTS.get(difficulty, [])
 
 
 def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
@@ -238,7 +144,6 @@ def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
                 name=node.id,
                 container_name=container_name,
                 access_method="docker_exec",
-                mode="local_docker_exec_demo",
                 command=f"docker exec -it {container_name} sh",
                 description=(
                     f"{node.id.upper()} cihazına CLI üzerinden bağlanmak için "
@@ -273,12 +178,6 @@ def _save_session_metadata(session: dict) -> None:
             cli.model_dump() if hasattr(cli, "model_dump") else cli
             for cli in session["cli_access"]
         ],
-        "created_at": session.get("created_at") or _utc_now_iso(),
-        "completed_at": session.get("completed_at"),
-        "validation_result": session.get("validation_result"),
-        "topic_performance": session.get("topic_performance"),
-        "score": session.get("score"),
-        "passed": session.get("passed"),
     }
 
     metadata_path.write_text(
@@ -334,12 +233,6 @@ def _load_session_metadata(session_id: str) -> dict | None:
             for error in payload.get("injected_errors", [])
         ],
         "cli_access": cli_access,
-        "created_at": payload.get("created_at"),
-        "completed_at": payload.get("completed_at"),
-        "validation_result": payload.get("validation_result"),
-        "topic_performance": payload.get("topic_performance"),
-        "score": payload.get("score"),
-        "passed": payload.get("passed"),
     }
 
     return session
@@ -377,17 +270,12 @@ def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
         name=raw_cli.get("name", device_id),
         container_name=container_name,
         access_method=raw_cli.get("access_method", "docker_exec"),
-        mode=raw_cli.get("mode", "local_docker_exec_demo"),
         command=raw_cli.get("command", f"docker exec -it {container_name} sh"),
         description=raw_cli.get(
             "description",
             f"{device_id.upper()} cihazına CLI üzerinden bağlanmak için bu komutu kullanın.",
         ),
     )
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _enum_value(value) -> str:

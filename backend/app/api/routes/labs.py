@@ -1,29 +1,22 @@
-﻿from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 
-from app.core.auth import require_instructor
-from app.schemas.auth import AuthenticatedUser
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import (
     ActionResponse,
     CliAccessResponse,
     CreateLabRequest,
-    LabSessionDebugResponse,
     LabSessionResponse,
 )
 from app.schemas.validation import ValidationResult
-from app.schemas.recommendation import RecommendationResponse
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.session_service import (
     create_lab_session,
     get_cli_access_response,
     get_lab_session,
-    to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
-    update_session_validation_result,
 )
 from app.services.validation_service import validate_session
-from app.services.recommendation.engine import build_recommendations_for_session
 
 router = APIRouter(prefix="/labs", tags=["Lab Sessions"])
 
@@ -44,19 +37,6 @@ def get_lab(session_id: str) -> LabSessionResponse:
     return to_lab_session_response(
         session,
         message="Lab session retrieved successfully.",
-    )
-
-
-@router.get("/{session_id}/debug", response_model=LabSessionDebugResponse)
-def get_lab_debug(
-    session_id: str,
-    _current_user: AuthenticatedUser = Depends(require_instructor),
-) -> LabSessionDebugResponse:
-    session = get_lab_session(session_id)
-
-    return to_lab_session_debug_response(
-        session,
-        message="Debug lab session retrieved successfully.",
     )
 
 
@@ -115,15 +95,6 @@ def validate_lab(session_id: str) -> ValidationResult:
 
     result = validate_session(session)
 
-    update_session_validation_result(session_id, result)
+    update_session_status(session_id, SessionStatus.validated)
 
     return result
-
-
-@router.get("/{session_id}/recommendations", response_model=RecommendationResponse)
-def get_lab_recommendations(session_id: str) -> RecommendationResponse:
-    session = get_lab_session(session_id)
-
-    return RecommendationResponse(
-        **build_recommendations_for_session(session)
-    )
