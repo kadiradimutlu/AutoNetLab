@@ -8,6 +8,209 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
 ).replace(/\/$/, "");
 
+const AUTH_STORAGE_KEY = "autonetlab_auth_state";
+
+const DEMO_AUTH_USERS = {
+  student: {
+    password: "student123",
+    access_token: "demo-student-token",
+    token_type: "bearer",
+    user: {
+      username: "student",
+      display_name: "Student Demo User",
+      role: "student",
+      student_id: "student"
+    },
+    message: "Demo student login successful."
+  },
+  instructor: {
+    password: "instructor123",
+    access_token: "demo-instructor-token",
+    token_type: "bearer",
+    user: {
+      username: "instructor",
+      display_name: "Instructor Demo User",
+      role: "instructor",
+      student_id: null
+    },
+    message: "Demo instructor login successful."
+  }
+};
+
+function canUseLocalStorage() {
+  return typeof window !== "undefined" && Boolean(window.localStorage);
+}
+
+function readAuthState() {
+  if (!canUseLocalStorage()) {
+    return null;
+  }
+
+  try {
+    const rawAuthState = window.localStorage.getItem(AUTH_STORAGE_KEY);
+
+    if (!rawAuthState) {
+      return null;
+    }
+
+    return JSON.parse(rawAuthState);
+  } catch (error) {
+    console.error("Stored auth state could not be parsed.", error);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    return null;
+  }
+}
+
+function writeAuthState(authState) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
+}
+
+function clearAuthState() {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function normalizeRole(role) {
+  return String(role || "student").toLowerCase() === "instructor"
+    ? "instructor"
+    : "student";
+}
+
+function normalizeAuthResponse(payload) {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const user = safePayload.user && typeof safePayload.user === "object"
+    ? safePayload.user
+    : safePayload;
+
+  const normalizedUser = {
+    username: user.username || user.name || "student",
+    display_name:
+      user.display_name ||
+      user.displayName ||
+      user.full_name ||
+      user.username ||
+      "AutoNetLab User",
+    role: normalizeRole(user.role),
+    student_id: user.student_id || user.studentId || null
+  };
+
+  return {
+    success: safePayload.success ?? true,
+    access_token:
+      safePayload.access_token ||
+      safePayload.token ||
+      safePayload.accessToken ||
+      "",
+    token_type: safePayload.token_type || safePayload.tokenType || "bearer",
+    user: normalizedUser,
+    message: safePayload.message || ""
+  };
+}
+
+export function getStoredAuth() {
+  return readAuthState();
+}
+
+export function getAuthToken() {
+  return readAuthState()?.access_token || "";
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`
+  };
+}
+
+export function logoutUser() {
+  clearAuthState();
+}
+
+function createMockAuthState(username, password) {
+  const normalizedUsername = String(username || "").trim().toLowerCase();
+  const demoUser = DEMO_AUTH_USERS[normalizedUsername];
+
+  if (!demoUser || demoUser.password !== password) {
+    throw new Error("Invalid demo username or password.");
+  }
+
+  const authState = normalizeAuthResponse({
+    ...demoUser,
+    user: {
+      ...demoUser.user
+    }
+  });
+
+  writeAuthState(authState);
+  return authState;
+}
+
+export async function loginUser({ username, password }) {
+  clearAuthState();
+
+  if (USE_MOCK_API) {
+    await wait();
+    return createMockAuthState(username, password);
+  }
+
+  const result = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      username,
+      password
+    })
+  });
+
+  const authState = normalizeAuthResponse(result);
+  writeAuthState(authState);
+  return authState;
+}
+
+export async function getCurrentUser() {
+  const storedAuthState = readAuthState();
+
+  if (!storedAuthState?.access_token) {
+    return null;
+  }
+
+  if (USE_MOCK_API) {
+    await wait(150);
+    return storedAuthState;
+  }
+
+  try {
+    const result = await request("/auth/me");
+    const authState = normalizeAuthResponse({
+      ...storedAuthState,
+      user: result?.user || result
+    });
+
+    authState.access_token = storedAuthState.access_token;
+    authState.token_type = storedAuthState.token_type || authState.token_type;
+
+    writeAuthState(authState);
+    return authState;
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      clearAuthState();
+    }
+
+    throw error;
+  }
+}
+
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
   "Verify interface status before testing connectivity.",
@@ -332,6 +535,14 @@ function getFriendlyErrorMessage({ status, path, method }) {
     return "The request was rejected by the backend. Please check the submitted data.";
   }
 
+  if (status === 401) {
+    return "Your session is not authorized. Please sign in again.";
+  }
+
+  if (status === 403) {
+    return "This user role is not allowed to access the requested page or endpoint.";
+  }
+
   if (status === 404) {
     if (path.includes("/cli")) {
       return "CLI access information could not be found. Please check the CLI endpoint or the session data.";
@@ -435,6 +646,7 @@ async function request(path, options = {}) {
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(),
         ...(options.headers || {})
       },
       ...options

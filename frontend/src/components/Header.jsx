@@ -1,15 +1,25 @@
 import { useLanguage } from "../hooks/useLanguage";
 
-function Header({ currentPage, onNavigate }) {
-  const { language, setLanguage, t } = useLanguage();
+function getRoleLabel(role) {
+  return role === "instructor" ? "Instructor" : "Student";
+}
 
-  const menuItems = [
+function Header({ currentPage, onNavigate, authUser, onLogout }) {
+  const { t } = useLanguage();
+
+  const studentMenuItems = [
     { id: "home", label: t("navHome") },
     { id: "create", label: t("navCreateLab") },
     { id: "session", label: t("navSessionDetail") },
-    { id: "result", label: t("navValidationResult") },
+    { id: "result", label: t("navValidationResult") }
+  ];
+
+  const instructorMenuItems = [
     { id: "instructor", label: "Instructor Dashboard" }
   ];
+
+  const menuItems =
+    authUser?.role === "instructor" ? instructorMenuItems : studentMenuItems;
 
   return (
     <header className="header">
@@ -31,21 +41,22 @@ function Header({ currentPage, onNavigate }) {
           ))}
         </nav>
 
-        <div className="language-switch" aria-label={t("language")}>
-          <button
-            className={language === "en" ? "active" : ""}
-            onClick={() => setLanguage("en")}
-          >
-            {t("english")}
-          </button>
+        {authUser && (
+          <div className="auth-header-panel">
+            <div>
+              <span className="muted">Signed in as</span>
+              <strong>{authUser.display_name || authUser.username}</strong>
+            </div>
 
-          <button
-            className={language === "tr" ? "active" : ""}
-            onClick={() => setLanguage("tr")}
-          >
-            {t("turkish")}
-          </button>
-        </div>
+            <span className="auth-role-pill">
+              {getRoleLabel(authUser.role)}
+            </span>
+
+            <button className="secondary-button" onClick={onLogout}>
+              Logout
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

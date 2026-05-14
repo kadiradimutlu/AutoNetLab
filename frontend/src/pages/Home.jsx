@@ -27,12 +27,12 @@ function Home({ labSession, onNavigate }) {
       </section>
 
       {!labSession && (
-  <MessageBox
-    type="info"
-    title="No active lab session"
-    message="Create a new lab session to start testing with the backend API."
-  />
-)}
+        <MessageBox
+          type="info"
+          title="No active lab session"
+          message="Create a new lab session to start testing with the backend API."
+        />
+      )}
 
       <section className="grid">
         <StatCard
@@ -54,9 +54,9 @@ function Home({ labSession, onNavigate }) {
         />
 
         <StatCard
-          title={t("injectedErrors")}
-          value={labSession?.injected_errors?.length ?? 0}
-          helper={t("numberOfGeneratedErrors")}
+          title="Student-safe View"
+          value="Enabled"
+          helper="Injected error details are hidden from student pages."
         />
       </section>
     </>
