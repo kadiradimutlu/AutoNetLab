@@ -297,6 +297,15 @@ const MOCK_RUNTIME_READINESS = {
   message: "MOCK: Demo runtime environment is ready."
 };
 
+const MOCK_DATABASE_READINESS = {
+  success: true,
+  ready: true,
+  database_url: "postgresql+psycopg://***:***@127.0.0.1:5432/autonetlab",
+  database_engine: "postgresql",
+  message: "MOCK: Database connection check succeeded.",
+  error: null
+};
+
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
   "Verify interface status before testing connectivity.",
@@ -1323,6 +1332,15 @@ export function getWebCliUrl({ sessionId, deviceId }) {
   }
 
   return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/cli/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
+}
+
+export async function getDatabaseReadiness() {
+  if (USE_MOCK_API) {
+    await wait();
+    return MOCK_DATABASE_READINESS;
+  }
+
+  return request("/meta/database-readiness");
 }
 
 export async function getRuntimeReadiness() {
