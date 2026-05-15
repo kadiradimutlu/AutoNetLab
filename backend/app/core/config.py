@@ -1,4 +1,4 @@
-﻿from json import JSONDecodeError, loads
+from json import JSONDecodeError, loads
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     app_name: str = "AutoNetLab Backend API"
     api_prefix: str = "/api/v1"
     environment: str = "development"
+
+    # PostgreSQL is the production target.
+    # SQLite is kept as a local/dev fallback so tests can run without a local DB server.
+    #
+    # Production example:
+    # DATABASE_URL=postgresql+psycopg://autonetlab:CHANGE_ME@127.0.0.1:5432/autonetlab
+    database_url: str = "sqlite:///./autonetlab_dev.db"
+    database_echo: bool = False
 
     # Comma-separated or JSON-list CORS origins.
     #
