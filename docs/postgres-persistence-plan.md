@@ -37,3 +37,14 @@ DATABASE_URL=sqlite:///./autonetlab_dev.db
 The database stores metadata, analytics, validation outcomes, and recommendation history.
 
 Containerlab runtime artifacts and generated topology files remain filesystem-based.
+
+## Sprint 16 dual-write step
+
+The next persistence step writes session metadata, validation results, and recommendation payloads to the database while preserving the existing `session.json` fallback.
+
+The dual-write approach keeps the current runtime stable:
+
+- Lab generation and Containerlab artifacts remain filesystem-based.
+- `session.json` remains the compatibility fallback.
+- PostgreSQL receives structured metadata for analytics and future reporting.
+- Database persistence is best-effort during this step; a database write failure must not break lab deploy, validation, or Web CLI flows.
