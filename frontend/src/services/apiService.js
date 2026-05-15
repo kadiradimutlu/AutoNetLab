@@ -1,4 +1,4 @@
-import mockDifficulties from "../data/mock_difficulties.json";
+﻿import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 import mockRecommendation from "../data/mock_recommendation.json";
@@ -1234,6 +1234,11 @@ function getWebSocketBaseUrl() {
 
   if (API_BASE_URL.startsWith("http://")) {
     return API_BASE_URL.replace(/^http:\/\//, "ws://");
+  }
+
+  if (API_BASE_URL.startsWith("/") && typeof window !== "undefined") {
+    const websocketProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${websocketProtocol}//${window.location.host}${API_BASE_URL}`;
   }
 
   return API_BASE_URL;

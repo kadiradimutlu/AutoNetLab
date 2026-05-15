@@ -1,0 +1,18 @@
+﻿[Unit]
+Description=AutoNetLab FastAPI Backend
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/autonetlab/backend
+EnvironmentFile=-/opt/autonetlab/backend/.env
+Environment=PATH=/opt/autonetlab/backend/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/autonetlab/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
