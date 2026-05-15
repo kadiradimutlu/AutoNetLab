@@ -1,4 +1,4 @@
-﻿# AutoNetLab Production-like Deployment Guide
+# AutoNetLab Production-like Deployment Guide
 
 This guide describes the DigitalOcean VM deployment used for the final AutoNetLab public runtime environment.
 
