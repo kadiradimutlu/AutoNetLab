@@ -1039,3 +1039,25 @@ def test_sprint13_runtime_readiness_can_report_ready_environment(monkeypatch):
     assert data["containerlab_available"] is True
     assert "Docker version 27.5.1" in data["docker_version"]
     assert "version: 0.75.0" in data["containerlab_version"]
+
+def test_sprint16_database_readiness_endpoint():
+    response = client.get("/api/v1/meta/database-readiness")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["success"] is True
+    assert "ready" in payload
+    assert "database_engine" in payload
+    assert "database_url" in payload
+    assert "message" in payload
+
+
+def test_sprint16_database_settings_parse_sqlite_default():
+    from app.core.config import Settings
+
+    settings = Settings()
+
+    assert settings.database_url
+    assert settings.database_url.startswith("sqlite")

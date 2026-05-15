@@ -1,10 +1,12 @@
-﻿import platform
+import platform
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
+
+from app.db.session import get_database_readiness
 
 from app.schemas.enums import Difficulty
 from app.services.containerlab_adapter import GENERATED_DIR, PROJECT_ROOT, TEMPLATES_DIR
@@ -205,6 +207,9 @@ def get_runtime_readiness() -> dict:
         ),
     }
 
+@router.get("/database-readiness")
+def get_database_runtime_readiness() -> dict:
+    return get_database_readiness()
 
 def _run_command(command: list[str]) -> dict[str, Any]:
     try:
