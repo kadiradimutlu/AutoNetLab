@@ -1,5 +1,7 @@
-﻿from typing import Any
 
+from typing import Any
+
+from app.db.repositories import persist_recommendation_snapshot
 from app.schemas.enums import SessionStatus
 from app.services.recommendation.features import (
     build_ml_feature_rows,
@@ -13,7 +15,7 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
     validation_result = session.get("validation_result")
 
     if not isinstance(validation_result, dict):
-        return {
+        payload = {
             "success": True,
             "session_id": session["session_id"],
             "status": session.get("status", SessionStatus.created),
@@ -27,6 +29,9 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
                 "personalized learning recommendations."
             ),
         }
+
+        persist_recommendation_snapshot(session, payload)
+        return payload
 
     score = validation_result.get("score")
     passed = validation_result.get("passed")
@@ -69,7 +74,7 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
         ml_predictions=ml_predictions,
     )
 
-    return {
+    payload = {
         "success": True,
         "session_id": session["session_id"],
         "status": session.get("status", SessionStatus.validated),
@@ -80,3 +85,6 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
         "recommendations": recommendations,
         "message": message,
     }
+
+    persist_recommendation_snapshot(session, payload)
+    return payload

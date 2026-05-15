@@ -5,6 +5,10 @@ from uuid import uuid4
 
 from fastapi import HTTPException, status
 
+from app.db.repositories import (
+    persist_lab_session_snapshot,
+    persist_validation_result_snapshot,
+)
 from app.schemas.enums import Difficulty, SessionStatus
 from app.schemas.lab import (
     CliAccess,
@@ -90,6 +94,7 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
 
     _sessions[session_id] = session
     _save_session_metadata(session)
+    persist_lab_session_snapshot(session)
 
     return to_lab_session_response(
         session,
@@ -119,6 +124,7 @@ def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
     session = get_lab_session(session_id)
     session["status"] = new_status
     _save_session_metadata(session)
+    persist_lab_session_snapshot(session)
     return session
 
 
@@ -148,6 +154,7 @@ def update_session_validation_result(session_id: str, validation_result) -> dict
         session["created_at"] = _utc_now_iso()
 
     _save_session_metadata(session)
+    persist_validation_result_snapshot(session, result_payload)
     return session
 
 

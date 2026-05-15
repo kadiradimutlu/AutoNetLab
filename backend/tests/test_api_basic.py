@@ -1061,3 +1061,16 @@ def test_sprint16_database_settings_parse_sqlite_default():
 
     assert settings.database_url
     assert settings.database_url.startswith("sqlite")
+
+
+
+def test_sprint16_database_repository_imports():
+    from app.db.repositories import (
+        persist_lab_session_snapshot,
+        persist_recommendation_snapshot,
+        persist_validation_result_snapshot,
+    )
+
+    assert callable(persist_lab_session_snapshot)
+    assert callable(persist_validation_result_snapshot)
+    assert callable(persist_recommendation_snapshot)
