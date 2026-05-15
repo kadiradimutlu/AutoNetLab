@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AnalyticsEmptyState from "../components/AnalyticsEmptyState";
 import MessageBox from "../components/MessageBox";
 import RuntimeReadinessCard from "../components/RuntimeReadinessCard";
+import DatabaseReadinessCard from "../components/DatabaseReadinessCard";
 import {
   getErrorDetails,
   getErrorMessage,
@@ -10,7 +11,8 @@ import {
   getInstructorStudentSummary,
   getInstructorStudents,
   getInstructorStudentTopicWeaknesses,
-  getRuntimeReadiness
+  getRuntimeReadiness,
+  getDatabaseReadiness
 } from "../services/apiService";
 
 function formatNumber(value, fallback = "0") {
@@ -412,6 +414,11 @@ function InstructorDashboardPage() {
   const [runtimeReadinessError, setRuntimeReadinessError] = useState("");
   const [runtimeReadinessErrorDetails, setRuntimeReadinessErrorDetails] = useState("");
   const [runtimeReadinessCheckedAt, setRuntimeReadinessCheckedAt] = useState(null);
+  const [databaseReadiness, setDatabaseReadiness] = useState(null);
+  const [isDatabaseReadinessLoading, setIsDatabaseReadinessLoading] = useState(false);
+  const [databaseReadinessError, setDatabaseReadinessError] = useState("");
+  const [databaseReadinessErrorDetails, setDatabaseReadinessErrorDetails] = useState("");
+  const [databaseReadinessCheckedAt, setDatabaseReadinessCheckedAt] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
 
@@ -436,6 +443,30 @@ function InstructorDashboardPage() {
       console.error("Runtime readiness loading failed.", error);
     } finally {
       setIsRuntimeReadinessLoading(false);
+    }
+  }
+
+  async function loadDatabaseReadiness() {
+    setIsDatabaseReadinessLoading(true);
+    setDatabaseReadinessError("");
+    setDatabaseReadinessErrorDetails("");
+
+    try {
+      const response = await getDatabaseReadiness();
+      setDatabaseReadiness(response || null);
+      setDatabaseReadinessCheckedAt(new Date());
+    } catch (error) {
+      setDatabaseReadinessError(
+        getErrorMessage(
+          error,
+          "Database readiness check is unavailable."
+        )
+      );
+      setDatabaseReadinessErrorDetails(getErrorDetails(error));
+      setDatabaseReadinessCheckedAt(new Date());
+      console.error("Database readiness loading failed.", error);
+    } finally {
+      setIsDatabaseReadinessLoading(false);
     }
   }
 
@@ -524,6 +555,7 @@ function InstructorDashboardPage() {
 
   useEffect(() => {
     loadRuntimeReadiness();
+    loadDatabaseReadiness();
     loadStudents();
   }, []);
 
@@ -565,14 +597,25 @@ function InstructorDashboardPage() {
         </div>
       </section>
 
-      <RuntimeReadinessCard
-        readiness={runtimeReadiness}
-        isLoading={isRuntimeReadinessLoading}
-        errorMessage={runtimeReadinessError}
-        errorDetails={runtimeReadinessErrorDetails}
-        lastCheckedAt={runtimeReadinessCheckedAt}
-        onRefresh={loadRuntimeReadiness}
-      />
+      <div className="demo-readiness-grid">
+        <RuntimeReadinessCard
+          readiness={runtimeReadiness}
+          isLoading={isRuntimeReadinessLoading}
+          errorMessage={runtimeReadinessError}
+          errorDetails={runtimeReadinessErrorDetails}
+          lastCheckedAt={runtimeReadinessCheckedAt}
+          onRefresh={loadRuntimeReadiness}
+        />
+
+        <DatabaseReadinessCard
+          readiness={databaseReadiness}
+          isLoading={isDatabaseReadinessLoading}
+          errorMessage={databaseReadinessError}
+          errorDetails={databaseReadinessErrorDetails}
+          lastCheckedAt={databaseReadinessCheckedAt}
+          onRefresh={loadDatabaseReadiness}
+        />
+      </div>
 
       {errorMessage && (
         <>
