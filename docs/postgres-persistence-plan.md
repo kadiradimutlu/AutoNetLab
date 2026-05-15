@@ -48,3 +48,25 @@ The dual-write approach keeps the current runtime stable:
 - `session.json` remains the compatibility fallback.
 - PostgreSQL receives structured metadata for analytics and future reporting.
 - Database persistence is best-effort during this step; a database write failure must not break lab deploy, validation, or Web CLI flows.
+
+
+## Sprint 17 PostgreSQL-backed analytics
+
+Sprint 17 moves instructor analytics to a DB-first model.
+
+Analytics now read from PostgreSQL-backed session metadata first. If the database
+is unavailable or returns no session records, the previous `session.json` reader
+is preserved as a compatibility fallback.
+
+This keeps the API contract stable while making these instructor views use
+persistent data:
+
+- analytics summary
+- difficulty distribution
+- topic weaknesses
+- recent sessions
+- student list
+- student summary
+- student sessions
+- student topic weaknesses
+- student score trend
