@@ -1074,3 +1074,65 @@ def test_sprint16_database_repository_imports():
     assert callable(persist_lab_session_snapshot)
     assert callable(persist_validation_result_snapshot)
     assert callable(persist_recommendation_snapshot)
+
+
+
+def test_sprint17_instructor_analytics_service_loads_db_first_with_file_fallback(monkeypatch):
+    from app.services import instructor_analytics_service as service
+
+    db_payload = [
+        {
+            "session_id": "lab-db-first",
+            "student_id": "db-student",
+            "difficulty": "easy",
+            "status": "validated",
+            "score": 80,
+            "passed": True,
+            "created_at": "2026-05-15T00:00:00+00:00",
+            "completed_at": "2026-05-15T00:05:00+00:00",
+            "validation_result": {
+                "score": 80,
+                "passed": True,
+                "checks": [],
+                "recommendations": [],
+            },
+        }
+    ]
+
+    monkeypatch.setattr(service, "_load_db_session_records", lambda: db_payload)
+    monkeypatch.setattr(service, "_load_file_session_records", lambda: [])
+
+    summary = service.get_analytics_summary()
+    recent = service.get_recent_sessions(limit=5)
+
+    assert summary["total_sessions"] == 1
+    assert summary["completed_sessions"] == 1
+    assert summary["passed_sessions"] == 1
+    assert summary["average_score"] == 80
+    assert recent["recent_sessions"][0]["session_id"] == "lab-db-first"
+
+
+def test_sprint17_instructor_analytics_service_falls_back_to_session_json(monkeypatch):
+    from app.services import instructor_analytics_service as service
+
+    file_payload = [
+        {
+            "session_id": "lab-file-fallback",
+            "student_id": "file-student",
+            "difficulty": "medium",
+            "status": "created",
+            "created_at": "2026-05-15T00:00:00+00:00",
+            "completed_at": None,
+            "validation_result": None,
+            "score": None,
+            "passed": None,
+        }
+    ]
+
+    monkeypatch.setattr(service, "_load_db_session_records", lambda: [])
+    monkeypatch.setattr(service, "_load_file_session_records", lambda: file_payload)
+
+    recent = service.get_recent_sessions(limit=5)
+
+    assert recent["recent_sessions"][0]["session_id"] == "lab-file-fallback"
+    assert recent["recent_sessions"][0]["status"] == "created"
