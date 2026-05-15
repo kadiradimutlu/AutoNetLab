@@ -1,4 +1,4 @@
-﻿[Unit]
+[Unit]
 Description=AutoNetLab FastAPI Backend
 After=network.target docker.service
 Requires=docker.service
