@@ -10,6 +10,7 @@ function Header({ currentPage, onNavigate, authUser, onLogout }) {
   const studentMenuItems = [
     { id: "home", label: t("navHome") },
     { id: "create", label: t("navCreateLab") },
+    { id: "myLabs", label: "My Labs" },
     { id: "session", label: t("navSessionDetail") },
     { id: "result", label: t("navValidationResult") }
   ];
