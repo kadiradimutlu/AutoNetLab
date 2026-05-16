@@ -124,6 +124,21 @@ class LabSessionResponse(BaseModel):
     student_id: str
     difficulty: Difficulty
     status: SessionStatus
+    score: int | None = Field(default=None, examples=[85])
+    passed: bool | None = Field(default=None, examples=[False])
+    created_at: str | None = Field(default=None, examples=["2026-05-16T13:30:00+00:00"])
+    completed_at: str | None = Field(default=None, examples=["2026-05-16T13:45:00+00:00"])
+    topology_summary: dict[str, str | int | list[str]] | None = Field(
+        default=None,
+        examples=[
+            {
+                "name": "autonetlab-lab-12345678",
+                "node_count": 2,
+                "link_count": 1,
+                "devices": ["r1", "r2"],
+            }
+        ],
+    )
     topology: Topology
     cli_access: list[CliAccess]
     hints: list[str] = Field(
