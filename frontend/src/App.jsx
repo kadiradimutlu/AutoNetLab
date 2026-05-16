@@ -3,6 +3,7 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import CreateLab from "./pages/CreateLab";
 import SessionDetail from "./pages/SessionDetail";
+import LabWorkspacePage from "./pages/LabWorkspacePage";
 import ValidationResult from "./pages/ValidationResult";
 import InstructorDashboardPage from "./pages/InstructorDashboardPage";
 import LoginPage from "./pages/LoginPage";
@@ -25,7 +26,7 @@ function isPageAllowedForRole(page, role) {
   }
 
   if (role === "student") {
-    return ["home", "create", "session", "result"].includes(page);
+    return ["home", "create", "session", "workspace", "result"].includes(page);
   }
 
   return false;
@@ -186,6 +187,13 @@ function App() {
         <SessionDetail
           labSession={labSession}
           onLabUpdated={handleLabUpdated}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {authUser.role === "student" && effectivePage === "workspace" && (
+        <LabWorkspacePage
+          labSession={labSession}
           onNavigate={handleNavigate}
         />
       )}

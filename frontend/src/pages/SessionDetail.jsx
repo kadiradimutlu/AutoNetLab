@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import TopologyCard from "../components/TopologyCard";
 import MessageBox from "../components/MessageBox";
 import CliAccessPanel from "../components/CliAccessPanel";
 import ScenarioOverview from "../components/ScenarioOverview";
@@ -261,7 +260,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   }
 
   return (
-    <div className="two-column">
+    <div className="session-detail-overview-page">
       <section className="card">
         <h2>{t("labSessionDetail")}</h2>
 
@@ -289,16 +288,22 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
           <strong>{formatStatus(labSession.status, t)}</strong>
         </div>
 
-        <CliAccessPanel
-          sessionId={labSession.session_id}
-          cliAccess={cliAccess}
-          mode={effectiveCliMode}
-          warning={cliAccessWarning}
-          details={cliAccessDetails}
-          copyNotice={copyNotice}
-          copiedCommandKey={copiedCommandKey}
-          onCopyCommand={handleCopyCommand}
-        />
+        <div className="workspace-entry-card">
+          <div>
+            <h4>Lab Workspace</h4>
+            <p className="muted">
+              Open the dedicated troubleshooting workspace to view the full topology and use the browser-based Web CLI.
+            </p>
+          </div>
+
+          <button
+            className="primary-button"
+            onClick={() => onNavigate("workspace")}
+            type="button"
+          >
+            Open Lab Workspace
+          </button>
+        </div>
 
         <h4>Containerlab Runtime</h4>
 
@@ -317,6 +322,10 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
             disabled={isDeploying || isDestroying}
           >
             {isDestroying ? "Destroying..." : "Destroy Lab"}
+          </button>
+
+          <button className="secondary-button" onClick={() => onNavigate("workspace")}>
+            Open Lab Workspace
           </button>
 
           <button className="primary-button" onClick={() => onNavigate("result")}>
@@ -372,11 +381,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         <p className="footer-note">{t("backendFormatNote")}</p>
       </section>
 
-      <TopologyCard
-        topology={labSession.topology}
-        difficulty={labSession.difficulty}
-        status={labSession.status}
-      />
+
     </div>
   );
 }
