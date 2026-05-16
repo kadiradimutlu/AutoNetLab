@@ -2057,3 +2057,964 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 18 topology visualization polish */
+.topology-card-polished {
+  overflow: hidden;
+}
+
+.topology-summary-polished {
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+}
+
+.network-diagram-shell {
+  border: 1px solid #dbeafe;
+  background:
+    radial-gradient(circle at 16px 16px, rgba(37, 99, 235, 0.12) 1.5px, transparent 1.5px),
+    linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  background-size: 28px 28px, auto;
+  border-radius: 18px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.network-diagram-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: #475569;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.network-diagram-toolbar span {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.network-diagram-toolbar strong {
+  color: #0f172a;
+}
+
+.network-diagram-canvas {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+}
+
+.network-diagram-canvas.pair {
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.7fr) minmax(220px, 1fr);
+}
+
+.network-diagram-canvas.multi {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.network-node-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #bfdbfe;
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  min-width: 0;
+}
+
+.network-device-shell {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+.network-device-icon {
+  width: 68px;
+  height: 54px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  position: relative;
+}
+
+.network-device-icon::before,
+.network-device-icon::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.network-device-icon::before {
+  top: 14px;
+}
+
+.network-device-icon::after {
+  bottom: 14px;
+}
+
+.network-device-icon span {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.network-device-led-row {
+  display: flex;
+  gap: 5px;
+}
+
+.network-device-led-row span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+}
+
+.network-node-content {
+  min-width: 0;
+}
+
+.network-node-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.network-node-title-row p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.network-node-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.network-node-detail-grid div {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 8px;
+  min-width: 0;
+}
+
+.network-node-detail-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.network-node-detail-grid strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.network-link-bridge {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 100px;
+  position: relative;
+}
+
+.network-link-line {
+  width: 100%;
+  min-width: 120px;
+  height: 8px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #2563eb, #06b6d4, #2563eb);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08);
+}
+
+.network-link-bridge.empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 16px;
+  color: #64748b;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.network-link-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f172a;
+  color: #e0f2fe;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+}
+
+.network-link-label span {
+  color: #93c5fd;
+  font-weight: 900;
+}
+
+.topology-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.topology-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 8px 10px;
+}
+
+.topology-legend-item span {
+  min-width: 26px;
+  height: 22px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.topology-legend-item strong {
+  font-size: 12px;
+  color: #334155;
+}
+
+.topology-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.topology-empty-state.compact {
+  padding: 12px;
+}
+
+.topology-empty-state p {
+  margin: 6px 0 0;
+}
+
+.topology-detail-section {
+  margin-top: 16px;
+}
+
+.topology-link-list-polished {
+  display: grid;
+  gap: 10px;
+}
+
+.topology-link-card-polished {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.topology-link-card-polished div {
+  min-width: 0;
+}
+
+.topology-link-card-polished span,
+.topology-link-card-polished small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.topology-link-card-polished strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.topology-link-arrow {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.web-cli-selected-device {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.web-cli-selected-device div {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.web-cli-selected-device span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.web-cli-selected-device strong {
+  overflow-wrap: anywhere;
+}
+
+.web-cli-terminal {
+  border: 1px solid #1e293b;
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+}
+
+.web-cli-command-form {
+  border: 1px solid #1e293b;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 1100px) {
+  .network-diagram-canvas.pair {
+    grid-template-columns: 1fr;
+  }
+
+  .network-link-line {
+    width: 8px;
+    height: 70px;
+    min-width: 8px;
+  }
+
+  .topology-link-card-polished {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .topology-link-arrow {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-summary-polished,
+  .web-cli-selected-device,
+  .network-node-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-node-card {
+    grid-template-columns: 1fr;
+  }
+
+  .network-device-shell {
+    justify-items: start;
+  }
+}
+
+/* Sprint 18 topology narrow-column fix */
+.topology-card-polished .topology-summary-polished {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topology-card-polished .topology-summary-polished div {
+  min-width: 0;
+}
+
+.topology-card-polished .topology-summary-polished strong {
+  overflow-wrap: anywhere;
+}
+
+.topology-card-polished .network-diagram-canvas.pair {
+  grid-template-columns: 1fr;
+}
+
+.topology-card-polished .network-link-bridge {
+  min-height: 76px;
+}
+
+.topology-card-polished .network-link-line {
+  width: 8px;
+  height: 64px;
+  min-width: 8px;
+}
+
+.topology-card-polished .network-link-label {
+  margin-top: -6px;
+}
+
+.topology-card-polished .network-node-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.topology-card-polished .network-node-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topology-card-polished .network-diagram-toolbar {
+  align-items: flex-start;
+}
+
+@media (max-width: 760px) {
+  .topology-card-polished .topology-summary-polished,
+  .topology-card-polished .network-node-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 18 Lab Workspace page */
+.lab-workspace-page {
+  display: grid;
+  gap: 18px;
+}
+
+.lab-workspace-hero {
+  border: 1px solid #dbeafe;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+}
+
+.workspace-eyebrow {
+  display: inline-block;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.workspace-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lab-workspace-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.lab-workspace-meta-grid div {
+  background: white;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.lab-workspace-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.lab-workspace-meta-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.workspace-difficulty.easy {
+  color: #047857;
+}
+
+.workspace-difficulty.medium {
+  color: #b45309;
+}
+
+.workspace-difficulty.hard {
+  color: #b91c1c;
+}
+
+.topology-card-workspace {
+  width: 100%;
+}
+
+.topology-card-workspace .topology-summary-polished {
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+}
+
+.topology-card-workspace .network-diagram-canvas.pair {
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 0.55fr) minmax(260px, 1fr);
+}
+
+.topology-card-workspace .network-link-bridge {
+  min-height: 120px;
+}
+
+.topology-card-workspace .network-link-line {
+  width: 100%;
+  min-width: 120px;
+  height: 8px;
+}
+
+.topology-card-workspace .network-link-label {
+  margin-top: 0;
+}
+
+.lab-workspace-terminal-card {
+  border: 1px solid #dbeafe;
+}
+
+.lab-workspace-terminal-card .web-cli-panel {
+  margin-top: 12px;
+}
+
+.lab-workspace-terminal-card .web-cli-terminal {
+  min-height: 360px;
+}
+
+.lab-workspace-terminal-card .web-cli-command-form input {
+  font-size: 15px;
+}
+
+.workspace-fallback-details {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+  margin-top: 16px;
+  background: #f8fafc;
+}
+
+.workspace-fallback-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.workspace-fallback-details .result-list {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .lab-workspace-meta-grid,
+  .topology-card-workspace .topology-summary-polished {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topology-card-workspace .network-diagram-canvas.pair {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-card-workspace .network-link-line {
+    width: 8px;
+    height: 70px;
+    min-width: 8px;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-action-row {
+    justify-content: flex-start;
+  }
+
+  .lab-workspace-meta-grid,
+  .topology-card-workspace .topology-summary-polished {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 18 workspace final layout cleanup */
+.lab-workspace-page {
+  gap: 12px;
+}
+
+.topology-card-workspace {
+  margin-bottom: 0;
+}
+
+.topology-card-workspace .topology-detail-section {
+  display: none;
+}
+
+.lab-workspace-terminal-card {
+  margin-top: 0;
+}
+
+.lab-workspace-terminal-card .web-cli-panel {
+  margin-top: 8px;
+}
+
+.lab-workspace-terminal-card .web-cli-terminal {
+  min-height: 430px;
+}
+
+.lab-workspace-terminal-card .web-cli-command-form {
+  margin-top: 10px;
+}
+
+.workspace-fallback-details {
+  margin-top: 12px;
+}
+
+/* Sprint 18 Session Detail workspace entry */
+.workspace-entry-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 16px 0;
+}
+
+.workspace-entry-card h4 {
+  margin: 0 0 6px;
+}
+
+.workspace-entry-card p {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .workspace-entry-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* Sprint 18 Session Detail overview layout */
+.session-detail-overview-page {
+  display: grid;
+  gap: 18px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.session-detail-overview-page > .card {
+  width: 100%;
+}
+
+/* Sprint 18 Web CLI terminal-first layout */
+.web-cli-panel-terminal-first .web-cli-terminal {
+  margin-top: 12px;
+  min-height: 470px;
+}
+
+.web-cli-panel-terminal-first .web-cli-command-form {
+  margin-top: 10px;
+}
+
+.web-cli-panel-terminal-first .web-cli-selected-device {
+  margin-top: 14px;
+}
+
+.web-cli-panel-terminal-first .web-cli-controls {
+  margin-top: 10px;
+}
+
+.web-cli-panel-terminal-first .web-cli-readiness-card {
+  margin-top: 12px;
+}
+
+.web-cli-help-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+  min-height: 500px;
+}
+
+/* Sprint 18 workspace desktop presentation polish */
+@media (min-width: 1280px) {
+  .lab-workspace-page {
+    max-width: 1560px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas:
+      "topology side"
+      "terminal side";
+    gap: 12px 16px;
+    align-items: start;
+  }
+
+  .lab-workspace-hero {
+    grid-area: side;
+    position: sticky;
+    top: 96px;
+    padding: 18px;
+    min-height: auto;
+  }
+
+  .lab-workspace-hero .section-title-row {
+    display: grid;
+    gap: 14px;
+  }
+
+  .lab-workspace-hero .section-title-row > div {
+    min-width: 0;
+  }
+
+  .lab-workspace-hero h2 {
+    margin-bottom: 6px;
+  }
+
+  .lab-workspace-hero .muted {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .workspace-action-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .workspace-action-row button {
+    width: 100%;
+  }
+
+  .lab-workspace-meta-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .lab-workspace-meta-grid div {
+    padding: 10px;
+  }
+
+  .topology-card-workspace {
+    grid-area: topology;
+    padding: 18px;
+  }
+
+  .lab-workspace-terminal-card {
+    grid-area: terminal;
+    padding: 18px;
+  }
+
+  .topology-card-workspace .section-title-row {
+    margin-bottom: 10px;
+  }
+
+  .topology-card-workspace .topology-summary-polished {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .topology-card-workspace .topology-summary-polished div {
+    padding: 10px;
+  }
+
+  .topology-card-workspace .network-diagram-shell {
+    margin: 10px 0 0;
+    padding: 12px;
+  }
+
+  .topology-card-workspace .network-diagram-toolbar {
+    margin-bottom: 10px;
+  }
+
+  .topology-card-workspace .network-node-card {
+    padding: 12px;
+  }
+
+  .topology-card-workspace .network-node-detail-grid {
+    gap: 7px;
+  }
+
+  .topology-card-workspace .network-node-detail-grid div {
+    padding: 7px;
+  }
+
+  .topology-card-workspace .topology-legend {
+    margin-top: 12px;
+  }
+
+  .lab-workspace-terminal-card > .section-title-row {
+    margin-bottom: 8px;
+  }
+
+  .lab-workspace-terminal-card > .section-title-row p {
+    margin-bottom: 0;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel {
+    margin-top: 6px;
+    padding: 14px;
+  }
+
+  .web-cli-panel-terminal-first > .section-title-row {
+    margin-bottom: 8px;
+  }
+
+  .web-cli-panel-terminal-first > .section-title-row p {
+    margin-bottom: 0;
+    font-size: 13px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 280px;
+    max-height: 320px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-command-form {
+    margin-top: 8px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-selected-device {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-selected-device div {
+    padding: 8px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-controls {
+    margin-top: 8px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-readiness-card {
+    margin-top: 10px;
+  }
+
+  .workspace-fallback-details {
+    margin-top: 10px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .lab-workspace-page {
+    max-width: 1680px;
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 300px;
+    max-height: 340px;
+  }
+}
+
+/* Sprint 18 final workspace single-panel layout */
+.lab-workspace-page {
+  max-width: 1540px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.topology-title-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspace-topology-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspace-topology-actions button {
+  white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+  .lab-workspace-page {
+    max-width: 1540px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topology"
+      "terminal";
+    gap: 12px;
+  }
+
+  .topology-card-workspace {
+    grid-area: topology;
+  }
+
+  .lab-workspace-terminal-card {
+    grid-area: terminal;
+  }
+
+  .topology-card-workspace .network-diagram-canvas.pair {
+    grid-template-columns: minmax(320px, 1fr) minmax(220px, 0.5fr) minmax(320px, 1fr);
+  }
+
+  .topology-card-workspace .network-diagram-shell {
+    padding: 12px;
+  }
+
+  .topology-card-workspace .network-node-card {
+    min-height: 150px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 340px;
+    max-height: 380px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .lab-workspace-page {
+    max-width: 1640px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 360px;
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-title-action-row,
+  .workspace-topology-actions {
+    justify-content: flex-start;
+  }
+
+  .workspace-topology-actions {
+    width: 100%;
+  }
+
+  .workspace-topology-actions button {
+    width: 100%;
+  }
+}

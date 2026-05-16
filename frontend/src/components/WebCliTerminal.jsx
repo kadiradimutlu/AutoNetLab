@@ -491,15 +491,18 @@ function WebCliTerminal({
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
   const canConnect = isReady && normalizedDevices.length > 0;
+  const selectedDevice =
+    normalizedDevices.find((device) => device.deviceId === selectedDeviceId) ||
+    null;
   const statusBadgeClass = isConnected || isReady ? "pass" : connectionState === "error" ? "fail" : "neutral";
 
   return (
-    <section className="web-cli-panel">
+    <section className="web-cli-panel web-cli-panel-terminal-first">
       <div className="section-title-row">
         <div>
-          <h4>Web CLI MVP</h4>
+          <h4>Browser Web CLI</h4>
           <p className="muted">
-            Check runtime readiness before opening a browser-based CLI session for the selected lab device.
+            Open a controlled terminal session for the selected lab device after runtime readiness passes.
           </p>
         </div>
 
@@ -508,28 +511,45 @@ function WebCliTerminal({
         </span>
       </div>
 
-      <MessageBox
-        type="info"
-        title="Safe Web CLI access"
-        message="Device selection uses trusted backend lab metadata. Container names cannot be typed or overridden from the browser."
-      />
+      <div className="web-cli-terminal" role="log" aria-label="Web CLI terminal output">
+        {terminalLines.map((line, index) => (
+          <pre className={`web-cli-line ${line.kind}`} key={`${line.kind}-${index}`}>
+            {line.text}
+          </pre>
+        ))}
+        <div ref={outputEndRef} />
+      </div>
 
-      {webCliError && (
-        <>
-          <MessageBox
-            type="error"
-            title="Web CLI readiness"
-            message={webCliError}
-          />
+      <form className="web-cli-command-form" onSubmit={sendCommand}>
+        <span>$</span>
+        <input
+          value={command}
+          onChange={(event) => setCommand(event.target.value)}
+          disabled={!isConnected}
+          placeholder={isConnected ? "Type a command and press Enter" : "Connect Web CLI before sending commands"}
+          autoComplete="off"
+        />
+        <button className="primary-button" disabled={!isConnected || !command.trim()}>
+          Send
+        </button>
+      </form>
 
-          {webCliErrorDetails && (
-            <div className="technical-detail-box">
-              <strong>Technical detail</strong>
-              <p>{webCliErrorDetails}</p>
-            </div>
-          )}
-        </>
-      )}
+      <div className="web-cli-selected-device">
+        <div>
+          <span>Selected Device</span>
+          <strong>{selectedDevice?.label || selectedDeviceId || "No device selected"}</strong>
+        </div>
+
+        <div>
+          <span>Device ID</span>
+          <strong>{selectedDevice?.deviceId || selectedDeviceId || "-"}</strong>
+        </div>
+
+        <div>
+          <span>Connection State</span>
+          <strong>{connectionState}</strong>
+        </div>
+      </div>
 
       <div className="web-cli-controls">
         <div className="form-group">
@@ -589,34 +609,36 @@ function WebCliTerminal({
         </div>
       </div>
 
+      {webCliError && (
+        <>
+          <MessageBox
+            type="error"
+            title="Web CLI readiness"
+            message={webCliError}
+          />
+
+          {webCliErrorDetails && (
+            <div className="technical-detail-box">
+              <strong>Technical detail</strong>
+              <p>{webCliErrorDetails}</p>
+            </div>
+          )}
+        </>
+      )}
+
       <ReadinessDetails readiness={readiness} />
 
-      <div className="web-cli-terminal" role="log" aria-label="Web CLI terminal output">
-        {terminalLines.map((line, index) => (
-          <pre className={`web-cli-line ${line.kind}`} key={`${line.kind}-${index}`}>
-            {line.text}
-          </pre>
-        ))}
-        <div ref={outputEndRef} />
-      </div>
-
-      <form className="web-cli-command-form" onSubmit={sendCommand}>
-        <span>$</span>
-        <input
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          disabled={!isConnected}
-          placeholder={isConnected ? "Type a command and press Enter" : "Connect Web CLI before sending commands"}
-          autoComplete="off"
+      <div className="web-cli-help-stack">
+        <MessageBox
+          type="info"
+          title="Safe Web CLI access"
+          message="Device selection uses trusted backend lab metadata. Container names cannot be typed or overridden from the browser."
         />
-        <button className="primary-button" disabled={!isConnected || !command.trim()}>
-          Send
-        </button>
-      </form>
 
-      <p className="footer-note">
-        Current mode: {mode || "browser_cli_mvp"}. Local Docker Exec commands remain available below as a fallback.
-      </p>
+        <p className="footer-note">
+          Current mode: {mode || "browser_cli_mvp"}. Local Docker Exec commands remain available below as a fallback.
+        </p>
+      </div>
     </section>
   );
 }
