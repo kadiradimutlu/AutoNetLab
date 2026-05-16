@@ -1,4 +1,4 @@
-import MessageBox from "./MessageBox";
+﻿import MessageBox from "./MessageBox";
 import ValidationCheckList from "./ValidationCheckList";
 import { useLanguage } from "../hooks/useLanguage";
 import {
@@ -115,7 +115,7 @@ function ValidationSummary({
       <MessageBox
         type="info"
         title="Student-safe result view"
-        message="This view hides injected errors, exact fixes, expected state, observed debug evidence, and solution details."
+        message="This view shows only score, check status, topic grouping, and learning hints for students."
       />
 
       <div className="validation-status-panel">
@@ -171,3 +171,4 @@ function ValidationSummary({
 }
 
 export default ValidationSummary;
+

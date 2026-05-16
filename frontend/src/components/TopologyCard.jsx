@@ -1,3 +1,7 @@
+﻿const LINK_ARROW = "\u2194";
+const LINK_MARKER = "\u2501";
+const DEVICE_COUNT_SEPARATOR = "\u00b7";
+
 function getNodeList(topology) {
   if (Array.isArray(topology?.nodes)) {
     return topology.nodes;
@@ -117,6 +121,98 @@ function getReadableKind(kind) {
   return normalizedKind.charAt(0).toUpperCase() + normalizedKind.slice(1);
 }
 
+function normalizeTopologyKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function buildRingPositionMap(nodes) {
+  return nodes.reduce((positionMap, node, index) => {
+    positionMap.set(normalizeTopologyKey(node.id), index);
+    positionMap.set(normalizeTopologyKey(node.label), index);
+    return positionMap;
+  }, new Map());
+}
+
+function getRingEdgeClass(link, positionMap, index) {
+  const sourceIndex = positionMap.get(normalizeTopologyKey(link.sourceNode));
+  const targetIndex = positionMap.get(normalizeTopologyKey(link.targetNode));
+
+  if (sourceIndex === undefined || targetIndex === undefined) {
+    return index % 2 === 0 ? "diagonal-a" : "diagonal-b";
+  }
+
+  const pairKey = [sourceIndex, targetIndex].sort((left, right) => left - right).join("-");
+
+  if (pairKey === "0-1") {
+    return "top";
+  }
+
+  if (pairKey === "1-2") {
+    return "right";
+  }
+
+  if (pairKey === "2-3") {
+    return "bottom";
+  }
+
+  if (pairKey === "0-3") {
+    return "left";
+  }
+
+  return index % 2 === 0 ? "diagonal-a" : "diagonal-b";
+}
+
+function getRingLineCoordinates(edgeClass) {
+  const coordinatesByEdge = {
+    top: {
+      x1: 36,
+      y1: 20,
+      x2: 64,
+      y2: 20
+    },
+    right: {
+      x1: 78,
+      y1: 30,
+      x2: 78,
+      y2: 70
+    },
+    bottom: {
+      x1: 64,
+      y1: 80,
+      x2: 36,
+      y2: 80
+    },
+    left: {
+      x1: 22,
+      y1: 70,
+      x2: 22,
+      y2: 30
+    },
+    "diagonal-a": {
+      x1: 36,
+      y1: 25,
+      x2: 64,
+      y2: 75
+    },
+    "diagonal-b": {
+      x1: 64,
+      y1: 25,
+      x2: 36,
+      y2: 75
+    }
+  };
+
+  return coordinatesByEdge[edgeClass] || coordinatesByEdge["diagonal-a"];
+}
+
+function getRingNodeClass(index) {
+  return `network-ring-node-${index + 1}`;
+}
+
+function getRingLinkLabel(link) {
+  return `${getSafeText(link.sourceNode)}:${getSafeText(link.sourceInterface)} ${LINK_ARROW} ${getSafeText(link.targetNode)}:${getSafeText(link.targetInterface)}`;
+}
+
 function TopologyNode({ node, cliInfo }) {
   const hasCliAccess = Boolean(cliInfo);
   const containerName = cliInfo?.containerName || cliInfo?.container_name || "-";
@@ -159,7 +255,7 @@ function TopologyNode({ node, cliInfo }) {
           </div>
 
           <div>
-            <span>Management IP</span>
+            <span>Mgmt IP</span>
             <strong>{getSafeText(node.managementIp, "Not assigned")}</strong>
           </div>
 
@@ -190,8 +286,83 @@ function TopologyLinkBridge({ links }) {
 
       <div className="network-link-label">
         <strong>{primaryLink.sourceInterface}</strong>
-        <span>↔</span>
+        <span>{LINK_ARROW}</span>
         <strong>{primaryLink.targetInterface}</strong>
+      </div>
+    </div>
+  );
+}
+
+function RingTopologyDiagram({ nodes, links, cliAccess }) {
+  const positionMap = buildRingPositionMap(nodes);
+  const ringLinks = links.map((link, index) => {
+    const edgeClass = getRingEdgeClass(link, positionMap, index);
+    const coordinates = getRingLineCoordinates(edgeClass);
+
+    return {
+      link,
+      edgeClass,
+      coordinates
+    };
+  });
+
+  return (
+    <div className="network-ring-diagram" aria-label="Four-device ring topology diagram">
+      <svg
+        className="network-ring-svg"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {ringLinks.map(({ link, edgeClass, coordinates }, index) => (
+          <g key={`${link.sourceNode}-${link.targetNode}-${index}`}>
+            <line
+              className={`network-ring-line ${edgeClass}`}
+              x1={coordinates.x1}
+              y1={coordinates.y1}
+              x2={coordinates.x2}
+              y2={coordinates.y2}
+            />
+            <circle
+              className="network-ring-endpoint"
+              cx={coordinates.x1}
+              cy={coordinates.y1}
+              r="1.4"
+            />
+            <circle
+              className="network-ring-endpoint"
+              cx={coordinates.x2}
+              cy={coordinates.y2}
+              r="1.4"
+            />
+          </g>
+        ))}
+      </svg>
+
+      <div className="network-ring-link-label-layer" aria-hidden="true">
+        {ringLinks.map(({ link, edgeClass }, index) => (
+          <span
+            className={`network-ring-link-label ${edgeClass}`}
+            key={`${link.sourceNode}-${link.targetNode}-${index}`}
+            title={getRingLinkLabel(link)}
+          >
+            {getRingLinkLabel(link)}
+          </span>
+        ))}
+      </div>
+
+      <div className="network-ring-node-layer">
+        {nodes.map((node, index) => (
+          <div
+            className={`network-ring-node ${getRingNodeClass(index)}`}
+            key={node.id}
+          >
+            <TopologyNode
+              node={node}
+              cliInfo={findCliAccessForNode(node, cliAccess)}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -204,7 +375,7 @@ function TopologyLegend() {
       label: "Router / Device"
     },
     {
-      marker: "━",
+      marker: LINK_MARKER,
       label: "Network Link"
     },
     {
@@ -255,6 +426,7 @@ function TopologyCard({
 
   const hasNodes = nodes.length > 0;
   const isSimplePair = nodes.length === 2;
+  const isFourNodeRing = nodes.length === 4 && links.length >= 4;
 
   return (
     <section className={`card topology-card topology-card-polished ${variant === "workspace" ? "topology-card-workspace" : ""}`}>
@@ -312,10 +484,12 @@ function TopologyCard({
         <div className="network-diagram-shell">
           <div className="network-diagram-toolbar">
             <span>Generated Lab Diagram</span>
-            <strong>{nodes.length} devices · {links.length} links</strong>
+            <strong>
+              {nodes.length} devices {DEVICE_COUNT_SEPARATOR} {links.length} links
+            </strong>
           </div>
 
-          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"}`}>
+          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""}`}>
             {isSimplePair ? (
               <>
                 <TopologyNode
@@ -330,6 +504,12 @@ function TopologyCard({
                   cliInfo={findCliAccessForNode(nodes[1], cliAccess)}
                 />
               </>
+            ) : isFourNodeRing ? (
+              <RingTopologyDiagram
+                nodes={nodes}
+                links={links}
+                cliAccess={cliAccess}
+              />
             ) : (
               nodes.map((node) => (
                 <TopologyNode
@@ -376,7 +556,7 @@ function TopologyCard({
                 <small>{link.sourceInterface}</small>
               </div>
 
-              <span className="topology-link-arrow">↔</span>
+              <span className="topology-link-arrow">{LINK_ARROW}</span>
 
               <div>
                 <span>Target</span>
