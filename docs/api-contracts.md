@@ -1354,3 +1354,11 @@ CLI access continues to be generated from `topology.nodes`, so hard topology ses
 Hard difficulty keeps five injected troubleshooting issues. Sprint 19 strengthens hard error selection so that, when the topology has at least three devices, selected hard errors cover at least three different topology devices.
 
 Validation remains compatible with the existing config-marker validation approach. Student-facing lab session responses continue to hide injected errors, expected fixes, solutions, answers, and evidence fields.
+
+---
+
+# Sprint 19 Hotfix Addendum - Student-safe Validation Response
+
+The student-facing `POST /api/v1/labs/{session_id}/validate` response now hides `checks[].evidence`.
+
+Internal validation still keeps evidence in the raw `ValidationResult` before persistence. This preserves backend debugging, PostgreSQL/session metadata persistence, instructor analytics compatibility, and recommendation generation while keeping the student-facing API response safe.
