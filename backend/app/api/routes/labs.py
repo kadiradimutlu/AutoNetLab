@@ -1,6 +1,6 @@
-﻿from fastapi import APIRouter, Depends, WebSocket, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, status
 
-from app.core.auth import get_current_user, require_instructor
+from app.core.auth import get_current_user, get_optional_current_user, require_instructor
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.enums import SessionStatus
 from app.schemas.lab import (
@@ -8,6 +8,7 @@ from app.schemas.lab import (
     CliAccessResponse,
     CreateLabRequest,
     LabSessionDebugResponse,
+    LabSessionListResponse,
     LabSessionResponse,
     WebCliReadinessResponse,
 )
@@ -19,6 +20,7 @@ from app.services.session_service import (
     create_lab_session,
     get_cli_access_response,
     get_lab_session,
+    list_lab_sessions,
     to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
@@ -40,13 +42,61 @@ router = APIRouter(prefix="/labs", tags=["Lab Sessions"])
     response_model=LabSessionResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_lab(request: CreateLabRequest) -> LabSessionResponse:
-    return create_lab_session(request)
+def create_lab(
+    request: CreateLabRequest,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> LabSessionResponse:
+    authenticated_student_id = None
+
+    if current_user is not None and current_user.role == "student":
+        authenticated_student_id = current_user.username
+
+    return create_lab_session(
+        request=request,
+        authenticated_student_id=authenticated_student_id,
+    )
+
+
+@router.get("", response_model=LabSessionListResponse)
+def get_labs(
+    student_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> LabSessionListResponse:
+    owner_student_id = student_id
+
+    if current_user.role == "student":
+        owner_student_id = current_user.username
+
+    sessions = list_lab_sessions(
+        owner_student_id=owner_student_id,
+        limit=limit,
+    )
+
+    responses = [
+        to_lab_session_response(
+            session,
+            message="Lab session listed successfully.",
+        )
+        for session in sessions
+    ]
+
+    return LabSessionListResponse(
+        sessions=responses,
+        count=len(responses),
+        message="Lab sessions retrieved successfully.",
+    )
 
 
 @router.get("/{session_id}", response_model=LabSessionResponse)
-def get_lab(session_id: str) -> LabSessionResponse:
-    session = get_lab_session(session_id)
+def get_lab(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> LabSessionResponse:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
 
     return to_lab_session_response(
         session,
@@ -68,7 +118,15 @@ def get_lab_debug(
 
 
 @router.get("/{session_id}/cli", response_model=CliAccessResponse)
-def get_lab_cli_access(session_id: str) -> CliAccessResponse:
+def get_lab_cli_access(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> CliAccessResponse:
+    _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
+
     return get_cli_access_response(session_id)
 
 
@@ -139,8 +197,14 @@ async def web_cli_socket(
 
 
 @router.post("/{session_id}/deploy", response_model=ActionResponse)
-def deploy_lab(session_id: str) -> ActionResponse:
-    session = get_lab_session(session_id)
+def deploy_lab(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> ActionResponse:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
 
     result = containerlab_adapter.deploy(
         session_id=session_id,
@@ -153,8 +217,14 @@ def deploy_lab(session_id: str) -> ActionResponse:
 
 
 @router.get("/{session_id}/inspect", response_model=ActionResponse)
-def inspect_lab(session_id: str) -> ActionResponse:
-    session = get_lab_session(session_id)
+def inspect_lab(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> ActionResponse:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
 
     result = containerlab_adapter.inspect(
         session_id=session_id,
@@ -169,8 +239,14 @@ def inspect_lab(session_id: str) -> ActionResponse:
 
 
 @router.post("/{session_id}/destroy", response_model=ActionResponse)
-def destroy_lab(session_id: str) -> ActionResponse:
-    session = get_lab_session(session_id)
+def destroy_lab(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> ActionResponse:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
 
     result = containerlab_adapter.destroy(
         session_id=session_id,
@@ -181,9 +257,16 @@ def destroy_lab(session_id: str) -> ActionResponse:
 
     return ActionResponse(**result)
 
+
 @router.post("/{session_id}/validate", response_model=StudentValidationResult)
-def validate_lab(session_id: str) -> StudentValidationResult:
-    session = get_lab_session(session_id)
+def validate_lab(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> StudentValidationResult:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
 
     result = validate_session(session)
 
@@ -191,10 +274,60 @@ def validate_lab(session_id: str) -> StudentValidationResult:
 
     return StudentValidationResult(**result.model_dump(mode="json"))
 
+
 @router.get("/{session_id}/recommendations", response_model=RecommendationResponse)
-def get_lab_recommendations(session_id: str) -> RecommendationResponse:
-    session = get_lab_session(session_id)
+def get_lab_recommendations(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> RecommendationResponse:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
 
     return RecommendationResponse(
         **build_recommendations_for_session(session)
     )
+
+
+def _get_authorized_lab_session(
+    session_id: str,
+    current_user: AuthenticatedUser | None,
+) -> dict:
+    session = get_lab_session(session_id)
+
+    _authorize_lab_session_access(
+        session=session,
+        current_user=current_user,
+    )
+
+    return session
+
+
+def _authorize_lab_session_access(
+    session: dict,
+    current_user: AuthenticatedUser | None,
+) -> None:
+    # Backward compatibility:
+    # Existing demo/body-based API calls without Authorization are still allowed.
+    # Real ownership protection is enforced whenever an authenticated user is present.
+    if current_user is None:
+        return
+
+    if current_user.role == "instructor":
+        return
+
+    allowed_student_ids = {
+        current_user.username,
+    }
+
+    if current_user.student_id:
+        allowed_student_ids.add(current_user.student_id)
+
+    session_student_id = str(session.get("student_id", ""))
+
+    if session_student_id not in allowed_student_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student users may only access their own lab sessions.",
+        )

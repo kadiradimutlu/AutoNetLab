@@ -1,4 +1,4 @@
-﻿from typing import Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ CliAccessMode = Literal[
 
 
 class CreateLabRequest(BaseModel):
-    student_id: str = Field(..., examples=["kadir"])
+    student_id: str | None = Field(default=None, examples=["kadir"])
     difficulty: Difficulty = Field(default=Difficulty.easy, examples=["easy"])
     topology_template: str = Field(default="basic-two-router", examples=["basic-two-router"])
 
@@ -167,3 +167,12 @@ class ActionResponse(BaseModel):
     suggestion: str | None = None
 
 
+
+
+
+
+class LabSessionListResponse(BaseModel):
+    success: bool = True
+    sessions: list[LabSessionResponse]
+    count: int
+    message: str

@@ -1,4 +1,4 @@
-﻿# AutoNetLab API Contracts
+# AutoNetLab API Contracts
 
 This document defines the REST/HTTP JSON API contracts between the AutoNetLab Backend API and the Web Dashboard frontend.
 
@@ -1362,3 +1362,34 @@ Validation remains compatible with the existing config-marker validation approac
 The student-facing `POST /api/v1/labs/{session_id}/validate` response now hides `checks[].evidence`.
 
 Internal validation still keeps evidence in the raw `ValidationResult` before persistence. This preserves backend debugging, PostgreSQL/session metadata persistence, instructor analytics compatibility, and recommendation generation while keeping the student-facing API response safe.
+
+---
+
+# Sprint 20 Backend Addendum - Real Auth and Student Ownership
+
+Sprint 20 adds real student registration and login while keeping the existing demo credentials stable for presentation.
+
+## Authentication
+
+- `POST /api/v1/auth/register`
+  - Registers a student user.
+  - Stores only a password hash; plain text passwords are never persisted.
+  - Supported fields: `username`, `password`, `display_name`, optional `email`, optional `student_id`.
+
+- `POST /api/v1/auth/login`
+  - Demo users still work:
+    - `student / student123`
+    - `instructor / instructor123`
+  - Registered PostgreSQL users can also log in.
+
+- `GET /api/v1/auth/me`
+  - Returns the current authenticated user from the bearer token.
+
+## Lab ownership
+
+- Authenticated students can access only their own lab sessions.
+- Instructors can access all lab sessions and instructor analytics.
+- `GET /api/v1/labs` returns:
+  - only the authenticated student's own labs for student users,
+  - all labs or filtered labs for instructor users.
+- Existing body-based demo lab creation remains available for backward compatibility.
