@@ -1067,10 +1067,17 @@ def test_sprint16_database_readiness_endpoint():
     assert "message" in payload
 
 
-def test_sprint16_database_settings_parse_sqlite_default():
+def test_sprint16_database_settings_parse_sqlite_default(monkeypatch):
     from app.core.config import Settings
 
-    settings = Settings()
+    # Keep this default-settings test isolated from production VM .env values.
+    # The application may legitimately run with PostgreSQL in production, but
+    # the Settings class default should remain SQLite for local/test fallback.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("DATABASE_ECHO", raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+
+    settings = Settings(_env_file=None)
 
     assert settings.database_url
     assert settings.database_url.startswith("sqlite")
