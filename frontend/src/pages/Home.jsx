@@ -20,6 +20,10 @@ function Home({ labSession, onNavigate }) {
             {t("createNewLab")}
           </button>
 
+          <button className="secondary-button" onClick={() => onNavigate("myLabs")}>
+            My Labs
+          </button>
+
           <button className="secondary-button" onClick={() => onNavigate("session")}>
             {t("viewCurrentLab")}
           </button>

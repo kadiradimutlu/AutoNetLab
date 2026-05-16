@@ -3212,3 +3212,106 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Sprint 22 auth and my labs */
+.auth-switch-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 22px;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.my-labs-page {
+  display: grid;
+  gap: 16px;
+}
+
+.my-labs-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.my-labs-list {
+  display: grid;
+  gap: 14px;
+}
+
+.my-lab-card {
+  display: grid;
+  gap: 16px;
+}
+
+.my-lab-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.my-lab-card-header h3 {
+  margin: 0 0 6px;
+}
+
+.my-lab-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.my-lab-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.my-lab-detail-grid > div {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.my-lab-detail-grid span,
+.my-lab-detail-grid strong {
+  display: block;
+}
+
+.my-lab-detail-grid strong {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .my-labs-summary-grid,
+  .my-lab-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-lab-card-header {
+    flex-direction: column;
+  }
+
+  .my-lab-badges {
+    justify-content: flex-start;
+  }
+
+  .auth-switch-panel {
+    flex-direction: column;
+  }
+}

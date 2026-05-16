@@ -7,6 +7,8 @@ import LabWorkspacePage from "./pages/LabWorkspacePage";
 import ValidationResult from "./pages/ValidationResult";
 import InstructorDashboardPage from "./pages/InstructorDashboardPage";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import MyLabsPage from "./pages/MyLabsPage";
 import {
   getCurrentUser,
   getLab,
@@ -26,7 +28,7 @@ function isPageAllowedForRole(page, role) {
   }
 
   if (role === "student") {
-    return ["home", "create", "session", "workspace", "result"].includes(page);
+    return ["home", "create", "myLabs", "session", "workspace", "result"].includes(page);
   }
 
   return false;
@@ -34,6 +36,7 @@ function isPageAllowedForRole(page, role) {
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
+  const [authPage, setAuthPage] = useState("login");
   const [labSession, setLabSession] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -97,6 +100,7 @@ function App() {
     }
 
     setAuthUser(user);
+    setAuthPage("login");
     setCurrentPage(getDefaultPageForRole(user.role));
   }
 
@@ -105,6 +109,7 @@ function App() {
     localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     setAuthUser(null);
     setLabSession(null);
+    setAuthPage("login");
     setCurrentPage("home");
   }
 
@@ -145,6 +150,21 @@ function App() {
     }
   }
 
+  async function handleLabSelectedFromHistory(labSummary, targetPage = "session") {
+    const sessionId = labSummary?.session_id;
+
+    if (!sessionId) {
+      throw new Error("Selected lab does not include a session ID.");
+    }
+
+    const fullLabSession = await getLab(sessionId);
+    setLabSession(fullLabSession);
+    localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
+    setCurrentPage(targetPage);
+
+    return fullLabSession;
+  }
+
   if (isAuthLoading) {
     return (
       <main className="page">
@@ -157,7 +177,20 @@ function App() {
   }
 
   if (!authUser) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    if (authPage === "register") {
+      return (
+        <RegisterPage
+          onNavigateLogin={() => setAuthPage("login")}
+        />
+      );
+    }
+
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        onNavigateRegister={() => setAuthPage("register")}
+      />
+    );
   }
 
   const effectivePage = isPageAllowedForRole(currentPage, authUser.role)
@@ -179,6 +212,14 @@ function App() {
         <CreateLab
           authUser={authUser}
           onLabCreated={handleLabCreated}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {authUser.role === "student" && effectivePage === "myLabs" && (
+        <MyLabsPage
+          authUser={authUser}
+          onLabSelected={handleLabSelectedFromHistory}
           onNavigate={handleNavigate}
         />
       )}

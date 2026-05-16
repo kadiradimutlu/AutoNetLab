@@ -5,7 +5,7 @@ import mockRecommendation from "../data/mock_recommendation.json";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
 const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
+  import.meta.env.VITE_API_BASE_URL || "/api/v1"
 ).replace(/\/$/, "");
 
 const AUTH_STORAGE_KEY = "autonetlab_auth_state";
@@ -176,6 +176,57 @@ export async function loginUser({ username, password }) {
   const authState = normalizeAuthResponse(result);
   writeAuthState(authState);
   return authState;
+}
+
+export async function registerUser({
+  username,
+  password,
+  display_name,
+  email,
+  student_id
+}) {
+  if (USE_MOCK_API) {
+    await wait();
+
+    const normalizedUsername = String(username || "").trim().toLowerCase();
+
+    if (DEMO_AUTH_USERS[normalizedUsername]) {
+      throw createApiError({
+        status: 409,
+        data: {
+          success: false,
+          error_code: "USERNAME_ALREADY_EXISTS",
+          message: "This username already exists.",
+          suggestion: "Choose a different username for the demo registration."
+        },
+        path: "/auth/register",
+        method: "POST",
+        url: "mock://auth/register"
+      });
+    }
+
+    return {
+      success: true,
+      user: {
+        username,
+        display_name: display_name || username,
+        role: "student",
+        student_id: student_id || username
+      },
+      message: "MOCK: Registration successful."
+    };
+  }
+
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      username,
+      password,
+      display_name,
+      email,
+      student_id
+    })
+  });
 }
 
 export async function getCurrentUser() {
@@ -516,6 +567,56 @@ const MOCK_STUDENT_DETAIL = {
   }
 };
 
+const MOCK_LAB_HISTORY = {
+  success: true,
+  sessions: [
+    {
+      success: true,
+      session_id: "lab-demo-001",
+      student_id: "demo-student",
+      difficulty: "easy",
+      status: "validated",
+      score: 90,
+      passed: true,
+      created_at: "2026-05-10T09:00:00+00:00",
+      completed_at: "2026-05-10T09:18:00+00:00",
+      topology_summary: {
+        name: "autonetlab-lab-demo-001",
+        node_count: 2,
+        link_count: 1,
+        devices: ["r1", "r2"]
+      },
+      topology: {},
+      cli_access: [],
+      hints: [],
+      message: "MOCK: Lab session listed successfully."
+    },
+    {
+      success: true,
+      session_id: "lab-demo-hard-004",
+      student_id: "demo-student",
+      difficulty: "hard",
+      status: "deployed",
+      score: null,
+      passed: null,
+      created_at: "2026-05-14T12:30:00+00:00",
+      completed_at: null,
+      topology_summary: {
+        name: "autonetlab-lab-demo-hard-004",
+        node_count: 4,
+        link_count: 4,
+        devices: ["r1", "r2", "r3", "r4"]
+      },
+      topology: {},
+      cli_access: [],
+      hints: [],
+      message: "MOCK: Lab session listed successfully."
+    }
+  ],
+  count: 2,
+  message: "MOCK: Lab sessions retrieved successfully."
+};
+
 const MOCK_RECENT_SESSIONS = {
   success: true,
   recent_sessions: [
@@ -754,7 +855,41 @@ function getRawErrorMessage(data, fallbackMessage) {
   );
 }
 
-function getFriendlyErrorMessage({ status, path, method }) {
+function getFriendlyErrorMessage({ status, path, method, data }) {
+  const backendMessage = formatBackendDetail(data?.message);
+  const backendSuggestion = formatBackendDetail(data?.suggestion);
+  const backendErrorCode = data?.error_code || data?.code;
+
+  if (backendMessage) {
+    return backendSuggestion
+      ? `${backendMessage} Suggestion: ${backendSuggestion}`
+      : backendMessage;
+  }
+
+  if (backendErrorCode === "INVALID_CREDENTIALS") {
+    return "Invalid username or password.";
+  }
+
+  if (backendErrorCode === "USERNAME_ALREADY_EXISTS") {
+    return "This username already exists. Please choose a different username.";
+  }
+
+  if (backendErrorCode === "AUTHENTICATION_REQUIRED") {
+    return "Login is required for this endpoint.";
+  }
+
+  if (backendErrorCode === "LAB_OWNERSHIP_FORBIDDEN") {
+    return "This lab belongs to a different student account.";
+  }
+
+  if (backendErrorCode === "INSTRUCTOR_ROLE_REQUIRED") {
+    return "Instructor access is required for this page.";
+  }
+
+  if (backendErrorCode === "LAB_SESSION_NOT_FOUND") {
+    return "Lab session was not found.";
+  }
+
   if (status === 0) {
     return "Backend API is not reachable. Please make sure the FastAPI server is running and the API base URL is correct.";
   }
@@ -827,13 +962,16 @@ function createApiError({
     getFriendlyErrorMessage({
       status,
       path,
-      method
+      method,
+      data
     })
   );
 
   error.name = "ApiServiceError";
   error.status = status;
   error.data = data;
+  error.errorCode = data?.error_code || data?.code || "";
+  error.suggestion = data?.suggestion || "";
   error.path = path;
   error.method = method;
   error.url = url;
@@ -869,15 +1007,16 @@ async function parseResponseBody(response) {
 async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
   const method = getRequestMethod(options);
+  const { headers: optionHeaders = {}, ...fetchOptions } = options;
 
   try {
     const response = await fetch(url, {
+      ...fetchOptions,
       headers: {
         "Content-Type": "application/json",
         ...getAuthHeaders(),
-        ...(options.headers || {})
-      },
-      ...options
+        ...optionHeaders
+      }
     });
 
     const data = await parseResponseBody(response);
@@ -937,6 +1076,14 @@ export function getErrorDetails(error) {
   }
 
   const details = [];
+
+  if (error.errorCode) {
+    details.push(`Error code: ${error.errorCode}`);
+  }
+
+  if (error.suggestion) {
+    details.push(`Suggestion: ${error.suggestion}`);
+  }
 
   if (error.status !== undefined && error.status !== null) {
     details.push(`Status: ${error.status}`);
@@ -1204,6 +1351,31 @@ export async function createSession({
   });
 
   return sanitizeStudentSession(result);
+}
+
+export async function listLabSessions({ limit = 50, student_id } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    const sessions = MOCK_LAB_HISTORY.sessions.slice(0, safeLimit);
+
+    return {
+      ...MOCK_LAB_HISTORY,
+      sessions,
+      count: sessions.length
+    };
+  }
+
+  const params = new URLSearchParams();
+  params.set("limit", String(safeLimit));
+
+  if (student_id) {
+    params.set("student_id", student_id);
+  }
+
+  return request(`/labs?${params.toString()}`);
 }
 
 export async function getSession(sessionId) {
@@ -1689,3 +1861,5 @@ export const getLab = getSession;
 export const deployLab = deploySession;
 export const destroyLab = destroySession;
 export const validateLab = validateSession;
+
+

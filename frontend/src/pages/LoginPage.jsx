@@ -8,71 +8,71 @@ import {
 
 const DEMO_ACCOUNTS = [
   {
-    role: "student",
-    title: "Student Demo",
+    role: "Student",
     username: "student",
     password: "student123",
-    description: "Access student lab creation, CLI access, validation, and recommendations."
+    title: "Demo Student Login",
+    description: "Use the student workspace, create labs, open My Labs, and troubleshoot with Web CLI."
   },
   {
-    role: "instructor",
-    title: "Instructor Demo",
+    role: "Instructor",
     username: "instructor",
     password: "instructor123",
-    description: "Access instructor analytics and role-protected dashboard pages."
+    title: "Demo Instructor Login",
+    description: "Open the instructor dashboard and review analytics, readiness, and student progress."
   }
 ];
 
-function LoginPage({ onLoginSuccess }) {
+function LoginPage({ onLoginSuccess, onNavigateRegister }) {
   const [username, setUsername] = useState("student");
   const [password, setPassword] = useState("student123");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
 
-  function fillDemoAccount(account) {
-    setUsername(account.username);
-    setPassword(account.password);
-    setErrorMessage("");
-    setErrorDetails("");
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    setIsLoggingIn(true);
+  async function submitLogin(credentials) {
+    setIsSubmitting(true);
     setErrorMessage("");
     setErrorDetails("");
 
     try {
-      const authState = await loginUser({
-        username,
-        password
-      });
-
+      const authState = await loginUser(credentials);
       onLoginSuccess(authState);
     } catch (error) {
-      setErrorMessage(
-        getErrorMessage(
-          error,
-          "Login failed. Please check the username and password."
-        )
-      );
+      setErrorMessage(getErrorMessage(error, "Login failed."));
       setErrorDetails(getErrorDetails(error));
       console.error("Login failed.", error);
     } finally {
-      setIsLoggingIn(false);
+      setIsSubmitting(false);
     }
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    submitLogin({
+      username,
+      password
+    });
+  }
+
+  function handleDemoLogin(account) {
+    setUsername(account.username);
+    setPassword(account.password);
+    submitLogin({
+      username: account.username,
+      password: account.password
+    });
   }
 
   return (
     <main className="login-page">
       <section className="login-card">
         <div className="login-brand">
-          <span className="auth-badge">AutoNetLab</span>
-          <h1>Sign in to AutoNetLab</h1>
+          <span className="auth-badge">Sprint 22 Auth</span>
+          <h1>AutoNetLab</h1>
           <p>
-            Use a demo account to access the student lab flow or the instructor dashboard.
+            Sign in to access role-aware lab workflows, Web CLI troubleshooting,
+            My Labs history, and instructor analytics.
           </p>
         </div>
 
@@ -95,40 +95,56 @@ function LoginPage({ onLoginSuccess }) {
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="loginUsername">Username</label>
             <input
-              id="username"
+              id="loginUsername"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               autoComplete="username"
-              placeholder="student"
+              required
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="loginPassword">Password</label>
             <input
-              id="password"
+              id="loginPassword"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
-              placeholder="student123"
+              required
             />
           </div>
 
-          <button className="primary-button login-button" disabled={isLoggingIn}>
-            {isLoggingIn ? "Signing in..." : "Sign In"}
+          <button
+            className="primary-button login-button"
+            type="submit"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
+
+        <div className="auth-switch-panel">
+          <span className="muted">New student account?</span>
+          <button
+            className="link-button"
+            type="button"
+            onClick={onNavigateRegister}
+          >
+            Create an account
+          </button>
+        </div>
 
         <div className="demo-account-grid">
           {DEMO_ACCOUNTS.map((account) => (
             <button
               className="demo-account-card"
-              key={account.role}
-              onClick={() => fillDemoAccount(account)}
+              key={account.username}
               type="button"
+              onClick={() => handleDemoLogin(account)}
+              disabled={isSubmitting}
             >
               <span className="auth-role-pill">{account.role}</span>
               <strong>{account.title}</strong>
