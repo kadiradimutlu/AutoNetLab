@@ -12,7 +12,7 @@ from app.schemas.lab import (
     WebCliReadinessResponse,
 )
 from app.schemas.recommendation import RecommendationResponse
-from app.schemas.validation import ValidationResult
+from app.schemas.validation import StudentValidationResult
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.session_service import (
@@ -181,17 +181,15 @@ def destroy_lab(session_id: str) -> ActionResponse:
 
     return ActionResponse(**result)
 
-
-@router.post("/{session_id}/validate", response_model=ValidationResult)
-def validate_lab(session_id: str) -> ValidationResult:
+@router.post("/{session_id}/validate", response_model=StudentValidationResult)
+def validate_lab(session_id: str) -> StudentValidationResult:
     session = get_lab_session(session_id)
 
     result = validate_session(session)
 
     update_session_validation_result(session_id, result)
 
-    return result
-
+    return StudentValidationResult(**result.model_dump(mode="json"))
 
 @router.get("/{session_id}/recommendations", response_model=RecommendationResponse)
 def get_lab_recommendations(session_id: str) -> RecommendationResponse:

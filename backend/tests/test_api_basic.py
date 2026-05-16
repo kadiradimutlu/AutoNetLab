@@ -418,6 +418,19 @@ def test_sprint8_validation_checks_include_advanced_fields():
         assert "max_points" in check
         assert "message" in check
         assert "hint" in check
+        assert "evidence" not in check
+
+    import json
+
+    metadata_path = GENERATED_DIR / session_id / "session.json"
+    assert metadata_path.exists()
+
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    internal_checks = payload["validation_result"]["checks"]
+
+    assert len(internal_checks) == 5
+
+    for check in internal_checks:
         assert "evidence" in check
         assert isinstance(check["evidence"], dict)
         assert check["evidence"]["validation_mode"] == "config_marker_check"
@@ -1238,6 +1251,9 @@ def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
     assert validation_payload["success"] is True
     assert validation_payload["status"] == "validated"
     assert len(validation_payload["checks"]) == 5
+
+    for check in validation_payload["checks"]:
+        assert "evidence" not in check
 
     session_dir = GENERATED_DIR / session_id
     metadata_path = session_dir / "errors" / "injected_errors.json"
