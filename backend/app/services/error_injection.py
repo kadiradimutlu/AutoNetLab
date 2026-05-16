@@ -306,31 +306,72 @@ def _select_diverse_hard_errors(
     randomizer: random.Random,
 ) -> list[dict]:
     """
-    Selects hard errors with topic diversity / konu çeşitliliği.
+    Selects hard errors with topic and device diversity.
 
-    Hard scenarios should not accidentally become five variations of the same
-    topic. This keeps troubleshooting more analytical while preserving
-    deterministic behavior.
+    Sprint 19 adds a stronger hard-scenario guarantee:
+    - keep deterministic selection,
+    - avoid five checks from one topic,
+    - when the hard topology has at least three devices, cover at least
+      three different devices in the selected error set.
     """
+
+    selected_errors: list[dict] = []
+    selected_codes: set[str] = set()
+
+    available_devices = sorted(
+        {
+            str(error["device"])
+            for error in available_errors
+            if error.get("device")
+        }
+    )
+    randomizer.shuffle(available_devices)
+
+    minimum_device_count = min(3, count, len(available_devices))
+
+    for device in available_devices[:minimum_device_count]:
+        device_candidates = [
+            error
+            for error in available_errors
+            if error.get("device") == device
+        ]
+
+        if not device_candidates:
+            continue
+
+        selected_error = randomizer.choice(device_candidates)
+        selected_errors.append(selected_error)
+        selected_codes.add(selected_error["code"])
 
     errors_by_topic: dict[str, list[dict]] = defaultdict(list)
 
     for error in available_errors:
+        if error["code"] in selected_codes:
+            continue
+
         errors_by_topic[error["topic"]].append(error)
 
     topics = list(errors_by_topic.keys())
     randomizer.shuffle(topics)
 
-    selected_errors: list[dict] = []
+    selected_topics = {
+        error["topic"]
+        for error in selected_errors
+    }
 
     for topic in topics:
         if len(selected_errors) >= count:
             break
 
-        selected_errors.append(randomizer.choice(errors_by_topic[topic]))
+        if topic in selected_topics and len(selected_topics) < len(topics):
+            continue
+
+        selected_error = randomizer.choice(errors_by_topic[topic])
+        selected_errors.append(selected_error)
+        selected_codes.add(selected_error["code"])
+        selected_topics.add(topic)
 
     if len(selected_errors) < count:
-        selected_codes = {error["code"] for error in selected_errors}
         remaining_errors = [
             error
             for error in available_errors
@@ -344,6 +385,7 @@ def _select_diverse_hard_errors(
                 break
 
             selected_errors.append(error)
+            selected_codes.add(error["code"])
 
     return selected_errors
 
