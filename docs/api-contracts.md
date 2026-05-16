@@ -1327,3 +1327,30 @@ This endpoint reports whether the backend runtime environment is ready for Docke
 - docs/final-demo-runbook.md
 - docs/runtime-preflight-checklist.md
 
+---
+
+# Sprint 19 Backend Addendum - Advanced Topology Scenarios
+
+Sprint 19 strengthens difficulty-based topology behavior while keeping the existing API contract backward compatible.
+
+## Topology behavior
+
+- Easy difficulty remains the stable basic two-router topology.
+- Medium difficulty remains a three-router linear topology.
+- Hard difficulty uses an advanced four-router ring topology:
+  - r1 -- r2
+  - r2 -- r3
+  - r3 -- r4
+  - r1 -- r4
+
+The existing `topology.nodes` and `topology.links` response format is preserved.
+
+## CLI access behavior
+
+CLI access continues to be generated from `topology.nodes`, so hard topology sessions automatically return CLI metadata for r1, r2, r3, and r4.
+
+## Error injection and validation behavior
+
+Hard difficulty keeps five injected troubleshooting issues. Sprint 19 strengthens hard error selection so that, when the topology has at least three devices, selected hard errors cover at least three different topology devices.
+
+Validation remains compatible with the existing config-marker validation approach. Student-facing lab session responses continue to hide injected errors, expected fixes, solutions, answers, and evidence fields.

@@ -1136,3 +1136,127 @@ def test_sprint17_instructor_analytics_service_falls_back_to_session_json(monkey
 
     assert recent["recent_sessions"][0]["session_id"] == "lab-file-fallback"
     assert recent["recent_sessions"][0]["status"] == "created"
+
+def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
+    response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "sprint19-hard-student",
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["difficulty"] == "hard"
+    assert "injected_errors" not in data
+    assert "expected_fix" not in data
+    assert "solution" not in data
+    assert "answer" not in data
+    assert "evidence" not in data
+
+    topology = data["topology"]
+    node_ids = [
+        node["id"]
+        for node in topology["nodes"]
+    ]
+
+    assert node_ids == ["r1", "r2", "r3", "r4"]
+
+    link_pairs = {
+        (
+            link["source"]["node"],
+            link["target"]["node"],
+        )
+        for link in topology["links"]
+    }
+
+    assert link_pairs == {
+        ("r1", "r2"),
+        ("r2", "r3"),
+        ("r3", "r4"),
+        ("r1", "r4"),
+    }
+
+    cli_device_ids = {
+        device["device_id"]
+        for device in data["cli_access"]
+    }
+
+    assert cli_device_ids == {"r1", "r2", "r3", "r4"}
+
+    for device in data["cli_access"]:
+        assert device["container_name"].endswith(f"-{device['device_id']}")
+        assert device["command"].startswith("docker exec -it")
+
+
+def test_sprint19_hard_error_injection_covers_at_least_three_topology_devices():
+    from app.schemas.enums import Difficulty
+    from app.services.error_injection import generate_errors
+
+    topology_devices = ["r1", "r2", "r3", "r4"]
+
+    errors = generate_errors(
+        difficulty=Difficulty.hard,
+        seed="sprint19-hard-device-coverage",
+        topology_devices=topology_devices,
+    )
+
+    error_devices = {
+        error.device
+        for error in errors
+    }
+
+    assert len(errors) == 5
+    assert error_devices.issubset(set(topology_devices))
+    assert len(error_devices) >= 3
+
+
+def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
+    import json
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "sprint19-validation-student",
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    validate_response = client.post(f"/api/v1/labs/{session_id}/validate")
+    assert validate_response.status_code == 200
+
+    validation_payload = validate_response.json()
+    assert validation_payload["success"] is True
+    assert validation_payload["status"] == "validated"
+    assert len(validation_payload["checks"]) == 5
+
+    session_dir = GENERATED_DIR / session_id
+    metadata_path = session_dir / "errors" / "injected_errors.json"
+    assert metadata_path.exists()
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["topology_devices"] == ["r1", "r2", "r3", "r4"]
+
+    injected_devices = {
+        error["device"]
+        for error in metadata["injected_errors"]
+    }
+
+    assert injected_devices.issubset({"r1", "r2", "r3", "r4"})
+    assert len(injected_devices) >= 3
+
+    config_files = {
+        path.name
+        for path in (session_dir / "configs").glob("*.conf")
+    }
+
+    assert config_files == {"r1.conf", "r2.conf", "r3.conf", "r4.conf"}
