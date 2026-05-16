@@ -44,8 +44,12 @@ DIFFICULTY_STUDENT_HINTS = {
     ],
 }
 
-def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
+def create_lab_session(
+    request: CreateLabRequest,
+    authenticated_student_id: str | None = None,
+) -> LabSessionResponse:
     session_id = f"lab-{uuid4().hex[:8]}"
+    student_id = authenticated_student_id or request.student_id or "demo-student"
 
     generated_topology = generate_session_topology(
         session_id=session_id,
@@ -75,7 +79,7 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
 
     session = {
         "session_id": session_id,
-        "student_id": request.student_id,
+        "student_id": student_id,
         "difficulty": request.difficulty,
         "status": SessionStatus.created,
         "topology": topology,
@@ -101,6 +105,41 @@ def create_lab_session(request: CreateLabRequest) -> LabSessionResponse:
         message="Lab session created successfully.",
     )
 
+
+def list_lab_sessions(
+    owner_student_id: str | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    sessions_by_id: dict[str, dict] = dict(_sessions)
+
+    if GENERATED_DIR.exists():
+        for metadata_path in GENERATED_DIR.glob("*/session.json"):
+            session_id = metadata_path.parent.name
+
+            if session_id in sessions_by_id:
+                continue
+
+            loaded_session = _load_session_metadata(session_id)
+
+            if loaded_session is not None:
+                sessions_by_id[session_id] = loaded_session
+                _sessions[session_id] = loaded_session
+
+    sessions = list(sessions_by_id.values())
+
+    if owner_student_id is not None:
+        sessions = [
+            session
+            for session in sessions
+            if str(session.get("student_id")) == owner_student_id
+        ]
+
+    sessions.sort(
+        key=lambda session: str(session.get("created_at") or ""),
+        reverse=True,
+    )
+
+    return sessions[:limit]
 
 def get_lab_session(session_id: str) -> dict:
     session = _sessions.get(session_id)
@@ -130,10 +169,10 @@ def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
 
 def update_session_validation_result(session_id: str, validation_result) -> dict:
     """
-    Persists validation result / doğrulama sonucunu session metadata içine kaydeder.
+    Persists validation result / doÄŸrulama sonucunu session metadata iÃ§ine kaydeder.
 
-    Sprint 6 analytics endpointleri session.json dosyalarını read-only şekilde okuyacağı için
-    score, passed, checks ve recommendations alanlarının kalıcı olması gerekir.
+    Sprint 6 analytics endpointleri session.json dosyalarÄ±nÄ± read-only ÅŸekilde okuyacaÄŸÄ± iÃ§in
+    score, passed, checks ve recommendations alanlarÄ±nÄ±n kalÄ±cÄ± olmasÄ± gerekir.
     """
 
     session = get_lab_session(session_id)
@@ -171,7 +210,7 @@ def get_cli_access_response(session_id: str) -> CliAccessResponse:
 
 def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
     """
-    Builds student-safe response / öğrenciye güvenli yanıt.
+    Builds student-safe response / Ã¶ÄŸrenciye gÃ¼venli yanÄ±t.
 
     injected_errors intentionally stays inside internal session metadata,
     but it is not exposed through the default student-facing API response.
@@ -191,7 +230,7 @@ def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
 
 def to_lab_session_debug_response(session: dict, message: str) -> LabSessionDebugResponse:
     """
-    Builds instructor/debug response / eğitmen veya debug yanıtı.
+    Builds instructor/debug response / eÄŸitmen veya debug yanÄ±tÄ±.
 
     This response includes injected_errors and should only be used by
     explicit debug/instructor endpoints.
@@ -212,7 +251,7 @@ def to_lab_session_debug_response(session: dict, message: str) -> LabSessionDebu
 
 def build_student_hints(difficulty: Difficulty) -> list[str]:
     """
-    Returns generic troubleshooting hints / genel hata giderme ipuçları.
+    Returns generic troubleshooting hints / genel hata giderme ipuÃ§larÄ±.
 
     These hints are intentionally broad. They must not reveal exact injected
     error codes, devices, interfaces, expected fixes, or solution details.
@@ -223,7 +262,7 @@ def build_student_hints(difficulty: Difficulty) -> list[str]:
 
 def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
     """
-    Builds CLI access / CLI erişimi information for each Containerlab node.
+    Builds CLI access / CLI eriÅŸimi information for each Containerlab node.
 
     Containerlab container naming format:
     clab-<lab_name>-<node_id>
@@ -248,8 +287,8 @@ def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
                 mode="local_docker_exec_demo",
                 command=f"docker exec -it {container_name} sh",
                 description=(
-                    f"{node.id.upper()} cihazına CLI üzerinden bağlanmak için "
-                    f"bu komutu kullanın."
+                    f"{node.id.upper()} cihazÄ±na CLI Ã¼zerinden baÄŸlanmak iÃ§in "
+                    f"bu komutu kullanÄ±n."
                 ),
             )
         )
@@ -354,7 +393,7 @@ def _load_session_metadata(session_id: str) -> dict | None:
 
 def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
     """
-    Keeps backward compatibility / geriye dönük uyumluluk.
+    Keeps backward compatibility / geriye dÃ¶nÃ¼k uyumluluk.
 
     Sprint 2 session.json files may only have:
     - device_id
@@ -388,7 +427,7 @@ def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
         command=raw_cli.get("command", f"docker exec -it {container_name} sh"),
         description=raw_cli.get(
             "description",
-            f"{device_id.upper()} cihazına CLI üzerinden bağlanmak için bu komutu kullanın.",
+            f"{device_id.upper()} cihazÄ±na CLI Ã¼zerinden baÄŸlanmak iÃ§in bu komutu kullanÄ±n.",
         ),
     )
 

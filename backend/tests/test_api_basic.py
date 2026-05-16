@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -1276,3 +1276,198 @@ def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
     }
 
     assert config_files == {"r1.conf", "r2.conf", "r3.conf", "r4.conf"}
+
+def _sprint20_register_student(username: str, password: str = "student123"):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": username,
+            "password": password,
+            "display_name": f"{username} Display",
+            "email": f"{username}@example.test",
+        },
+    )
+
+    assert response.status_code == 201
+
+    return response.json()
+
+
+def _sprint20_login_student(username: str, password: str = "student123") -> str:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": username,
+            "password": password,
+        },
+    )
+
+    assert response.status_code == 200
+
+    return response.json()["access_token"]
+
+
+def test_sprint20_student_register_login_me_and_hashed_password():
+    from uuid import uuid4
+
+    from app.db.models import User
+    from app.db.session import session_scope
+
+    username = f"sprint20-student-{uuid4().hex[:8]}"
+    password = "student123"
+
+    register_payload = _sprint20_register_student(
+        username=username,
+        password=password,
+    )
+
+    assert register_payload["success"] is True
+    assert register_payload["user"]["username"] == username
+    assert register_payload["user"]["role"] == "student"
+
+    with session_scope() as db:
+        user = db.get(User, username)
+
+        assert user is not None
+        assert user.password_hash is not None
+        assert user.password_hash != password
+        assert user.password_hash.startswith("pbkdf2_sha256$")
+
+    access_token = _sprint20_login_student(
+        username=username,
+        password=password,
+    )
+
+    me_response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert me_response.status_code == 200
+
+    me_payload = me_response.json()
+    assert me_payload["success"] is True
+    assert me_payload["user"]["username"] == username
+    assert me_payload["user"]["role"] == "student"
+
+
+def test_sprint20_demo_auth_still_works():
+    student_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "student",
+            "password": "student123",
+        },
+    )
+
+    assert student_response.status_code == 200
+    assert student_response.json()["access_token"] == "demo-student-token"
+
+    instructor_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "instructor",
+            "password": "instructor123",
+        },
+    )
+
+    assert instructor_response.status_code == 200
+    assert instructor_response.json()["access_token"] == "demo-instructor-token"
+
+
+def test_sprint20_student_ownership_and_my_labs():
+    from uuid import uuid4
+
+    owner_username = f"sprint20-owner-{uuid4().hex[:8]}"
+    other_username = f"sprint20-other-{uuid4().hex[:8]}"
+
+    _sprint20_register_student(owner_username)
+    _sprint20_register_student(other_username)
+
+    owner_token = _sprint20_login_student(owner_username)
+    other_token = _sprint20_login_student(other_username)
+
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    create_response = client.post(
+        "/api/v1/labs",
+        headers=owner_headers,
+        json={
+            "student_id": "spoofed-student-id-should-not-win",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    created_lab = create_response.json()
+    session_id = created_lab["session_id"]
+
+    assert created_lab["student_id"] == owner_username
+
+    owner_get_response = client.get(
+        f"/api/v1/labs/{session_id}",
+        headers=owner_headers,
+    )
+
+    assert owner_get_response.status_code == 200
+
+    other_get_response = client.get(
+        f"/api/v1/labs/{session_id}",
+        headers=other_headers,
+    )
+
+    assert other_get_response.status_code == 403
+
+    other_deploy_response = client.post(
+        f"/api/v1/labs/{session_id}/deploy",
+        headers=other_headers,
+    )
+
+    assert other_deploy_response.status_code == 403
+
+    other_validate_response = client.post(
+        f"/api/v1/labs/{session_id}/validate",
+        headers=other_headers,
+    )
+
+    assert other_validate_response.status_code == 403
+
+    other_destroy_response = client.post(
+        f"/api/v1/labs/{session_id}/destroy",
+        headers=other_headers,
+    )
+
+    assert other_destroy_response.status_code == 403
+
+    owner_list_response = client.get(
+        "/api/v1/labs",
+        headers=owner_headers,
+    )
+
+    assert owner_list_response.status_code == 200
+
+    owner_sessions = owner_list_response.json()["sessions"]
+    assert any(item["session_id"] == session_id for item in owner_sessions)
+
+    other_list_response = client.get(
+        "/api/v1/labs",
+        headers=other_headers,
+    )
+
+    assert other_list_response.status_code == 200
+
+    other_sessions = other_list_response.json()["sessions"]
+    assert all(item["session_id"] != session_id for item in other_sessions)
+
+    instructor_list_response = client.get(
+        "/api/v1/labs",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+
+    assert instructor_list_response.status_code == 200
+
+    instructor_sessions = instructor_list_response.json()["sessions"]
+    assert any(item["session_id"] == session_id for item in instructor_sessions)
