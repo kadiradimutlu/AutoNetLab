@@ -1471,3 +1471,176 @@ def test_sprint20_student_ownership_and_my_labs():
 
     instructor_sessions = instructor_list_response.json()["sessions"]
     assert any(item["session_id"] == session_id for item in instructor_sessions)
+
+
+
+def _sprint21_error_payload(response):
+    payload = response.json()
+
+    assert payload["success"] is False
+    assert "error_code" in payload
+    assert "message" in payload
+    assert "suggestion" in payload
+    assert "path" in payload
+
+    return payload
+
+
+def test_sprint21_auth_error_contracts_are_frontend_friendly():
+    from uuid import uuid4
+
+    username = f"sprint21-auth-{uuid4().hex[:8]}"
+
+    _sprint20_register_student(username)
+
+    duplicate_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": username,
+            "password": "student123",
+            "display_name": "Duplicate Student",
+            "email": f"{username}-duplicate@example.test",
+        },
+    )
+
+    assert duplicate_response.status_code in {400, 409}
+    duplicate_payload = _sprint21_error_payload(duplicate_response)
+    assert duplicate_payload["error_code"] == "USERNAME_ALREADY_EXISTS"
+
+    invalid_login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": username,
+            "password": "wrong-password",
+        },
+    )
+
+    assert invalid_login_response.status_code == 401
+    invalid_login_payload = _sprint21_error_payload(invalid_login_response)
+    assert invalid_login_payload["error_code"] == "INVALID_CREDENTIALS"
+
+    no_auth_labs_response = client.get("/api/v1/labs")
+    assert no_auth_labs_response.status_code == 401
+    no_auth_labs_payload = _sprint21_error_payload(no_auth_labs_response)
+    assert no_auth_labs_payload["error_code"] == "AUTHENTICATION_REQUIRED"
+
+    student_instructor_response = client.get(
+        "/api/v1/instructor/analytics/summary",
+        headers=STUDENT_AUTH_HEADERS,
+    )
+    assert student_instructor_response.status_code == 403
+    student_instructor_payload = _sprint21_error_payload(student_instructor_response)
+    assert student_instructor_payload["error_code"] == "INSTRUCTOR_ROLE_REQUIRED"
+
+
+def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
+    from uuid import uuid4
+
+    username = f"sprint21-history-{uuid4().hex[:8]}"
+
+    _sprint20_register_student(username)
+    token = _sprint20_login_student(username)
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_response = client.post(
+        "/api/v1/labs",
+        headers=headers,
+        json={
+            "student_id": "spoofed-student-id-should-not-win",
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    created_lab = create_response.json()
+    session_id = created_lab["session_id"]
+
+    assert created_lab["student_id"] == username
+    assert created_lab["created_at"] is not None
+    assert created_lab["completed_at"] is None
+    assert created_lab["score"] is None
+    assert created_lab["passed"] is None
+    assert created_lab["topology_summary"]["name"]
+    assert created_lab["topology_summary"]["node_count"] == 4
+    assert created_lab["topology_summary"]["link_count"] == 4
+    assert set(created_lab["topology_summary"]["devices"]) == {"r1", "r2", "r3", "r4"}
+
+    list_response = client.get(
+        "/api/v1/labs?limit=10",
+        headers=headers,
+    )
+
+    assert list_response.status_code == 200
+
+    list_payload = list_response.json()
+    assert list_payload["success"] is True
+    assert list_payload["count"] >= 1
+
+    matching_sessions = [
+        item
+        for item in list_payload["sessions"]
+        if item["session_id"] == session_id
+    ]
+
+    assert len(matching_sessions) == 1
+
+    listed_lab = matching_sessions[0]
+    assert listed_lab["student_id"] == username
+    assert listed_lab["difficulty"] == "hard"
+    assert listed_lab["status"] == "created"
+    assert listed_lab["created_at"] is not None
+    assert listed_lab["completed_at"] is None
+    assert listed_lab["score"] is None
+    assert listed_lab["passed"] is None
+    assert listed_lab["topology_summary"]["node_count"] == 4
+    assert listed_lab["topology_summary"]["link_count"] == 4
+
+    instructor_get_response = client.get(
+        f"/api/v1/labs/{session_id}",
+        headers=INSTRUCTOR_AUTH_HEADERS,
+    )
+
+    assert instructor_get_response.status_code == 200
+    assert instructor_get_response.json()["session_id"] == session_id
+
+
+def test_sprint21_ownership_forbidden_error_code_is_stable():
+    from uuid import uuid4
+
+    owner_username = f"sprint21-owner-{uuid4().hex[:8]}"
+    other_username = f"sprint21-other-{uuid4().hex[:8]}"
+
+    _sprint20_register_student(owner_username)
+    _sprint20_register_student(other_username)
+
+    owner_token = _sprint20_login_student(owner_username)
+    other_token = _sprint20_login_student(other_username)
+
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    create_response = client.post(
+        "/api/v1/labs",
+        headers=owner_headers,
+        json={
+            "student_id": "spoofed-student-id-should-not-win",
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    forbidden_response = client.get(
+        f"/api/v1/labs/{session_id}",
+        headers=other_headers,
+    )
+
+    assert forbidden_response.status_code == 403
+    forbidden_payload = _sprint21_error_payload(forbidden_response)
+    assert forbidden_payload["error_code"] == "LAB_OWNERSHIP_FORBIDDEN"

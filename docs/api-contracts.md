@@ -1393,3 +1393,156 @@ Sprint 20 adds real student registration and login while keeping the existing de
   - only the authenticated student's own labs for student users,
   - all labs or filtered labs for instructor users.
 - Existing body-based demo lab creation remains available for backward compatibility.
+
+
+---
+
+# Sprint 21 Backend Product Completion and API Contract Freeze
+
+Sprint 21 freezes the backend-facing API contracts needed for Muhammed's frontend integration sprint.
+
+## Auth API contract
+
+### POST `/api/v1/auth/register`
+
+Registers a real student account.
+
+Request body:
+
+```json
+{
+  "username": "alice",
+  "password": "alice123",
+  "display_name": "Alice Student",
+  "email": "alice@example.com",
+  "student_id": "alice"
+}
+
+Response status: 201 Created
+
+Response body:
+
+{
+  "success": true,
+  "user": {
+    "username": "alice",
+    "display_name": "Alice Student",
+    "role": "student",
+    "student_id": "alice"
+  },
+  "message": "Registration successful."
+}
+
+Rules:
+
+Registered users have role student.
+Passwords are stored as hashes only.
+Plain text passwords must never be persisted.
+Duplicate username returns a frontend-friendly error response with error_code = USERNAME_ALREADY_EXISTS.
+POST /api/v1/auth/login
+
+Supports both demo users and registered PostgreSQL users.
+
+Demo credentials remain stable:
+
+student / student123
+instructor / instructor123
+
+Response body:
+
+{
+  "success": true,
+  "access_token": "token-value",
+  "token_type": "bearer",
+  "user": {
+    "username": "student",
+    "display_name": "Demo Student",
+    "role": "student",
+    "student_id": "demo-student"
+  },
+  "message": "Login successful."
+}
+
+Invalid username/password returns 401 with error_code = INVALID_CREDENTIALS.
+
+GET /api/v1/auth/me
+
+Requires:
+
+Authorization: Bearer <access_token>
+
+Returns the authenticated user object and is intended for frontend auth restore after page refresh.
+
+Missing or invalid auth returns 401 with error_code = AUTHENTICATION_REQUIRED.
+
+Student lab history / My Labs
+GET /api/v1/labs
+
+Requires authentication.
+
+Query parameters:
+
+limit: optional, default 50, min 1, max 200
+student_id: optional; instructor-only filtering helper
+
+Student behavior:
+
+Ignores spoofed student_id query.
+Always returns only the authenticated student's own labs.
+
+Instructor behavior:
+
+Can list all labs.
+Can filter by student_id.
+
+Response body:
+
+{
+  "success": true,
+  "sessions": [
+    {
+      "success": true,
+      "session_id": "lab-12345678",
+      "student_id": "alice",
+      "difficulty": "hard",
+      "status": "created",
+      "score": null,
+      "passed": null,
+      "created_at": "2026-05-16T13:30:00+00:00",
+      "completed_at": null,
+      "topology_summary": {
+        "name": "autonetlab-lab-12345678",
+        "node_count": 4,
+        "link_count": 4,
+        "devices": ["r1", "r2", "r3", "r4"]
+      },
+      "topology": {},
+      "cli_access": [],
+      "hints": [],
+      "message": "Lab session listed successfully."
+    }
+  ],
+  "count": 1,
+  "message": "Lab sessions retrieved successfully."
+}
+
+Frontend should use topology_summary for My Labs cards/tables and the full topology object for the Lab Workspace topology visualization.
+
+Ownership and role rules
+Authenticated students can access only their own lab sessions.
+Instructors can access all lab sessions.
+Demo body-based unauthenticated lab creation remains available for compatibility.
+Web CLI authorization follows the same ownership rules.
+
+Expected error behavior:
+
+ScenarioHTTPerror_code
+Missing auth on protected endpoint401AUTHENTICATION_REQUIRED
+Invalid login credentials401INVALID_CREDENTIALS
+Student opens another student's lab403LAB_OWNERSHIP_FORBIDDEN
+Student opens instructor endpoint403INSTRUCTOR_ROLE_REQUIRED
+Lab session missing404LAB_SESSION_NOT_FOUND
+Duplicate username400 or 409USERNAME_ALREADY_EXISTS
+Contract freeze note
+
+Sprint 21 does not change Containerlab runtime behavior, hard topology generation, validation logic, recommendation generation, or PostgreSQL table shape. It only makes response contracts and frontend-facing error behavior clearer.

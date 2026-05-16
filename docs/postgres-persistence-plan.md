@@ -70,3 +70,18 @@ persistent data:
 - student sessions
 - student topic weaknesses
 - student score trend
+
+
+Sprint 21 contract freeze note
+
+Sprint 21 does not require a new database migration.
+
+The existing persistence model already stores the fields needed by the frontend lab history contract:
+
+lab_sessions.score
+lab_sessions.passed
+lab_sessions.created_at
+lab_sessions.completed_at
+lab_sessions.topology_json
+
+Sprint 21 exposes these values through frontend-ready API responses while preserving PostgreSQL DB-first analytics and session.json fallback behavior.

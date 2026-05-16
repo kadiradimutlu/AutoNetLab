@@ -221,6 +221,11 @@ def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
         student_id=session["student_id"],
         difficulty=session["difficulty"],
         status=session["status"],
+        score=session.get("score"),
+        passed=session.get("passed"),
+        created_at=session.get("created_at"),
+        completed_at=session.get("completed_at"),
+        topology_summary=build_topology_summary(session),
         topology=session["topology"],
         cli_access=session["cli_access"],
         hints=build_student_hints(session["difficulty"]),
@@ -248,6 +253,52 @@ def to_lab_session_debug_response(session: dict, message: str) -> LabSessionDebu
         message=message,
     )
 
+
+
+def build_topology_summary(session: dict) -> dict[str, str | int | list[str]]:
+    """
+    Builds a compact topology summary for lab history / My Labs screens.
+
+    The full topology object remains in the response for the workspace view.
+    This summary gives the frontend enough metadata for cards, tables, and lists
+    without parsing the full topology graph each time.
+    """
+
+    topology = session.get("topology")
+    nodes = list(getattr(topology, "nodes", []) or [])
+    links = list(getattr(topology, "links", []) or [])
+
+    devices = [
+        _topology_item_id(node)
+        for node in nodes
+    ]
+
+    topology_name = (
+        getattr(topology, "name", None)
+        or session.get("lab_name")
+        or session.get("session_id")
+        or "unknown-topology"
+    )
+
+    return {
+        "name": str(topology_name),
+        "node_count": len(nodes),
+        "link_count": len(links),
+        "devices": devices,
+    }
+
+
+def _topology_item_id(item: object) -> str:
+    if isinstance(item, dict):
+        return str(item.get("id") or item.get("name") or "unknown")
+
+    return str(
+        getattr(
+            item,
+            "id",
+            getattr(item, "name", "unknown"),
+        )
+    )
 
 def build_student_hints(difficulty: Difficulty) -> list[str]:
     """
