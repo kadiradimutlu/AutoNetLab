@@ -6,6 +6,7 @@ from typing import Any
 
 from app.schemas.enums import SessionStatus
 from app.schemas.validation import ValidationCheck, ValidationResult
+from app.services.validation_rules import get_live_validation_rule
 
 
 TOPIC_LABELS = {
@@ -38,6 +39,7 @@ TOPIC_HINTS = {
 
 TOPIC_BY_ERROR_CODE = {
     "IP_ADDRESS_MISMATCH": "ip_addressing",
+    "WRONG_SUBNET_MASK_R1": "subnetting",
     "WRONG_SUBNET_MASK": "subnetting",
     "INTERFACE_DOWN_R2": "interface_status",
     "INTERFACE_DOWN_R4": "interface_status",
@@ -48,7 +50,11 @@ TOPIC_BY_ERROR_CODE = {
     "VLAN_MISMATCH": "vlan_like",
     "VLAN_MISMATCH_R3": "vlan_like",
     "ACL_BLOCK_ICMP": "acl_like",
+    "ACL_BLOCK_ICMP_R1": "acl_like",
+    "ACL_BLOCK_ICMP_R3": "acl_like",
     "CONNECTIVITY_FAILURE": "connectivity",
+    "CONNECTIVITY_FAILURE_R2_R3": "connectivity",
+    "CONNECTIVITY_FAILURE_R1_R4": "connectivity",
 }
 
 
@@ -250,47 +256,9 @@ def _evaluate_live_container_state(
     topic: str,
     device: str,
 ) -> dict[str, Any] | None:
-    expectations = {
-        "IP_ADDRESS_MISMATCH": {
-            "command": "ip addr show eth1",
-            "expected": "inet 10.10.12.1/24",
-        },
-        "VLAN_MISMATCH": {
-            "command": "ip addr show eth2",
-            "expected": "inet 10.10.14.1/24",
-        },
-        "VLAN_MISMATCH_R3": {
-            "command": "ip addr show eth2",
-            "expected": "inet 10.10.34.1/24",
-        },
-        "INTERFACE_DOWN_R2": {
-            "command": "ip link show eth1",
-            "expected": "state UP",
-        },
-        "INTERFACE_DOWN_R4": {
-            "command": "ip link show eth1",
-            "expected": "state UP",
-        },
-        "MISSING_ROUTE_R3": {
-            "command": "ip route",
-            "expected": "10.10.12.0/24 via 10.10.23.1",
-        },
-        "WRONG_SUBNET_MASK": {
-            "command": "ip addr show eth1",
-            "expected": "inet 10.10.23.2/24",
-        },
-        "WRONG_GATEWAY": {
-            "command": "ip route",
-            "expected": "default via 10.10.12.1",
-        },
-        "WRONG_GATEWAY_R4": {
-            "command": "ip route",
-            "expected": "default via 10.10.34.1",
-        },
-    }
+    rule = get_live_validation_rule(code)
 
-    expectation = expectations.get(code)
-    if expectation is None:
+    if rule is None:
         return None
 
     container_name = _container_name_for_device(session=session, device=device)
@@ -299,13 +267,18 @@ def _evaluate_live_container_state(
 
     observed = _run_container_command(
         container_name=container_name,
-        command=expectation["command"],
+        command=rule.command,
     )
     if observed is None:
         return None
 
-    expected = expectation["expected"]
-    passed = expected in observed
+    missing_outputs = [
+        expected
+        for expected in rule.expected_outputs
+        if expected not in observed
+    ]
+
+    passed = not missing_outputs
     topic_label = _topic_label(topic)
 
     if passed:
@@ -315,6 +288,12 @@ def _evaluate_live_container_state(
         message = f"{topic_label} validation failed on {device}. The related issue still appears unresolved."
         observed_state = "expected live state is missing"
 
+    expected_state: str | list[str]
+    if len(rule.expected_outputs) == 1:
+        expected_state = rule.expected_outputs[0]
+    else:
+        expected_state = list(rule.expected_outputs)
+
     return {
         "passed": passed,
         "message": message,
@@ -322,14 +301,14 @@ def _evaluate_live_container_state(
             "validation_mode": "live_container_state_check",
             "device": device,
             "container_name": container_name,
-            "command": expectation["command"],
-            "expected_state": expected,
+            "command": rule.command,
+            "rule_description": rule.description,
+            "expected_state": expected_state,
+            "missing_expected_outputs": missing_outputs,
             "observed_state": observed_state,
             "observed_output": observed[:2000],
         },
     }
-
-
 
 def _entry_value(entry: Any, key: str) -> Any:
     if isinstance(entry, dict):
