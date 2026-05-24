@@ -396,11 +396,21 @@ def _run_container_command(container_name: str, command: str) -> str | None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
 
-    if completed.returncode != 0:
-        return None
+    output = completed.stdout.strip() or completed.stderr.strip()
 
-    output = completed.stdout.strip()
-    return output or completed.stderr.strip()
+    if completed.returncode != 0:
+        normalized_output = output.lower()
+
+        if (
+            "no such container" in normalized_output
+            or "is not running" in normalized_output
+            or "container not found" in normalized_output
+        ):
+            return None
+
+        return output
+
+    return output
 
 
 def _build_recommendations(checks: list[ValidationCheck]) -> list[str]:
