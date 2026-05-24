@@ -94,6 +94,66 @@ def _classify_http_error(
 ) -> tuple[str, str, str]:
     detail_text = str(detail).lower()
 
+    if status_code == status.HTTP_401_UNAUTHORIZED:
+        if "invalid" in detail_text and (
+            "credential" in detail_text
+            or "password" in detail_text
+            or "username" in detail_text
+        ):
+            return (
+                "INVALID_CREDENTIALS",
+                "Username or password is incorrect.",
+                "Check your username and password, then try again.",
+            )
+
+        return (
+            "AUTHENTICATION_REQUIRED",
+            "Login is required for this endpoint.",
+            "Sign in and send the access token using the Authorization: Bearer <token> header.",
+        )
+
+    if status_code == status.HTTP_403_FORBIDDEN:
+        if "own lab sessions" in detail_text or "only access" in detail_text:
+            return (
+                "LAB_OWNERSHIP_FORBIDDEN",
+                "You do not have permission to access this lab session.",
+                "Use your own lab session or ask an instructor to review this lab.",
+            )
+
+        if "instructor" in detail_text:
+            return (
+                "INSTRUCTOR_ROLE_REQUIRED",
+                "Instructor role is required for this endpoint.",
+                "Sign in with an instructor account before opening instructor analytics.",
+            )
+
+        return (
+            "FORBIDDEN",
+            "You do not have permission to perform this action.",
+            "Check your account role or choose a resource you are allowed to access.",
+        )
+
+    if status_code == status.HTTP_409_CONFLICT:
+        if "username" in detail_text and ("already" in detail_text or "exists" in detail_text):
+            return (
+                "USERNAME_ALREADY_EXISTS",
+                "This username is already registered.",
+                "Choose a different username or log in with the existing account.",
+            )
+
+        if "email" in detail_text and ("already" in detail_text or "exists" in detail_text):
+            return (
+                "EMAIL_ALREADY_EXISTS",
+                "This email is already registered.",
+                "Use a different email or log in with the existing account.",
+            )
+
+        return (
+            "CONFLICT",
+            "Request conflicts with an existing resource.",
+            "Check whether the resource already exists and try again.",
+        )
+
     if status_code == status.HTTP_404_NOT_FOUND:
         if "lab session" in detail_text and "not found" in detail_text:
             return (

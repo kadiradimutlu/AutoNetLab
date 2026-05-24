@@ -665,3 +665,3684 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.topology-card {
+  overflow: hidden;
+}
+
+.topology-summary-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.topology-summary-row div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.topology-summary-row span {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.topology-map-panel {
+  background: linear-gradient(135deg, #eff6ff, #f8fafc);
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 16px 0 20px;
+}
+
+.topology-node-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.topology-node-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.topology-node-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.topology-node-card p {
+  margin: 4px 0 0;
+}
+
+.topology-link-strip {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.topology-link-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: #111827;
+  color: white;
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.topology-link-pill strong {
+  color: #93c5fd;
+}
+
+.device-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.device-detail-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.device-detail-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.device-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.link-path-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.link-path-row span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.hints-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.hint-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.hint-item p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.hint-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .topology-summary-row,
+  .topology-node-grid,
+  .device-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-link-pill {
+    border-radius: 12px;
+  }
+}
+
+.analytics-summary-grid {
+  margin-bottom: 18px;
+}
+
+.analytics-stat-card p {
+  margin: 0;
+}
+
+.analytics-main-grid {
+  margin-bottom: 16px;
+}
+
+.analytics-card {
+  margin-bottom: 16px;
+}
+
+.analytics-empty-state {
+  border: 1px dashed #cbd5e1;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.analytics-empty-state strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.analytics-empty-state p {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.analytics-bar-list,
+.topic-weakness-list {
+  display: grid;
+  gap: 14px;
+}
+
+.analytics-bar-row,
+.topic-weakness-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.analytics-bar-header,
+.topic-weakness-header,
+.analytics-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.topic-weakness-header {
+  align-items: flex-start;
+}
+
+.topic-weakness-header p {
+  margin: 5px 0 0;
+}
+
+.analytics-bar-track {
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 12px 0 10px;
+}
+
+.analytics-bar-fill {
+  width: var(--bar-width);
+  height: 100%;
+  background: #2563eb;
+  border-radius: 999px;
+}
+
+.analytics-bar-fill.danger {
+  background: #dc2626;
+}
+
+.analytics-bar-meta {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.analytics-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.analytics-table th {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 800;
+}
+
+.analytics-table td {
+  color: #1f2937;
+}
+
+.badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+@media (max-width: 900px) {
+  .analytics-bar-header,
+  .topic-weakness-header,
+  .analytics-bar-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+/* Sprint 7 recommendation UI / Ã¶neri arayÃ¼zÃ¼ */
+.recommendation-source-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.recommendation-source-panel p,
+.recommendation-info-note p,
+.recommendation-empty-state p,
+.recommendation-explanation-block p,
+.related-check-item p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.recommendation-info-note {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.recommendation-info-note.compact {
+  margin-bottom: 0;
+}
+
+.recommendation-empty-state {
+  border: 1px dashed #cbd5e1;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.recommendation-message {
+  margin-bottom: 14px;
+}
+
+.recommendation-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.recommendation-card-header strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 17px;
+}
+
+.recommendation-badge-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.source-badge {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.source-badge.source-rule-based {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.source-badge.source-ml-prototype {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.source-badge.source-hybrid {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.recommendation-explanation-block {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 11px;
+  margin-top: 10px;
+}
+
+.recommendation-explanation-block span,
+.recommendation-meta-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.recommendation-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.recommendation-meta-grid div {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.next-action-section {
+  margin-top: 14px;
+}
+
+.next-action-section h4 {
+  margin: 0 0 8px;
+}
+
+.next-action-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+
+.related-check-details {
+  margin-top: 14px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.related-check-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.related-check-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.related-check-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.related-check-item strong,
+.related-check-item span {
+  display: block;
+}
+
+.related-check-item span {
+  color: #6b7280;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .recommendation-card-header,
+  .recommendation-badge-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recommendation-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 8 CLI access and advanced validation polish */
+.cli-access-panel,
+.scenario-overview {
+  margin-top: 20px;
+}
+
+.cli-mode-note {
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.cli-mode-note strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.cli-mode-note p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.scenario-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.scenario-meta-grid div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.scenario-meta-grid span {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.topic-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+
+.topic-pill {
+  display: inline-block;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.validation-topic-list {
+  display: grid;
+  gap: 14px;
+}
+
+.validation-topic-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.validation-topic-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.validation-topic-header h4 {
+  margin: 4px 0 0;
+}
+
+.advanced-check-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.debug-evidence-panel {
+  margin-top: 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  padding: 10px;
+}
+
+.debug-evidence-panel summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.debug-evidence-panel span {
+  display: block;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 800;
+  margin-top: 10px;
+}
+
+.debug-evidence-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .scenario-meta-grid,
+  .advanced-check-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .validation-topic-header {
+    flex-direction: column;
+  }
+}
+
+/* Sprint 9 login and role-based navigation */
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 32%),
+    #f4f6f8;
+}
+
+.login-card {
+  width: min(960px, 100%);
+  background: white;
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12);
+}
+
+.login-brand {
+  margin-bottom: 22px;
+}
+
+.login-brand h1 {
+  margin: 12px 0 8px;
+  font-size: 34px;
+}
+
+.login-brand p {
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.auth-badge,
+.auth-role-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.login-form {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: white;
+  font: inherit;
+}
+
+.login-button {
+  width: 100%;
+}
+
+.demo-account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.demo-account-card {
+  text-align: left;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.demo-account-card:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.demo-account-card strong,
+.demo-account-card small {
+  display: block;
+  margin-top: 8px;
+}
+
+.demo-account-card p {
+  color: #4b5563;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+.auth-header-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.auth-header-panel .muted {
+  display: block;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.auth-header-panel strong {
+  display: block;
+  color: white;
+  font-size: 14px;
+}
+
+.auth-loading-state {
+  margin-top: 40px;
+}
+
+@media (max-width: 900px) {
+  .demo-account-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-header-panel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Sprint 10 Instructor Dashboard v2 */
+.instructor-dashboard-v2 {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.instructor-student-list-card {
+  position: sticky;
+  top: 20px;
+}
+
+.student-list {
+  display: grid;
+  gap: 10px;
+}
+
+.student-list-item {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.student-list-item:hover,
+.student-list-item.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.student-list-item strong,
+.student-list-item span {
+  display: block;
+}
+
+.student-list-metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.student-list-metrics span {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.instructor-student-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.selected-student-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.selected-student-header h3 {
+  margin: 4px 0;
+}
+
+.student-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.instructor-detail-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table-wrapper.compact {
+  margin-top: 16px;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+
+.analytics-table th {
+  color: #374151;
+  background: #f9fafb;
+  font-size: 13px;
+}
+
+.topic-weakness-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.topic-weakness-card {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.topic-weakness-metrics {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.topic-weakness-metrics div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.topic-weakness-metrics span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.score-trend-chart {
+  height: 220px;
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.score-trend-bar-item {
+  min-width: 34px;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #374151;
+}
+
+.score-trend-bar-track {
+  height: 100%;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.score-trend-bar {
+  width: 18px;
+  border-radius: 999px;
+  background: #dc2626;
+}
+
+.score-trend-bar.pass {
+  background: #16a34a;
+}
+
+.score-trend-bar.fail {
+  background: #dc2626;
+}
+
+.badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+@media (max-width: 1000px) {
+  .instructor-dashboard-v2,
+  .instructor-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .instructor-student-list-card {
+    position: static;
+  }
+
+  .student-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .student-summary-grid,
+  .topic-weakness-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-student-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Sprint 11 Web CLI MVP */
+.web-cli-panel {
+  margin: 18px 0;
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.web-cli-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 14px 0;
+}
+
+.web-cli-controls .form-group {
+  margin-bottom: 0;
+}
+
+.web-cli-controls select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: white;
+}
+
+.web-cli-button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.web-cli-terminal {
+  min-height: 280px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: #020617;
+  color: #d1fae5;
+  border: 1px solid #111827;
+  border-radius: 12px;
+  padding: 14px;
+  font-family: "Consolas", "Courier New", monospace;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.web-cli-line {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.web-cli-line.system {
+  color: #93c5fd;
+}
+
+.web-cli-line.command {
+  color: #fde68a;
+}
+
+.web-cli-line.error {
+  color: #fecaca;
+}
+
+.web-cli-line.output {
+  color: #d1fae5;
+}
+
+.web-cli-command-form {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  background: #111827;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.web-cli-command-form span {
+  color: #93c5fd;
+  font-family: "Consolas", "Courier New", monospace;
+  font-weight: 800;
+}
+
+.web-cli-command-form input {
+  border: 1px solid #374151;
+  background: #020617;
+  color: #d1fae5;
+  border-radius: 9px;
+  padding: 11px;
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.web-cli-command-form input:disabled {
+  color: #9ca3af;
+  background: #1f2937;
+}
+
+@media (max-width: 800px) {
+  .web-cli-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .web-cli-command-form {
+    grid-template-columns: auto 1fr;
+  }
+
+  .web-cli-command-form button {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Sprint 11 signed-in student lab ownership */
+.readonly-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #f9fafb;
+  color: #111827;
+  font: inherit;
+  font-weight: 700;
+}
+
+.form-helper {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Sprint 12 Web CLI readiness */
+.web-cli-readiness-card {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.web-cli-readiness-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.web-cli-readiness-card.not-ready {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.web-cli-readiness-card.neutral {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+}
+
+.web-cli-readiness-card p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+.web-cli-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.web-cli-readiness-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.web-cli-readiness-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.web-cli-readiness-grid strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .web-cli-readiness-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .web-cli-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 12 disabled action polish */
+button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: grayscale(0.35);
+}
+
+.primary-button:disabled {
+  background: #9ca3af;
+  color: #f9fafb;
+}
+
+.secondary-button:disabled {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
+/* Sprint 13 runtime readiness */
+.runtime-readiness-card {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+}
+
+.runtime-readiness-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.runtime-readiness-card.not-ready {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.runtime-readiness-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.runtime-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.runtime-metric-card {
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.runtime-metric-card span:first-child {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.runtime-metric-card strong {
+  overflow-wrap: anywhere;
+}
+
+.runtime-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.runtime-info-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.runtime-info-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.runtime-info-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.runtime-check-section {
+  margin-top: 16px;
+}
+
+.runtime-check-list {
+  display: grid;
+  gap: 10px;
+}
+
+.runtime-check-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.runtime-check-item.ok {
+  border-color: #bbf7d0;
+}
+
+.runtime-check-item.failed {
+  border-color: #fecaca;
+}
+
+.runtime-check-item p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+.section-title-row.compact {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 1000px) {
+  .runtime-readiness-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .runtime-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .runtime-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 16 database readiness */
+.demo-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.database-readiness-card {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+}
+
+.database-readiness-card.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.database-readiness-card.not-ready {
+  border-color: #fecaca;
+  background: #fff7ed;
+}
+
+.database-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.database-detail-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.database-detail-grid div {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.database-detail-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.database-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+  .demo-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .database-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 18 topology visualization polish */
+.topology-card-polished {
+  overflow: hidden;
+}
+
+.topology-summary-polished {
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+}
+
+.network-diagram-shell {
+  border: 1px solid #dbeafe;
+  background:
+    radial-gradient(circle at 16px 16px, rgba(37, 99, 235, 0.12) 1.5px, transparent 1.5px),
+    linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  background-size: 28px 28px, auto;
+  border-radius: 18px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.network-diagram-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: #475569;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.network-diagram-toolbar span {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.network-diagram-toolbar strong {
+  color: #0f172a;
+}
+
+.network-diagram-canvas {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+}
+
+.network-diagram-canvas.pair {
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.7fr) minmax(220px, 1fr);
+}
+
+.network-diagram-canvas.multi {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.network-node-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #bfdbfe;
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  min-width: 0;
+}
+
+.network-device-shell {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+.network-device-icon {
+  width: 68px;
+  height: 54px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  position: relative;
+}
+
+.network-device-icon::before,
+.network-device-icon::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.network-device-icon::before {
+  top: 14px;
+}
+
+.network-device-icon::after {
+  bottom: 14px;
+}
+
+.network-device-icon span {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.network-device-led-row {
+  display: flex;
+  gap: 5px;
+}
+
+.network-device-led-row span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+}
+
+.network-node-content {
+  min-width: 0;
+}
+
+.network-node-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.network-node-title-row p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.network-node-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.network-node-detail-grid div {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 8px;
+  min-width: 0;
+}
+
+.network-node-detail-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.network-node-detail-grid strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.network-link-bridge {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 100px;
+  position: relative;
+}
+
+.network-link-line {
+  width: 100%;
+  min-width: 120px;
+  height: 8px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #2563eb, #06b6d4, #2563eb);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08);
+}
+
+.network-link-bridge.empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 16px;
+  color: #64748b;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.network-link-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f172a;
+  color: #e0f2fe;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+}
+
+.network-link-label span {
+  color: #93c5fd;
+  font-weight: 900;
+}
+
+.topology-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.topology-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  padding: 8px 10px;
+}
+
+.topology-legend-item span {
+  min-width: 26px;
+  height: 22px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.topology-legend-item strong {
+  font-size: 12px;
+  color: #334155;
+}
+
+.topology-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.topology-empty-state.compact {
+  padding: 12px;
+}
+
+.topology-empty-state p {
+  margin: 6px 0 0;
+}
+
+.topology-detail-section {
+  margin-top: 16px;
+}
+
+.topology-link-list-polished {
+  display: grid;
+  gap: 10px;
+}
+
+.topology-link-card-polished {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.topology-link-card-polished div {
+  min-width: 0;
+}
+
+.topology-link-card-polished span,
+.topology-link-card-polished small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.topology-link-card-polished strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.topology-link-arrow {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.web-cli-selected-device {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.web-cli-selected-device div {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.web-cli-selected-device span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.web-cli-selected-device strong {
+  overflow-wrap: anywhere;
+}
+
+.web-cli-terminal {
+  border: 1px solid #1e293b;
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+}
+
+.web-cli-command-form {
+  border: 1px solid #1e293b;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 1100px) {
+  .network-diagram-canvas.pair {
+    grid-template-columns: 1fr;
+  }
+
+  .network-link-line {
+    width: 8px;
+    height: 70px;
+    min-width: 8px;
+  }
+
+  .topology-link-card-polished {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .topology-link-arrow {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-summary-polished,
+  .web-cli-selected-device,
+  .network-node-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-node-card {
+    grid-template-columns: 1fr;
+  }
+
+  .network-device-shell {
+    justify-items: start;
+  }
+}
+
+/* Sprint 18 topology narrow-column fix */
+.topology-card-polished .topology-summary-polished {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topology-card-polished .topology-summary-polished div {
+  min-width: 0;
+}
+
+.topology-card-polished .topology-summary-polished strong {
+  overflow-wrap: anywhere;
+}
+
+.topology-card-polished .network-diagram-canvas.pair {
+  grid-template-columns: 1fr;
+}
+
+.topology-card-polished .network-link-bridge {
+  min-height: 76px;
+}
+
+.topology-card-polished .network-link-line {
+  width: 8px;
+  height: 64px;
+  min-width: 8px;
+}
+
+.topology-card-polished .network-link-label {
+  margin-top: -6px;
+}
+
+.topology-card-polished .network-node-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.topology-card-polished .network-node-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.topology-card-polished .network-diagram-toolbar {
+  align-items: flex-start;
+}
+
+@media (max-width: 760px) {
+  .topology-card-polished .topology-summary-polished,
+  .topology-card-polished .network-node-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 18 Lab Workspace page */
+.lab-workspace-page {
+  display: grid;
+  gap: 18px;
+}
+
+.lab-workspace-hero {
+  border: 1px solid #dbeafe;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+}
+
+.workspace-eyebrow {
+  display: inline-block;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.workspace-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lab-workspace-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.lab-workspace-meta-grid div {
+  background: white;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.lab-workspace-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.lab-workspace-meta-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.workspace-difficulty.easy {
+  color: #047857;
+}
+
+.workspace-difficulty.medium {
+  color: #b45309;
+}
+
+.workspace-difficulty.hard {
+  color: #b91c1c;
+}
+
+.topology-card-workspace {
+  width: 100%;
+}
+
+.topology-card-workspace .topology-summary-polished {
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+}
+
+.topology-card-workspace .network-diagram-canvas.pair {
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 0.55fr) minmax(260px, 1fr);
+}
+
+.topology-card-workspace .network-link-bridge {
+  min-height: 120px;
+}
+
+.topology-card-workspace .network-link-line {
+  width: 100%;
+  min-width: 120px;
+  height: 8px;
+}
+
+.topology-card-workspace .network-link-label {
+  margin-top: 0;
+}
+
+.lab-workspace-terminal-card {
+  border: 1px solid #dbeafe;
+}
+
+.lab-workspace-terminal-card .web-cli-panel {
+  margin-top: 12px;
+}
+
+.lab-workspace-terminal-card .web-cli-terminal {
+  min-height: 360px;
+}
+
+.lab-workspace-terminal-card .web-cli-command-form input {
+  font-size: 15px;
+}
+
+.workspace-fallback-details {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+  margin-top: 16px;
+  background: #f8fafc;
+}
+
+.workspace-fallback-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.workspace-fallback-details .result-list {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .lab-workspace-meta-grid,
+  .topology-card-workspace .topology-summary-polished {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topology-card-workspace .network-diagram-canvas.pair {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-card-workspace .network-link-line {
+    width: 8px;
+    height: 70px;
+    min-width: 8px;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-action-row {
+    justify-content: flex-start;
+  }
+
+  .lab-workspace-meta-grid,
+  .topology-card-workspace .topology-summary-polished {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 18 workspace final layout cleanup */
+.lab-workspace-page {
+  gap: 12px;
+}
+
+.topology-card-workspace {
+  margin-bottom: 0;
+}
+
+.topology-card-workspace .topology-detail-section {
+  display: none;
+}
+
+.lab-workspace-terminal-card {
+  margin-top: 0;
+}
+
+.lab-workspace-terminal-card .web-cli-panel {
+  margin-top: 8px;
+}
+
+.lab-workspace-terminal-card .web-cli-terminal {
+  min-height: 430px;
+}
+
+.lab-workspace-terminal-card .web-cli-command-form {
+  margin-top: 10px;
+}
+
+.workspace-fallback-details {
+  margin-top: 12px;
+}
+
+/* Sprint 18 Session Detail workspace entry */
+.workspace-entry-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 16px 0;
+}
+
+.workspace-entry-card h4 {
+  margin: 0 0 6px;
+}
+
+.workspace-entry-card p {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .workspace-entry-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* Sprint 18 Session Detail overview layout */
+.session-detail-overview-page {
+  display: grid;
+  gap: 18px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.session-detail-overview-page > .card {
+  width: 100%;
+}
+
+/* Sprint 18 Web CLI terminal-first layout */
+.web-cli-panel-terminal-first .web-cli-terminal {
+  margin-top: 12px;
+  min-height: 470px;
+}
+
+.web-cli-panel-terminal-first .web-cli-command-form {
+  margin-top: 10px;
+}
+
+.web-cli-panel-terminal-first .web-cli-selected-device {
+  margin-top: 14px;
+}
+
+.web-cli-panel-terminal-first .web-cli-controls {
+  margin-top: 10px;
+}
+
+.web-cli-panel-terminal-first .web-cli-readiness-card {
+  margin-top: 12px;
+}
+
+.web-cli-help-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+  min-height: 500px;
+}
+
+/* Sprint 18 workspace desktop presentation polish */
+@media (min-width: 1280px) {
+  .lab-workspace-page {
+    max-width: 1560px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas:
+      "topology side"
+      "terminal side";
+    gap: 12px 16px;
+    align-items: start;
+  }
+
+  .lab-workspace-hero {
+    grid-area: side;
+    position: sticky;
+    top: 96px;
+    padding: 18px;
+    min-height: auto;
+  }
+
+  .lab-workspace-hero .section-title-row {
+    display: grid;
+    gap: 14px;
+  }
+
+  .lab-workspace-hero .section-title-row > div {
+    min-width: 0;
+  }
+
+  .lab-workspace-hero h2 {
+    margin-bottom: 6px;
+  }
+
+  .lab-workspace-hero .muted {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .workspace-action-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .workspace-action-row button {
+    width: 100%;
+  }
+
+  .lab-workspace-meta-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .lab-workspace-meta-grid div {
+    padding: 10px;
+  }
+
+  .topology-card-workspace {
+    grid-area: topology;
+    padding: 18px;
+  }
+
+  .lab-workspace-terminal-card {
+    grid-area: terminal;
+    padding: 18px;
+  }
+
+  .topology-card-workspace .section-title-row {
+    margin-bottom: 10px;
+  }
+
+  .topology-card-workspace .topology-summary-polished {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .topology-card-workspace .topology-summary-polished div {
+    padding: 10px;
+  }
+
+  .topology-card-workspace .network-diagram-shell {
+    margin: 10px 0 0;
+    padding: 12px;
+  }
+
+  .topology-card-workspace .network-diagram-toolbar {
+    margin-bottom: 10px;
+  }
+
+  .topology-card-workspace .network-node-card {
+    padding: 12px;
+  }
+
+  .topology-card-workspace .network-node-detail-grid {
+    gap: 7px;
+  }
+
+  .topology-card-workspace .network-node-detail-grid div {
+    padding: 7px;
+  }
+
+  .topology-card-workspace .topology-legend {
+    margin-top: 12px;
+  }
+
+  .lab-workspace-terminal-card > .section-title-row {
+    margin-bottom: 8px;
+  }
+
+  .lab-workspace-terminal-card > .section-title-row p {
+    margin-bottom: 0;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel {
+    margin-top: 6px;
+    padding: 14px;
+  }
+
+  .web-cli-panel-terminal-first > .section-title-row {
+    margin-bottom: 8px;
+  }
+
+  .web-cli-panel-terminal-first > .section-title-row p {
+    margin-bottom: 0;
+    font-size: 13px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 280px;
+    max-height: 320px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-command-form {
+    margin-top: 8px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-selected-device {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-selected-device div {
+    padding: 8px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-controls {
+    margin-top: 8px;
+  }
+
+  .web-cli-panel-terminal-first .web-cli-readiness-card {
+    margin-top: 10px;
+  }
+
+  .workspace-fallback-details {
+    margin-top: 10px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .lab-workspace-page {
+    max-width: 1680px;
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 300px;
+    max-height: 340px;
+  }
+}
+
+/* Sprint 18 final workspace single-panel layout */
+.lab-workspace-page {
+  max-width: 1540px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.topology-title-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspace-topology-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.workspace-topology-actions button {
+  white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+  .lab-workspace-page {
+    max-width: 1540px;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topology"
+      "terminal";
+    gap: 12px;
+  }
+
+  .topology-card-workspace {
+    grid-area: topology;
+  }
+
+  .lab-workspace-terminal-card {
+    grid-area: terminal;
+  }
+
+  .topology-card-workspace .network-diagram-canvas.pair {
+    grid-template-columns: minmax(320px, 1fr) minmax(220px, 0.5fr) minmax(320px, 1fr);
+  }
+
+  .topology-card-workspace .network-diagram-shell {
+    padding: 12px;
+  }
+
+  .topology-card-workspace .network-node-card {
+    min-height: 150px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 340px;
+    max-height: 380px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .lab-workspace-page {
+    max-width: 1640px;
+  }
+
+  .lab-workspace-terminal-card .web-cli-panel-terminal-first .web-cli-terminal {
+    min-height: 360px;
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-title-action-row,
+  .workspace-topology-actions {
+    justify-content: flex-start;
+  }
+
+  .workspace-topology-actions {
+    width: 100%;
+  }
+
+  .workspace-topology-actions button {
+    width: 100%;
+  }
+}
+
+/* Sprint 19 advanced topology ring polish */
+.topology-card-polished .network-diagram-canvas.multi {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: stretch;
+}
+
+.topology-card-polished .network-diagram-canvas.ring {
+  display: block;
+}
+
+.network-ring-diagram {
+  position: relative;
+  min-height: 560px;
+  padding: 18px;
+  isolation: isolate;
+}
+
+.network-ring-svg {
+  position: absolute;
+  inset: 18px;
+  width: calc(100% - 36px);
+  height: calc(100% - 36px);
+  overflow: visible;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.network-ring-line {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.86;
+  filter: drop-shadow(0 6px 10px rgba(37, 99, 235, 0.18));
+}
+
+.network-ring-line.right,
+.network-ring-line.left {
+  stroke: #06b6d4;
+}
+
+.network-ring-endpoint {
+  fill: #eff6ff;
+  stroke: #1d4ed8;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.network-ring-node-layer,
+.network-ring-link-label-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.network-ring-node-layer {
+  z-index: 3;
+}
+
+.network-ring-link-label-layer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.network-ring-node {
+  position: absolute;
+  width: min(390px, 38%);
+}
+
+.network-ring-node .network-node-card {
+  min-height: 172px;
+  height: 100%;
+}
+
+.network-ring-node .network-device-icon {
+  width: 62px;
+  height: 50px;
+}
+
+.network-ring-node-1 {
+  top: 16px;
+  left: 20px;
+}
+
+.network-ring-node-2 {
+  top: 16px;
+  right: 20px;
+}
+
+.network-ring-node-3 {
+  right: 20px;
+  bottom: 16px;
+}
+
+.network-ring-node-4 {
+  bottom: 16px;
+  left: 20px;
+}
+
+.network-ring-link-label {
+  position: absolute;
+  max-width: min(240px, 30vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid #bfdbfe;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1e3a8a;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.network-ring-link-label.top {
+  left: 50%;
+  top: 20%;
+  transform: translate(-50%, -50%);
+}
+
+.network-ring-link-label.right {
+  left: 78%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.network-ring-link-label.bottom {
+  left: 50%;
+  top: 80%;
+  transform: translate(-50%, -50%);
+}
+
+.network-ring-link-label.left {
+  left: 22%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.network-ring-link-label.diagonal-a,
+.network-ring-link-label.diagonal-b {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.topology-card-workspace .network-ring-diagram {
+  min-height: 540px;
+}
+
+@media (min-width: 1280px) {
+  .topology-card-workspace .network-ring-diagram {
+    min-height: 520px;
+  }
+
+  .topology-card-workspace .network-ring-node {
+    width: min(420px, 37%);
+  }
+}
+
+@media (max-width: 980px) {
+  .network-ring-diagram {
+    min-height: auto;
+    padding: 0;
+  }
+
+  .network-ring-svg,
+  .network-ring-link-label-layer {
+    display: none;
+  }
+
+  .network-ring-node-layer {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 14px;
+  }
+
+  .network-ring-node {
+    position: static;
+    width: 100%;
+  }
+
+  .network-ring-node .network-node-card {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .network-ring-node-layer {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Auth and My Labs */
+.auth-switch-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 22px;
+}
+
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.my-labs-page {
+  display: grid;
+  gap: 16px;
+}
+
+.my-labs-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.my-labs-list {
+  display: grid;
+  gap: 14px;
+}
+
+.my-lab-card {
+  display: grid;
+  gap: 16px;
+}
+
+.my-lab-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.my-lab-card-header h3 {
+  margin: 0 0 6px;
+}
+
+.my-lab-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.my-lab-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.my-lab-detail-grid > div {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.my-lab-detail-grid span,
+.my-lab-detail-grid strong {
+  display: block;
+}
+
+.my-lab-detail-grid strong {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .my-labs-summary-grid,
+  .my-lab-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-lab-card-header {
+    flex-direction: column;
+  }
+
+  .my-lab-badges {
+    justify-content: flex-start;
+  }
+
+  .auth-switch-panel {
+    flex-direction: column;
+  }
+}
+
+
+/* Sprint 23 Student UX Polish - Auth and Header */
+.header {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(260px, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 18px clamp(24px, 4vw, 56px);
+}
+
+.logo-area {
+  justify-self: start;
+}
+
+.nav {
+  justify-self: center;
+  justify-content: center;
+  background: rgba(31, 41, 55, 0.72);
+  border: 1px solid #374151;
+  border-radius: 999px;
+  padding: 6px;
+}
+
+.nav button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+}
+
+.auth-header-panel {
+  justify-self: end;
+}
+
+.login-card {
+  width: min(1040px, 100%);
+  padding: clamp(24px, 3vw, 38px);
+}
+
+.login-brand {
+  text-align: center;
+}
+
+.login-brand h1 {
+  font-size: clamp(34px, 5vw, 52px);
+  letter-spacing: -0.04em;
+}
+
+.login-brand p {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.auth-badge {
+  background: #eef2ff;
+  color: #3730a3;
+  border-color: #c7d2fe;
+}
+
+.login-form {
+  max-width: 680px;
+  margin: 0 auto 22px;
+}
+
+.form-group.has-error input {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.field-error,
+.form-helper {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.form-helper {
+  color: #4b5563;
+}
+
+.demo-account-section {
+  margin-top: 20px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 18px;
+}
+
+.demo-account-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.demo-account-heading span {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.demo-account-card {
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.demo-account-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+}
+
+.auth-technical-details {
+  max-width: 680px;
+  margin: 10px auto 16px;
+}
+
+.auth-technical-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+@media (max-width: 1100px) {
+  .header {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .logo-area,
+  .nav,
+  .auth-header-panel {
+    justify-self: center;
+  }
+
+  .logo-area {
+    text-align: center;
+  }
+
+  .auth-header-panel {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 700px) {
+  .header {
+    padding: 16px;
+  }
+
+  .nav {
+    border-radius: 18px;
+  }
+
+  .nav button {
+    padding: 9px 11px;
+  }
+
+  .demo-account-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+
+/* Sprint 23 password visibility and empty workspace polish */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding-right: 76px;
+}
+
+.password-toggle-button {
+  position: absolute;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 6px 8px;
+}
+
+.password-toggle-button:hover {
+  text-decoration: underline;
+}
+
+.password-toggle-button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+
+/* Sprint 23 Home and Create Lab Polish */
+.page {
+  width: min(96vw, 1480px);
+}
+
+.student-home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) auto;
+  align-items: center;
+  gap: clamp(20px, 4vw, 56px);
+  padding: clamp(28px, 4vw, 56px);
+}
+
+.student-home-hero h2 {
+  font-size: clamp(34px, 4vw, 56px);
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+}
+
+.student-home-hero p {
+  max-width: 820px;
+  font-size: clamp(16px, 1.3vw, 19px);
+}
+
+.hero-copy {
+  min-width: 0;
+}
+
+.hero-actions {
+  justify-content: flex-end;
+  min-width: 260px;
+}
+
+.student-home-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.create-lab-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.create-lab-main-card,
+.create-lab-preview-card {
+  display: grid;
+  gap: 18px;
+}
+
+.signed-in-summary {
+  min-width: 220px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 16px;
+  padding: 12px 14px;
+  text-align: right;
+}
+
+.signed-in-summary span,
+.signed-in-summary small,
+.signed-in-summary strong {
+  display: block;
+}
+
+.signed-in-summary span,
+.signed-in-summary small {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.signed-in-summary strong {
+  color: #111827;
+  margin: 3px 0;
+}
+
+.difficulty-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.difficulty-select-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 9px;
+  min-height: 210px;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.difficulty-select-card:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+}
+
+.difficulty-select-card.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.16);
+}
+
+.difficulty-select-card strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.difficulty-select-card small {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.difficulty-select-card p {
+  color: #4b5563;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.create-lab-actions {
+  justify-content: flex-start;
+}
+
+.create-lab-preview-card h3 {
+  margin: 0;
+}
+
+@media (max-width: 1150px) {
+  .student-home-hero,
+  .create-lab-page {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .student-home-grid,
+  .difficulty-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signed-in-summary {
+    text-align: left;
+  }
+}
+
+@media (max-width: 760px) {
+  .student-home-grid,
+  .difficulty-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-home-hero {
+    padding: 24px;
+  }
+}
+
+
+/* Sprint 23 Home hero layout refinement */
+.student-home-hero {
+  grid-template-columns: 1fr !important;
+  text-align: center;
+  justify-items: center;
+  gap: 24px;
+}
+
+.student-home-hero .hero-copy {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.student-home-hero h2 {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.student-home-hero p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.student-home-hero .hero-actions {
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.student-home-grid {
+  margin-top: 24px;
+}
+
+
+/* Sprint 23 Workspace and Session Detail Polish */
+.runtime-result .list-item > strong {
+  color: #065f46;
+}
+
+.technical-detail-box summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.technical-detail-box p {
+  overflow-wrap: anywhere;
+}
+
+
+/* Sprint 23 Workspace Lifecycle Controls */
+.workspace-topology-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workspace-lifecycle-feedback {
+  display: grid;
+  gap: 10px;
+}
+
+.danger-button {
+  border: none;
+  padding: 11px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 800;
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.danger-button:hover {
+  background: #b91c1c;
+}
+
+.danger-button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+
+/* Sprint 23 Validation Results Tabs */
+.validation-results-page {
+  display: grid;
+  gap: 18px;
+}
+
+.validation-results-header {
+  display: grid;
+  gap: 16px;
+}
+
+.validation-results-title-row {
+  align-items: flex-start;
+}
+
+.validation-results-title-row h2 {
+  margin-bottom: 8px;
+}
+
+.validation-results-actions {
+  justify-content: flex-end;
+  min-width: 360px;
+}
+
+.validation-compact-summary {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(3, minmax(150px, 0.6fr));
+  gap: 10px;
+}
+
+.validation-compact-summary > div {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.validation-compact-summary span,
+.validation-compact-summary strong {
+  display: block;
+}
+
+.validation-compact-summary span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.validation-compact-summary strong {
+  margin-top: 4px;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.validation-results-tabs-card {
+  display: grid;
+  gap: 16px;
+}
+
+.result-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+.result-tab-list button {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 9px 14px;
+  color: #374151;
+}
+
+.result-tab-list button.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.result-tab-panel > .card {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+@media (max-width: 1050px) {
+  .validation-results-title-row {
+    display: grid;
+    gap: 14px;
+  }
+
+  .validation-results-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .validation-compact-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .validation-compact-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 23 Validation Results layout refinement */
+.validation-results-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+}
+
+.validation-results-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: auto;
+}
+
+.validation-results-actions button {
+  white-space: nowrap;
+}
+
+.result-tab-list {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px;
+  width: fit-content;
+}
+
+.result-tab-list button {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.result-tab-list button:hover {
+  background: #ffffff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.result-tab-list button.active {
+  border-color: #93c5fd;
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+@media (max-width: 900px) {
+  .validation-results-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .validation-results-actions {
+    flex-wrap: wrap;
+  }
+}
+
+
+/* Sprint 23 Workspace Topology/Web CLI Tabs */
+.workspace-action-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.workspace-action-card h3 {
+  margin-bottom: 6px;
+}
+
+.workspace-tabs-card {
+  padding: 12px;
+}
+
+.workspace-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px;
+  width: fit-content;
+}
+
+.workspace-tab-list button {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 999px;
+  color: #374151;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 9px 14px;
+}
+
+.workspace-tab-list button:hover {
+  background: #ffffff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.workspace-tab-list button.active {
+  border-color: #93c5fd;
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+@media (max-width: 1050px) {
+  .workspace-action-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 23 Workspace tab ordering fix */
+.lab-workspace-page {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  grid-template-areas: none !important;
+  gap: 12px !important;
+}
+
+.lab-workspace-page > .workspace-action-card,
+.lab-workspace-page > .workspace-tabs-card,
+.lab-workspace-page > .topology-card-workspace,
+.lab-workspace-page > .workspace-lifecycle-feedback,
+.lab-workspace-page > .lab-workspace-terminal-card {
+  grid-column: 1 / -1 !important;
+  grid-area: auto !important;
+}
+
+.workspace-action-card {
+  order: 1;
+}
+
+.workspace-tabs-card {
+  order: 2;
+}
+
+.topology-card-workspace {
+  order: 3;
+}
+
+.workspace-lifecycle-feedback {
+  order: 4;
+}
+
+.lab-workspace-terminal-card {
+  order: 5;
+}
+
+
+/* Sprint 23 Workspace deploy/destroy copy and inline status */
+.workspace-lifecycle-feedback-inline {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.workspace-lifecycle-feedback-inline .message-box,
+.workspace-lifecycle-feedback-inline .technical-detail-box {
+  margin: 0;
+}
+
+/* Sprint 24 Instructor Portal polish */
+.instructor-portal-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.instructor-portal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px;
+  width: fit-content;
+  margin: 0 0 18px;
+}
+
+.instructor-portal-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #374151;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 16px;
+}
+
+.instructor-portal-tab:hover {
+  background: #ffffff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.instructor-portal-tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
+}
+
+.instructor-portal-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.portal-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.portal-overview-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.portal-overview-card span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.portal-overview-card strong {
+  display: block;
+  color: #111827;
+  font-size: 28px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.portal-overview-card p {
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.portal-overview-card.status-pass {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.portal-overview-card.status-medium {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.portal-overview-card.status-fail {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.instructor-home-grid {
+  align-items: start;
+}
+
+.instructor-home-card {
+  min-height: 100%;
+}
+
+.portal-workflow-list {
+  display: grid;
+  gap: 12px;
+}
+
+.portal-workflow-list div {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.portal-workflow-list strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.portal-workflow-list p {
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.instructor-system-summary-card {
+  border-color: #dbeafe;
+  background: #f8fafc;
+}
+
+.instructor-system-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.instructor-system-summary-grid > div {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.instructor-system-summary-grid span:first-child {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.instructor-system-summary-grid strong {
+  display: block;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
+.instructor-system-summary-grid p {
+  margin: 0;
+}
+
+@media (max-width: 1000px) {
+  .instructor-portal-hero {
+    display: grid;
+  }
+
+  .portal-overview-grid,
+  .instructor-system-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .instructor-portal-tabs {
+    border-radius: 18px;
+    width: 100%;
+  }
+
+  .instructor-portal-tab {
+    flex: 1 1 140px;
+  }
+
+  .portal-overview-grid,
+  .instructor-system-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 24 readiness diagnostics polish */
+.readiness-diagnostics-toggle-row {
+  align-items: center;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.compact-button {
+  padding: 8px 12px;
+}
+
+.readiness-diagnostics-panel {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.runtime-metric-card p {
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.database-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+/* Sprint 24 final UI tidy */
+.selected-student-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.selected-student-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.runtime-readiness-grid,
+.database-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.runtime-readiness-grid .runtime-metric-card,
+.database-readiness-grid .runtime-metric-card {
+  min-width: 0;
+}
+
+.runtime-readiness-grid .runtime-metric-card strong,
+.database-readiness-grid .runtime-metric-card strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .selected-student-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selected-student-header-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .runtime-readiness-grid,
+  .database-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+}

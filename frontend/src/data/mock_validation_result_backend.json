@@ -2,22 +2,57 @@
   "session_id": "lab-demo-001",
   "status": "validated",
   "passed": false,
-  "score": 50,
+  "score": 60,
   "checks": [
     {
-      "check_id": "check_1_ip_address_mismatch",
+      "check_id": "check_1_ip_addressing",
       "topic": "IP Addressing",
-      "passed": false,
-      "message": "IP Addressing issue still exists: Incorrect IP address configured on r1 eth1."
+      "description": "Interface addressing consistency",
+      "status": "failed",
+      "points": 0,
+      "max_points": 25,
+      "message": "The IP addressing topic still needs review.",
+      "hint": "Compare device interface addresses and subnet masks before testing connectivity.",
+      "evidence": {
+        "device": "r1",
+        "observed_state": "hidden in student view",
+        "expected_state": "hidden in student view"
+      }
     },
     {
-      "check_id": "check_2_missing_route",
+      "check_id": "check_2_interface_status",
+      "topic": "Interface Status",
+      "description": "Interface operational state",
+      "status": "passed",
+      "points": 25,
+      "max_points": 25,
+      "message": "Interface status check passed.",
+      "hint": "Interfaces appear to be operational."
+    },
+    {
+      "check_id": "check_3_routing",
       "topic": "Routing",
-      "passed": true,
-      "message": "Routing check passed."
+      "description": "Route availability",
+      "status": "failed",
+      "points": 10,
+      "max_points": 25,
+      "message": "Routing needs additional review.",
+      "hint": "Review route presence and next-hop reachability without relying on a single ping test.",
+      "evidence": {
+        "device": "r2",
+        "failed_command_output": "hidden in student view"
+      }
+    },
+    {
+      "check_id": "check_4_connectivity",
+      "topic": "Connectivity",
+      "description": "End-to-end connectivity",
+      "status": "passed",
+      "points": 25,
+      "max_points": 25,
+      "message": "Connectivity check passed.",
+      "hint": "End-to-end reachability is currently acceptable."
     }
   ],
-  "recommendations": [
-    "Review topic: IP Addressing"
-  ]
+  "recommendations": []
 }

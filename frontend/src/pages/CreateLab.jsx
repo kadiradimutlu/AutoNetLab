@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { createLab, getDifficulties } from "../services/apiService";
+import {
+  createLab,
+  getDifficulties,
+  getErrorDetails,
+  getErrorMessage
+} from "../services/apiService";
 import MessageBox from "../components/MessageBox";
 import { useLanguage } from "../hooks/useLanguage";
 import {
@@ -7,48 +12,99 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
-function CreateLab({ onLabCreated }) {
+const HIDDEN_TOPOLOGY_TEMPLATE = "basic-two-router";
+
+const DIFFICULTY_PREVIEWS = {
+  easy: {
+    title: "Guided fundamentals",
+    topology: "2 devices / 1 link",
+    summary: "A focused entry-level troubleshooting scenario for addressing and direct connectivity.",
+    topics: ["IP addressing", "Interface status", "Basic connectivity"]
+  },
+  medium: {
+    title: "Multi-topic practice",
+    topology: "2 devices / 1 link",
+    summary: "A broader scenario that combines multiple checks and requires more careful troubleshooting.",
+    topics: ["Addressing", "Routing basics", "Connectivity validation"]
+  },
+  hard: {
+    title: "Advanced ring challenge",
+    topology: "4 devices / 4 links",
+    summary: "A four-device ring topology designed for deeper routing, interface, and connectivity analysis.",
+    topics: ["Static routing", "Interface status", "End-to-end connectivity", "Multi-device reasoning"]
+  }
+};
+
+function getSignedInStudentId(authUser) {
+  return (
+    authUser?.student_id ||
+    authUser?.studentId ||
+    authUser?.username ||
+    "student"
+  );
+}
+
+function normalizeDifficulties(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [
+      { value: "easy", label: "Easy" },
+      { value: "medium", label: "Medium" },
+      { value: "hard", label: "Hard" }
+    ];
+  }
+
+  return items;
+}
+
+function CreateLab({ authUser, onLabCreated, onNavigate }) {
   const { t } = useLanguage();
 
-  const [studentId, setStudentId] = useState("muhammed");
+  const signedInStudentId = getSignedInStudentId(authUser);
+
   const [difficulty, setDifficulty] = useState("easy");
-  const [topologyTemplate, setTopologyTemplate] = useState("basic-two-router");
   const [difficulties, setDifficulties] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [errorDetails, setErrorDetails] = useState("");
 
   useEffect(() => {
     async function loadDifficulties() {
       try {
         const data = await getDifficulties();
-        setDifficulties(data.difficulties);
+        setDifficulties(normalizeDifficulties(data.difficulties));
       } catch (error) {
-        setErrorMessage(t("difficultyOptionsFailed"));
+        setDifficulties(normalizeDifficulties([]));
+        setErrorMessage("Difficulty options could not be loaded. Default options are being shown.");
+        setErrorDetails(getErrorDetails(error));
         console.error(error);
       }
     }
 
     loadDifficulties();
-  }, [t]);
+  }, []);
 
   const selectedDifficulty = useMemo(() => {
     return difficulties.find((item) => item.value === difficulty);
   }, [difficulty, difficulties]);
 
+  const selectedPreview = DIFFICULTY_PREVIEWS[difficulty] || DIFFICULTY_PREVIEWS.easy;
+
   async function handleCreateLab() {
     setIsCreating(true);
     setErrorMessage("");
+    setErrorDetails("");
 
     try {
       const newLab = await createLab({
-        student_id: studentId,
+        student_id: signedInStudentId,
         difficulty,
-        topology_template: topologyTemplate
+        topology_template: HIDDEN_TOPOLOGY_TEMPLATE
       });
 
       onLabCreated(newLab);
     } catch (error) {
-      setErrorMessage(t("labCreationFailedMessage"));
+      setErrorMessage(getErrorMessage(error, "Lab could not be created. Please try again."));
+      setErrorDetails(getErrorDetails(error));
       console.error(error);
     } finally {
       setIsCreating(false);
@@ -56,89 +112,121 @@ function CreateLab({ onLabCreated }) {
   }
 
   return (
-    <div className="two-column">
-      <section className="card">
-        <h2>{t("createLabTitle")}</h2>
+    <div className="create-lab-page">
+      <section className="card create-lab-main-card">
+        <div className="section-title-row">
+          <div>
+            <h2>Create Lab</h2>
+            <p className="muted">
+              Select a difficulty level to generate a troubleshooting scenario.
+              The lab session will open in your workspace. Start the environment there when you are ready.
+            </p>
+          </div>
 
-        <p className="muted">{t("createLabDescription")}</p>
+          <div className="signed-in-summary">
+            <span>Signed-in student</span>
+            <strong>{authUser?.display_name || authUser?.username || "Student"}</strong>
+            <small>{signedInStudentId}</small>
+          </div>
+        </div>
 
         {errorMessage && (
-          <MessageBox
-            type="error"
-            title={t("labCreationFailed")}
-            message={errorMessage}
-          />
+          <>
+            <MessageBox
+              type="error"
+              title="Lab creation failed"
+              message={errorMessage}
+            />
+
+            {errorDetails && (
+              <details className="technical-detail-box">
+                <summary>Show diagnostics</summary>
+                <p>{errorDetails}</p>
+              </details>
+            )}
+          </>
         )}
 
-        <div className="form-group">
-          <label htmlFor="studentId">{t("studentId")}</label>
-          <select
-            id="studentId"
-            value={studentId}
-            onChange={(event) => setStudentId(event.target.value)}
-          >
-            <option value="muhammed">Muhammed</option>
-            <option value="kadir">Kadir</option>
-          </select>
+        <div className="difficulty-card-grid" role="radiogroup" aria-label="Lab difficulty">
+          {difficulties.map((item) => {
+            const preview = DIFFICULTY_PREVIEWS[item.value] || {
+              title: item.label || formatDifficulty(item.value, t),
+              topology: "Topology generated by difficulty",
+              summary: item.description || "Troubleshooting scenario generated by AutoNetLab.",
+              topics: ["Troubleshooting", "Validation"]
+            };
+            const isSelected = difficulty === item.value;
+
+            return (
+              <button
+                key={item.value}
+                className={`difficulty-select-card ${isSelected ? "selected" : ""}`}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => setDifficulty(item.value)}
+              >
+                <span className={`badge ${getDifficultyClass(item.value)}`}>
+                  {formatDifficulty(item.value, t)}
+                </span>
+                <strong>{preview.title}</strong>
+                <small>{preview.topology}</small>
+                <p>{preview.summary}</p>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="form-group">
-          <label htmlFor="difficulty">{t("difficulty")}</label>
-          <select
-            id="difficulty"
-            value={difficulty}
-            onChange={(event) => setDifficulty(event.target.value)}
+        <div className="actions create-lab-actions">
+          <button
+            className="primary-button"
+            onClick={handleCreateLab}
+            disabled={isCreating}
+            type="button"
           >
-            {difficulties.map((item) => (
-              <option key={item.value} value={item.value}>
-                {formatDifficulty(item.value, t)}
-              </option>
-            ))}
-          </select>
-        </div>
+            {isCreating ? "Creating Lab..." : "Create Lab"}
+          </button>
 
-        <div className="form-group">
-          <label htmlFor="topologyTemplate">{t("topologyTemplate")}</label>
-          <select
-            id="topologyTemplate"
-            value={topologyTemplate}
-            onChange={(event) => setTopologyTemplate(event.target.value)}
+          <button
+            className="secondary-button"
+            onClick={() => onNavigate("myLabs")}
+            type="button"
           >
-            <option value="basic-two-router">basic-two-router</option>
-          </select>
+            View My Labs
+          </button>
         </div>
-
-        <button
-          className="primary-button"
-          onClick={handleCreateLab}
-          disabled={isCreating}
-        >
-          {isCreating ? t("creating") : t("createLabButton")}
-        </button>
-
-        <p className="footer-note">{t("createLabNote")}</p>
       </section>
 
-      <section className="card">
-        <h3>{t("difficultyPreview")}</h3>
-
+      <section className="card create-lab-preview-card">
         <span className={`badge ${getDifficultyClass(difficulty)}`}>
           {formatDifficulty(difficulty, t)}
         </span>
 
-        <div className="info-row">
-          <span>{t("backendValue")}</span>
-          <strong>{difficulty}</strong>
-        </div>
-
-        <p>
-          {selectedDifficulty?.description || t("difficultyLoading")}
+        <h3>{selectedPreview.title}</h3>
+        <p className="muted">
+          {selectedDifficulty?.description || selectedPreview.summary}
         </p>
 
+        <div className="info-row">
+          <span>Topology</span>
+          <strong>{selectedPreview.topology}</strong>
+        </div>
+
+        <div className="info-row">
+          <span>Workspace</span>
+          <strong>Web CLI + topology view</strong>
+        </div>
+
+        <div className="info-row">
+          <span>Validation</span>
+          <strong>Score and recommendations</strong>
+        </div>
+
+        <h4>Practice topics</h4>
         <ul className="list">
-          <li>{t("easyCreates")}</li>
-          <li>{t("mediumCreates")}</li>
-          <li>{t("hardCreates")}</li>
+          {selectedPreview.topics.map((topic) => (
+            <li key={topic}>{topic}</li>
+          ))}
         </ul>
       </section>
     </div>
@@ -146,3 +234,4 @@ function CreateLab({ onLabCreated }) {
 }
 
 export default CreateLab;
+

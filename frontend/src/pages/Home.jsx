@@ -1,4 +1,4 @@
-import StatCard from "../components/StatCard";
+﻿import StatCard from "../components/StatCard";
 import MessageBox from "../components/MessageBox";
 import { useLanguage } from "../hooks/useLanguage";
 import {
@@ -9,54 +9,72 @@ import {
 function Home({ labSession, onNavigate }) {
   const { t } = useLanguage();
 
+  const hasActiveLab = Boolean(labSession?.session_id);
+
   return (
     <>
-      <section className="hero">
-        <h2>{t("dashboardTitle")}</h2>
-        <p>{t("dashboardDescription")}</p>
+      <section className="hero student-home-hero">
+        <div className="hero-copy">
+          <h2>{t("dashboardTitle")}</h2>
+          <p>
+            Create troubleshooting labs, inspect the generated topology, connect
+            to devices through the Web CLI, validate your solution, and review
+            recommendations from one guided workspace.
+          </p>
+        </div>
 
-        <div className="actions">
+        <div className="actions hero-actions">
           <button className="primary-button" onClick={() => onNavigate("create")}>
-            {t("createNewLab")}
+            Create New Lab
           </button>
 
-          <button className="secondary-button" onClick={() => onNavigate("session")}>
-            {t("viewCurrentLab")}
+          <button className="secondary-button" onClick={() => onNavigate("myLabs")}>
+            View My Labs
           </button>
+
+          {hasActiveLab && (
+            <button className="secondary-button" onClick={() => onNavigate("workspace")}>
+              Continue Workspace
+            </button>
+          )}
         </div>
       </section>
 
-      {!labSession && (
-  <MessageBox
-    type="info"
-    title="No active lab session"
-    message="Create a new lab session to start testing with the backend API."
-  />
-)}
+      {!hasActiveLab && (
+        <MessageBox
+          type="info"
+          title="No active lab session"
+          message="Create a lab or open a previous session from My Labs to begin troubleshooting."
+        />
+      )}
 
-      <section className="grid">
+      <section className="grid student-home-grid">
         <StatCard
-          title={t("currentLab")}
+          title="Current Lab"
           value={labSession?.session_id || "-"}
-          helper={t("activeLabSessionIdentifier")}
+          helper="The lab session currently selected in your workspace."
         />
 
         <StatCard
-          title={t("difficulty")}
+          title="Difficulty"
           value={formatDifficulty(labSession?.difficulty, t)}
-          helper={t("selectedLabDifficultyLevel")}
+          helper="The troubleshooting level selected for this lab."
         />
 
         <StatCard
-          title={t("status")}
+          title="Status"
           value={formatStatus(labSession?.status, t)}
-          helper={t("currentLabSessionStatus")}
+          helper="The current lifecycle state of the selected lab."
         />
 
         <StatCard
-          title={t("injectedErrors")}
-          value={labSession?.injected_errors?.length ?? 0}
-          helper={t("numberOfGeneratedErrors")}
+          title="Next Step"
+          value={hasActiveLab ? "Open Workspace" : "Create Lab"}
+          helper={
+            hasActiveLab
+              ? "Continue troubleshooting, validation, or cleanup from the workspace."
+              : "Start a new lab session to generate a topology."
+          }
         />
       </section>
     </>
@@ -64,3 +82,4 @@ function Home({ labSession, onNavigate }) {
 }
 
 export default Home;
+
