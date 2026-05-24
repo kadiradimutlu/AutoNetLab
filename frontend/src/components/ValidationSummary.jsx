@@ -103,7 +103,7 @@ function ValidationSummary({
         <div>
           <h3>{t("validationSummary")}</h3>
           <p className="muted">
-            Student-safe validation result, topic grouping, points, and learning hints for the current lab session.
+            Validation result, topic grouping, points, and learning hints for the current lab session.
           </p>
         </div>
 
@@ -114,7 +114,7 @@ function ValidationSummary({
 
       <MessageBox
         type="info"
-        title="Student-safe result view"
+        title="Learner feedback view"
         message="This view shows only score, check status, topic grouping, and learning hints for students."
       />
 

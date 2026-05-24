@@ -124,7 +124,7 @@ function ScenarioOverview({ labSession, t }) {
         </div>
 
         <div>
-          <span className="muted">Student-safe Mode</span>
+          <span className="muted">Learning Mode</span>
           <strong>Enabled</strong>
         </div>
       </div>

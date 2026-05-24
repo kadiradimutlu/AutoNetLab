@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
   getErrorDetails,
@@ -178,7 +178,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
       {isLoading && (
         <section className="card">
           <h3>Loading lab history...</h3>
-          <p className="muted">Fetching the authenticated user's lab sessions from the backend.</p>
+          <p className="muted">Loading your saved lab sessions and recent troubleshooting history.</p>
         </section>
       )}
 
@@ -204,7 +204,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                   <div>
                     <h3>{session.session_id}</h3>
                     <p className="muted">
-                      {topologySummary.name} • {topologySummary.nodeCount} devices • {topologySummary.linkCount} links
+                      {topologySummary.name} / {topologySummary.nodeCount} devices / {topologySummary.linkCount} links
                     </p>
                   </div>
 
@@ -254,7 +254,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                     onClick={() => handleOpenLab(session, "session")}
                     disabled={isSelected}
                   >
-                    {isSelected ? "Opening..." : "View Details"}
+                    {isSelected ? "Opening..." : "View Summary"}
                   </button>
 
                   <button
@@ -276,3 +276,4 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 }
 
 export default MyLabsPage;
+

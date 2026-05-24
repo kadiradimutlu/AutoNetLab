@@ -1113,7 +1113,7 @@ function createMockLabSession({ student_id, difficulty, topology_template }) {
       summary:
         difficulty === "hard"
           ? "This hard scenario combines multiple troubleshooting topics while keeping exact injected errors hidden from the student view."
-          : "This scenario provides student-safe troubleshooting guidance without revealing injected errors.",
+          : "This scenario provides troubleshooting guidance without revealing the expected solution.",
       topics:
         difficulty === "hard"
           ? ["IP Addressing", "Routing", "Interface Status", "Connectivity"]
@@ -1242,16 +1242,35 @@ function normalizeValidationResult(result, recommendationPayload = null) {
   };
 }
 
+function getCleanCliDescription(description, deviceId) {
+  const rawDescription = String(description || "").trim();
+  const normalizedDeviceId = deviceId || "device";
+
+  const looksCorrupted =
+    rawDescription.includes("Ã") ||
+    rawDescription.includes("Ä") ||
+    rawDescription.includes("Å") ||
+    rawDescription.includes("Â") ||
+    rawDescription.includes("�");
+
+  if (!rawDescription || looksCorrupted) {
+    return `Use this command to access ${normalizedDeviceId} from the terminal.`;
+  }
+
+  return rawDescription;
+}
+
 function normalizeCliAccess(cli, index) {
   const safeCli = cli && typeof cli === "object" ? cli : {};
+  const deviceId =
+    safeCli.device_id ||
+    safeCli.deviceId ||
+    safeCli.device ||
+    safeCli.name ||
+    `device-${index + 1}`;
 
   return {
-    device_id:
-      safeCli.device_id ||
-      safeCli.deviceId ||
-      safeCli.device ||
-      safeCli.name ||
-      `device-${index + 1}`,
+    device_id: deviceId,
     device_name:
       safeCli.device_name ||
       safeCli.name ||
@@ -1284,9 +1303,7 @@ function normalizeCliAccess(cli, index) {
       safeCli.ssh_command ||
       safeCli.ssh ||
       "",
-    description:
-      safeCli.description ||
-      ""
+    description: getCleanCliDescription(safeCli.description, deviceId)
   };
 }
 

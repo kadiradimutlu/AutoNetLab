@@ -11,35 +11,59 @@ const DEMO_ACCOUNTS = [
     role: "Student",
     username: "student",
     password: "student123",
-    title: "Demo Student Login",
-    description: "Use the student workspace, create labs, open My Labs, and troubleshoot with Web CLI."
+    title: "Use Demo Student",
+    description: "Fill in the student demo credentials for lab creation, My Labs, Web CLI, validation, and recommendations."
   },
   {
     role: "Instructor",
     username: "instructor",
     password: "instructor123",
-    title: "Demo Instructor Login",
-    description: "Open the instructor dashboard and review analytics, readiness, and student progress."
+    title: "Use Demo Instructor",
+    description: "Fill in the instructor demo credentials for analytics, student progress, and system readiness views."
   }
 ];
 
+function validateLoginForm({ username, password }) {
+  const errors = {};
+
+  if (!username.trim()) {
+    errors.username = "Username is required.";
+  }
+
+  if (!password) {
+    errors.password = "Password is required.";
+  }
+
+  return errors;
+}
+
 function LoginPage({ onLoginSuccess, onNavigateRegister }) {
-  const [username, setUsername] = useState("student");
-  const [password, setPassword] = useState("student123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
 
   async function submitLogin(credentials) {
-    setIsSubmitting(true);
+    const validationErrors = validateLoginForm(credentials);
+
+    setFieldErrors(validationErrors);
     setErrorMessage("");
     setErrorDetails("");
+
+    if (Object.keys(validationErrors).length > 0) {
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const authState = await loginUser(credentials);
       onLoginSuccess(authState);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error, "Login failed."));
+      setErrorMessage(getErrorMessage(error, "Login failed. Please check your credentials and try again."));
       setErrorDetails(getErrorDetails(error));
       console.error("Login failed.", error);
     } finally {
@@ -55,24 +79,38 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
     });
   }
 
-  function handleDemoLogin(account) {
+  function handleDemoFill(account) {
     setUsername(account.username);
     setPassword(account.password);
-    submitLogin({
-      username: account.username,
-      password: account.password
-    });
+    setFieldErrors({});
+    setErrorMessage("");
+    setErrorDetails("");
+  }
+
+  function updateUsername(value) {
+    setUsername(value);
+    setFieldErrors((currentErrors) => ({
+      ...currentErrors,
+      username: ""
+    }));
+  }
+
+  function updatePassword(value) {
+    setPassword(value);
+    setFieldErrors((currentErrors) => ({
+      ...currentErrors,
+      password: ""
+    }));
   }
 
   return (
     <main className="login-page">
       <section className="login-card">
         <div className="login-brand">
-          <span className="auth-badge">Sprint 22 Auth</span>
           <h1>AutoNetLab</h1>
           <p>
-            Sign in to access role-aware lab workflows, Web CLI troubleshooting,
-            My Labs history, and instructor analytics.
+            Sign in to manage your network lab sessions, access the browser-based
+            Web CLI, review validation results, and continue from your lab history.
           </p>
         </div>
 
@@ -80,41 +118,59 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
           <>
             <MessageBox
               type="error"
-              title="Login failed"
+              title="Sign in failed"
               message={errorMessage}
             />
 
             {errorDetails && (
-              <div className="technical-detail-box">
-                <strong>Technical detail</strong>
+              <details className="technical-detail-box auth-technical-details">
+                <summary>Show technical details</summary>
                 <p>{errorDetails}</p>
-              </div>
+              </details>
             )}
           </>
         )}
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="form-group">
+        <form className="login-form" onSubmit={handleSubmit} noValidate>
+          <div className={`form-group ${fieldErrors.username ? "has-error" : ""}`}>
             <label htmlFor="loginUsername">Username</label>
             <input
               id="loginUsername"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) => updateUsername(event.target.value)}
               autoComplete="username"
-              required
+              placeholder="Enter your username"
+              aria-invalid={Boolean(fieldErrors.username)}
             />
+            {fieldErrors.username && (
+              <p className="field-error">{fieldErrors.username}</p>
+            )}
           </div>
 
-          <div className="form-group">
+          <div className={`form-group ${fieldErrors.password ? "has-error" : ""}`}>
             <label htmlFor="loginPassword">Password</label>
-            <input
-              id="loginPassword"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div className="password-input-wrapper">
+              <input
+                id="loginPassword"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => updatePassword(event.target.value)}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                aria-invalid={Boolean(fieldErrors.password)}
+              />
+              <button
+                className="password-toggle-button"
+                type="button"
+                onClick={() => setShowPassword((currentValue) => !currentValue)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            {fieldErrors.password && (
+              <p className="field-error">{fieldErrors.password}</p>
+            )}
           </div>
 
           <button
@@ -137,23 +193,30 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
           </button>
         </div>
 
-        <div className="demo-account-grid">
-          {DEMO_ACCOUNTS.map((account) => (
-            <button
-              className="demo-account-card"
-              key={account.username}
-              type="button"
-              onClick={() => handleDemoLogin(account)}
-              disabled={isSubmitting}
-            >
-              <span className="auth-role-pill">{account.role}</span>
-              <strong>{account.title}</strong>
-              <small>
-                {account.username} / {account.password}
-              </small>
-              <p>{account.description}</p>
-            </button>
-          ))}
+        <div className="demo-account-section">
+          <div className="demo-account-heading">
+            <strong>Demo credentials</strong>
+            <span>Choose a demo profile to fill the form, then press Sign in.</span>
+          </div>
+
+          <div className="demo-account-grid">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                className="demo-account-card"
+                key={account.username}
+                type="button"
+                onClick={() => handleDemoFill(account)}
+                disabled={isSubmitting}
+              >
+                <span className="auth-role-pill">{account.role}</span>
+                <strong>{account.title}</strong>
+                <small>
+                  {account.username} / {account.password}
+                </small>
+                <p>{account.description}</p>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
     </main>

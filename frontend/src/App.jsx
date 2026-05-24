@@ -22,6 +22,20 @@ function getDefaultPageForRole(role) {
   return role === "instructor" ? "instructor" : "home";
 }
 
+function scrollToPageTop() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto"
+    });
+  });
+}
+
 function isPageAllowedForRole(page, role) {
   if (role === "instructor") {
     return page === "instructor";
@@ -82,7 +96,7 @@ function App() {
 
         const savedLabSession = await getLab(savedSessionId);
         setLabSession(savedLabSession);
-        setCurrentPage("session");
+        setCurrentPage("workspace");
       } catch (error) {
         console.error("Initial lab session could not be loaded.", error);
         localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
@@ -124,6 +138,7 @@ function App() {
     }
 
     setCurrentPage(page);
+    scrollToPageTop();
   }
 
   function handleLabCreated(newLabSession) {
@@ -136,7 +151,8 @@ function App() {
       );
     }
 
-    setCurrentPage("session");
+    setCurrentPage("workspace");
+    scrollToPageTop();
   }
 
   function handleLabUpdated(updatedLabSession) {
@@ -161,6 +177,7 @@ function App() {
     setLabSession(fullLabSession);
     localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
     setCurrentPage(targetPage);
+    scrollToPageTop();
 
     return fullLabSession;
   }
@@ -235,12 +252,16 @@ function App() {
       {authUser.role === "student" && effectivePage === "workspace" && (
         <LabWorkspacePage
           labSession={labSession}
+          onLabUpdated={handleLabUpdated}
           onNavigate={handleNavigate}
         />
       )}
 
       {authUser.role === "student" && effectivePage === "result" && (
-        <ValidationResult labSession={labSession} />
+        <ValidationResult
+          labSession={labSession}
+          onNavigate={handleNavigate}
+        />
       )}
 
       {authUser.role === "instructor" && effectivePage === "instructor" && (

@@ -434,7 +434,7 @@ function TopologyCard({
         <div>
           <h3>Network Topology</h3>
           <p className="muted">
-            Cisco-like student-safe diagram of the generated Containerlab topology.
+            Topology diagram of the generated Containerlab lab.
           </p>
         </div>
 

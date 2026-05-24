@@ -71,7 +71,7 @@ function CliAccessPanel({
 
       <MessageBox
         type="info"
-        title="Student-safe CLI guidance"
+        title="CLI access guidance"
         message="This panel provides access commands only. It does not reveal injected errors, expected fixes, or solution details."
       />
 

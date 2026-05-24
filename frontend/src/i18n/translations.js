@@ -45,7 +45,7 @@ export const translations = {
     difficultyOptionsFailed:
       "Difficulty options could not be loaded.",
     createLabNote:
-      "This page now creates real lab sessions through the FastAPI backend.",
+      "Create a new troubleshooting lab session and continue from the workspace.",
     difficultyLoading: "Difficulty description is loading...",
     easyCreates: "Easy creates 2 injected errors.",
     mediumCreates: "Medium creates 3 injected errors.",
