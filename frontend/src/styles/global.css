@@ -1,4 +1,4 @@
-﻿* {
+* {
   box-sizing: border-box;
 }
 
@@ -4060,4 +4060,289 @@ button:disabled,
 .workspace-lifecycle-feedback-inline .message-box,
 .workspace-lifecycle-feedback-inline .technical-detail-box {
   margin: 0;
+}
+
+/* Sprint 24 Instructor Portal polish */
+.instructor-portal-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.instructor-portal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 6px;
+  width: fit-content;
+  margin: 0 0 18px;
+}
+
+.instructor-portal-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #374151;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 16px;
+}
+
+.instructor-portal-tab:hover {
+  background: #ffffff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.instructor-portal-tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
+}
+
+.instructor-portal-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.portal-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.portal-overview-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.portal-overview-card span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.portal-overview-card strong {
+  display: block;
+  color: #111827;
+  font-size: 28px;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.portal-overview-card p {
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.portal-overview-card.status-pass {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.portal-overview-card.status-medium {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.portal-overview-card.status-fail {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.instructor-home-grid {
+  align-items: start;
+}
+
+.instructor-home-card {
+  min-height: 100%;
+}
+
+.portal-workflow-list {
+  display: grid;
+  gap: 12px;
+}
+
+.portal-workflow-list div {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.portal-workflow-list strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.portal-workflow-list p {
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.instructor-system-summary-card {
+  border-color: #dbeafe;
+  background: #f8fafc;
+}
+
+.instructor-system-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.instructor-system-summary-grid > div {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.instructor-system-summary-grid span:first-child {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.instructor-system-summary-grid strong {
+  display: block;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
+.instructor-system-summary-grid p {
+  margin: 0;
+}
+
+@media (max-width: 1000px) {
+  .instructor-portal-hero {
+    display: grid;
+  }
+
+  .portal-overview-grid,
+  .instructor-system-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .instructor-portal-tabs {
+    border-radius: 18px;
+    width: 100%;
+  }
+
+  .instructor-portal-tab {
+    flex: 1 1 140px;
+  }
+
+  .portal-overview-grid,
+  .instructor-system-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 24 readiness diagnostics polish */
+.readiness-diagnostics-toggle-row {
+  align-items: center;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.compact-button {
+  padding: 8px 12px;
+}
+
+.readiness-diagnostics-panel {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.runtime-metric-card p {
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.database-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+/* Sprint 24 final UI tidy */
+.selected-student-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.selected-student-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.runtime-readiness-grid,
+.database-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.runtime-readiness-grid .runtime-metric-card,
+.database-readiness-grid .runtime-metric-card {
+  min-width: 0;
+}
+
+.runtime-readiness-grid .runtime-metric-card strong,
+.database-readiness-grid .runtime-metric-card strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .selected-student-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .selected-student-header-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .runtime-readiness-grid,
+  .database-readiness-grid {
+    grid-template-columns: 1fr;
+  }
 }

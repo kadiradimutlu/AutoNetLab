@@ -32,10 +32,10 @@ function getModeDescription(mode) {
   }
 
   if (normalizedMode.includes("browser_cli_mvp") || normalizedMode.includes("browser")) {
-    return "This build supports browser-based Web CLI through the backend WebSocket bridge. Local Docker Exec commands remain visible as a fallback.";
+    return "This build supports browser-based Web CLI. Local Docker Exec commands remain visible as a fallback.";
   }
 
-  return "This panel only shows access methods provided by the backend. Browser CLI, SSH Gateway, and fallback modes are shown only when supported by backend metadata.";
+  return "This panel only shows access methods available for the current lab. Browser CLI, SSH Gateway, and fallback modes appear only when supported by lab metadata.";
 }
 
 function CliAccessPanel({
@@ -85,7 +85,7 @@ function CliAccessPanel({
 
           {details && (
             <div className="technical-detail-box">
-              <strong>Technical detail</strong>
+              <strong>Diagnostics</strong>
               <p>{details}</p>
             </div>
           )}

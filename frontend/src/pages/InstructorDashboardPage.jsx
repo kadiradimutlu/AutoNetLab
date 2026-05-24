@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import AnalyticsEmptyState from "../components/AnalyticsEmptyState";
+import AnalyticsSummaryCards from "../components/AnalyticsSummaryCards";
+import DifficultyDistributionChart from "../components/DifficultyDistributionChart";
+import RecentSessionsTable from "../components/RecentSessionsTable";
+import TopicWeaknessList from "../components/TopicWeaknessList";
 import MessageBox from "../components/MessageBox";
 import RuntimeReadinessCard from "../components/RuntimeReadinessCard";
 import DatabaseReadinessCard from "../components/DatabaseReadinessCard";
 import {
+  getDifficultyDistribution,
   getErrorDetails,
   getErrorMessage,
+  getInstructorSummary,
   getInstructorStudentScoreTrend,
   getInstructorStudentSessions,
   getInstructorStudentSummary,
   getInstructorStudents,
   getInstructorStudentTopicWeaknesses,
+  getRecentSessions,
   getRuntimeReadiness,
-  getDatabaseReadiness
+  getDatabaseReadiness,
+  getTopicWeaknesses
 } from "../services/apiService";
 
 function formatNumber(value, fallback = "0") {
@@ -96,6 +104,245 @@ function getSeverityClass(severity) {
 
 function normalizeStudentId(student) {
   return student?.student_id || student?.username || student?.id || "";
+}
+
+const INSTRUCTOR_PORTAL_TABS = [
+  {
+    id: "home",
+    label: "Home"
+  },
+  {
+    id: "students",
+    label: "Students"
+  },
+  {
+    id: "analytics",
+    label: "Analytics"
+  },
+  {
+    id: "system",
+    label: "System Readiness"
+  }
+];
+
+function getReadinessStatusLabel(readiness, isLoading, errorMessage) {
+  if (isLoading) {
+    return "Checking";
+  }
+
+  if (errorMessage) {
+    return "Unavailable";
+  }
+
+  if (readiness?.ready === true) {
+    return "Ready";
+  }
+
+  if (readiness?.ready === false) {
+    return "Needs Attention";
+  }
+
+  return "Not Checked";
+}
+
+function getReadinessBadgeClass(readiness, isLoading, errorMessage) {
+  if (isLoading) {
+    return "neutral";
+  }
+
+  if (errorMessage || readiness?.ready === false) {
+    return "fail";
+  }
+
+  if (readiness?.ready === true) {
+    return "pass";
+  }
+
+  return "neutral";
+}
+
+function getSystemStatus({
+  runtimeReadiness,
+  databaseReadiness,
+  isRuntimeReadinessLoading,
+  isDatabaseReadinessLoading,
+  runtimeReadinessError,
+  databaseReadinessError
+}) {
+  if (isRuntimeReadinessLoading || isDatabaseReadinessLoading) {
+    return {
+      label: "Checking",
+      badgeClass: "neutral",
+      helper: "System checks are refreshing."
+    };
+  }
+
+  if (runtimeReadinessError || databaseReadinessError) {
+    return {
+      label: "Needs Attention",
+      badgeClass: "fail",
+      helper: "One or more system checks could not be completed."
+    };
+  }
+
+  if (runtimeReadiness?.ready === true && databaseReadiness?.ready === true) {
+    return {
+      label: "Ready",
+      badgeClass: "pass",
+      helper: "Lab runtime and persistence checks are healthy."
+    };
+  }
+
+  if (!runtimeReadiness && !databaseReadiness) {
+    return {
+      label: "Not Checked",
+      badgeClass: "neutral",
+      helper: "Refresh system status to verify runtime and persistence."
+    };
+  }
+
+  return {
+    label: "Needs Attention",
+    badgeClass: "medium",
+    helper: "Review the readiness cards for details."
+  };
+}
+
+function InstructorPortalTabs({ activeTab, onChange }) {
+  return (
+    <div className="instructor-portal-tabs" role="tablist" aria-label="Instructor Portal sections">
+      {INSTRUCTOR_PORTAL_TABS.map((tab) => (
+        <button
+          aria-selected={activeTab === tab.id}
+          className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PortalOverviewCards({
+  summary,
+  students,
+  systemStatus
+}) {
+  const cards = [
+    {
+      title: "Total Sessions",
+      value: formatNumber(summary?.total_sessions, "-"),
+      helper: "All tracked lab sessions"
+    },
+    {
+      title: "Completed Sessions",
+      value: formatNumber(summary?.completed_sessions, "-"),
+      helper: "Validated or finished sessions"
+    },
+    {
+      title: "Average Score",
+      value: formatNumber(summary?.average_score, "-"),
+      helper: "Score range: 0-100"
+    },
+    {
+      title: "Pass Rate",
+      value: formatPercent(summary?.pass_rate),
+      helper: "Passed sessions / completed sessions"
+    },
+    {
+      title: "Active Students",
+      value: formatNumber(students.length, "0"),
+      helper: "Students visible to instructor"
+    },
+    {
+      title: "System Status",
+      value: systemStatus.label,
+      helper: systemStatus.helper,
+      statusClass: systemStatus.badgeClass
+    }
+  ];
+
+  return (
+    <section className="portal-overview-grid">
+      {cards.map((card) => (
+        <div
+          className={`portal-overview-card ${card.statusClass ? `status-${card.statusClass}` : ""}`}
+          key={card.title}
+        >
+          <span>{card.title}</span>
+          <strong>{card.value}</strong>
+          <p>{card.helper}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function SystemReadinessSummary({
+  runtimeReadiness,
+  databaseReadiness,
+  isRuntimeReadinessLoading,
+  isDatabaseReadinessLoading,
+  runtimeReadinessError,
+  databaseReadinessError,
+  systemStatus
+}) {
+  return (
+    <section className="card instructor-system-summary-card">
+      <div className="section-title-row">
+        <div>
+          <h3>System Readiness</h3>
+          <p className="muted">
+            High-level operational status for lab runtime, CLI access, and persistence.
+          </p>
+        </div>
+
+        <span className={`badge ${systemStatus.badgeClass}`}>
+          {systemStatus.label}
+        </span>
+      </div>
+
+      <div className="instructor-system-summary-grid">
+        <div>
+          <span>Runtime</span>
+          <strong>
+            {getReadinessStatusLabel(
+              runtimeReadiness,
+              isRuntimeReadinessLoading,
+              runtimeReadinessError
+            )}
+          </strong>
+          <span className={`badge ${getReadinessBadgeClass(runtimeReadiness, isRuntimeReadinessLoading, runtimeReadinessError)}`}>
+            Docker + Containerlab
+          </span>
+        </div>
+
+        <div>
+          <span>Database</span>
+          <strong>
+            {getReadinessStatusLabel(
+              databaseReadiness,
+              isDatabaseReadinessLoading,
+              databaseReadinessError
+            )}
+          </strong>
+          <span className={`badge ${getReadinessBadgeClass(databaseReadiness, isDatabaseReadinessLoading, databaseReadinessError)}`}>
+            PostgreSQL
+          </span>
+        </div>
+
+        <div>
+          <span>CLI Mode</span>
+          <strong>{runtimeReadiness?.current_mode || "-"}</strong>
+          <p className="muted">Used by student workspace sessions.</p>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function StudentListPanel({
@@ -421,6 +668,63 @@ function InstructorDashboardPage() {
   const [databaseReadinessCheckedAt, setDatabaseReadinessCheckedAt] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
+  const [activeTab, setActiveTab] = useState("home");
+  const [globalSummary, setGlobalSummary] = useState(null);
+  const [difficultyDistribution, setDifficultyDistribution] = useState([]);
+  const [globalTopicWeaknesses, setGlobalTopicWeaknesses] = useState([]);
+  const [recentSessions, setRecentSessions] = useState([]);
+  const [isGlobalAnalyticsLoading, setIsGlobalAnalyticsLoading] = useState(false);
+  const [globalErrorMessage, setGlobalErrorMessage] = useState("");
+  const [globalErrorDetails, setGlobalErrorDetails] = useState("");
+
+
+  async function loadGlobalAnalytics() {
+    setIsGlobalAnalyticsLoading(true);
+    setGlobalErrorMessage("");
+    setGlobalErrorDetails("");
+
+    try {
+      const [
+        summaryResponse,
+        difficultyResponse,
+        topicWeaknessResponse,
+        recentSessionsResponse
+      ] = await Promise.all([
+        getInstructorSummary(),
+        getDifficultyDistribution(),
+        getTopicWeaknesses(),
+        getRecentSessions(10)
+      ]);
+
+      setGlobalSummary(summaryResponse || null);
+      setDifficultyDistribution(
+        Array.isArray(difficultyResponse?.distribution)
+          ? difficultyResponse.distribution
+          : []
+      );
+      setGlobalTopicWeaknesses(
+        Array.isArray(topicWeaknessResponse?.topic_weaknesses)
+          ? topicWeaknessResponse.topic_weaknesses
+          : []
+      );
+      setRecentSessions(
+        Array.isArray(recentSessionsResponse?.recent_sessions)
+          ? recentSessionsResponse.recent_sessions
+          : []
+      );
+    } catch (error) {
+      setGlobalErrorMessage(
+        getErrorMessage(
+          error,
+          "Instructor analytics could not be loaded."
+        )
+      );
+      setGlobalErrorDetails(getErrorDetails(error));
+      console.error("Instructor analytics loading failed.", error);
+    } finally {
+      setIsGlobalAnalyticsLoading(false);
+    }
+  }
 
   async function loadRuntimeReadiness() {
     setIsRuntimeReadinessLoading(true);
@@ -553,11 +857,25 @@ function InstructorDashboardPage() {
     }
   }
 
+
+  function refreshPortalData() {
+    loadGlobalAnalytics();
+    loadRuntimeReadiness();
+    loadDatabaseReadiness();
+    loadStudents();
+
+    if (selectedStudentId) {
+      loadStudentDetails(selectedStudentId);
+    }
+  }
+
   useEffect(() => {
+    loadGlobalAnalytics();
     loadRuntimeReadiness();
     loadDatabaseReadiness();
     loadStudents();
   }, []);
+
 
   useEffect(() => {
     loadStudentDetails(selectedStudentId);
@@ -567,119 +885,248 @@ function InstructorDashboardPage() {
     return students.find((student) => normalizeStudentId(student) === selectedStudentId);
   }, [students, selectedStudentId]);
 
+  const systemStatus = getSystemStatus({
+    runtimeReadiness,
+    databaseReadiness,
+    isRuntimeReadinessLoading,
+    isDatabaseReadinessLoading,
+    runtimeReadinessError,
+    databaseReadinessError
+  });
+
   return (
     <>
-      <section className="hero">
-        <h2>Instructor Dashboard v2</h2>
-        <p>
-          Inspect student-level lab performance, session history, topic weaknesses,
-          and score trends from instructor-only analytics endpoints.
-        </p>
+      <section className="hero instructor-portal-hero">
+        <div>
+          <h2>Instructor Portal</h2>
+          <p>
+            Monitor student lab progress, performance patterns, topic weaknesses, and system status from one focused workspace.
+          </p>
+        </div>
 
         <div className="actions">
           <button
             className="secondary-button"
-            onClick={loadStudents}
-            disabled={isStudentsLoading || isStudentDetailLoading}
+            onClick={refreshPortalData}
+            disabled={
+              isStudentsLoading ||
+              isStudentDetailLoading ||
+              isGlobalAnalyticsLoading ||
+              isRuntimeReadinessLoading ||
+              isDatabaseReadinessLoading
+            }
+            type="button"
           >
-            {isStudentsLoading ? "Refreshing..." : "Refresh Students"}
+            {isStudentsLoading || isGlobalAnalyticsLoading ? "Refreshing..." : "Refresh Portal"}
           </button>
-
-          {selectedStudentId && (
-            <button
-              className="secondary-button"
-              onClick={() => loadStudentDetails(selectedStudentId)}
-              disabled={isStudentDetailLoading}
-            >
-              {isStudentDetailLoading ? "Loading..." : "Refresh Selected Student"}
-            </button>
-          )}
         </div>
       </section>
 
-      <div className="demo-readiness-grid">
-        <RuntimeReadinessCard
-          readiness={runtimeReadiness}
-          isLoading={isRuntimeReadinessLoading}
-          errorMessage={runtimeReadinessError}
-          errorDetails={runtimeReadinessErrorDetails}
-          lastCheckedAt={runtimeReadinessCheckedAt}
-          onRefresh={loadRuntimeReadiness}
-        />
+      <InstructorPortalTabs
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
-        <DatabaseReadinessCard
-          readiness={databaseReadiness}
-          isLoading={isDatabaseReadinessLoading}
-          errorMessage={databaseReadinessError}
-          errorDetails={databaseReadinessErrorDetails}
-          lastCheckedAt={databaseReadinessCheckedAt}
-          onRefresh={loadDatabaseReadiness}
-        />
-      </div>
-
-      {errorMessage && (
-        <>
-          <MessageBox
-            type="error"
-            title="Instructor analytics could not be loaded"
-            message={errorMessage}
+      {activeTab === "home" && (
+        <div className="instructor-portal-shell">
+          <PortalOverviewCards
+            summary={globalSummary}
+            students={students}
+            systemStatus={systemStatus}
           />
 
-          {errorDetails && (
-            <div className="technical-detail-box">
-              <strong>Technical detail</strong>
-              <p>{errorDetails}</p>
-            </div>
-          )}
-        </>
-      )}
-
-      <div className="instructor-dashboard-v2">
-        <StudentListPanel
-          students={students}
-          selectedStudentId={selectedStudentId}
-          onSelectStudent={setSelectedStudentId}
-          isLoading={isStudentsLoading}
-        />
-
-        <section className="instructor-student-detail">
-          {!selectedStudentId && !isStudentsLoading && (
-            <section className="card">
-              <AnalyticsEmptyState
-                title="Select a student."
-                message="Choose a student from the list to inspect analytics."
-              />
-            </section>
-          )}
-
-          {selectedStudentId && (
-            <>
-              <section className="card selected-student-header">
+          <div className="two-column instructor-home-grid">
+            <section className="card instructor-home-card">
+              <div className="section-title-row">
                 <div>
-                  <span className="muted">Selected Student</span>
-                  <h3>{selectedStudentId}</h3>
+                  <h3>Instructor Workspace</h3>
                   <p className="muted">
-                    Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
+                    Use this portal to follow student progress, inspect lab outcomes, and verify platform readiness before demos.
                   </p>
                 </div>
-
-                {isStudentDetailLoading && (
-                  <span className="badge neutral">Loading details...</span>
-                )}
-              </section>
-
-              <StudentSummaryCards summary={summary} />
-
-              <div className="two-column instructor-detail-grid">
-                <StudentTopicWeaknesses topicWeaknesses={topicWeaknesses} />
-                <StudentScoreTrend scoreTrend={scoreTrend} />
               </div>
 
-              <StudentSessionsTable sessions={sessions} />
+              <div className="portal-workflow-list">
+                <div>
+                  <strong>1. Review class activity</strong>
+                  <p>Start with total sessions, completion rate, average score, and pass rate.</p>
+                </div>
+
+                <div>
+                  <strong>2. Inspect student details</strong>
+                  <p>Open the Students tab to review individual session history, score trend, and weak topics.</p>
+                </div>
+
+                <div>
+                  <strong>3. Check system status</strong>
+                  <p>Use System Readiness before live demos to confirm Docker, Containerlab, Web CLI, and PostgreSQL visibility.</p>
+                </div>
+              </div>
+            </section>
+
+            <SystemReadinessSummary
+              runtimeReadiness={runtimeReadiness}
+              databaseReadiness={databaseReadiness}
+              isRuntimeReadinessLoading={isRuntimeReadinessLoading}
+              isDatabaseReadinessLoading={isDatabaseReadinessLoading}
+              runtimeReadinessError={runtimeReadinessError}
+              databaseReadinessError={databaseReadinessError}
+              systemStatus={systemStatus}
+            />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "students" && (
+        <div className="instructor-portal-shell">
+          {errorMessage && (
+            <>
+              <MessageBox
+                type="error"
+                title="Student analytics could not be loaded"
+                message={errorMessage}
+              />
+
+              {errorDetails && (
+                <div className="technical-detail-box">
+                  <strong>Diagnostics</strong>
+                  <p>{errorDetails}</p>
+                </div>
+              )}
             </>
           )}
-        </section>
-      </div>
+
+          <div className="instructor-dashboard-v2">
+            <StudentListPanel
+              students={students}
+              selectedStudentId={selectedStudentId}
+              onSelectStudent={setSelectedStudentId}
+              isLoading={isStudentsLoading}
+            />
+
+            <section className="instructor-student-detail">
+              {!selectedStudentId && !isStudentsLoading && (
+                <section className="card">
+                  <AnalyticsEmptyState
+                    title="Select a student."
+                    message="Choose a student from the list to inspect analytics."
+                  />
+                </section>
+              )}
+
+              {selectedStudentId && (
+                <>
+                  <section className="card selected-student-header">
+                    <div>
+                      <span className="muted">Selected Student</span>
+                      <h3>{selectedStudentId}</h3>
+                      <p className="muted">
+                        Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
+                      </p>
+                    </div>
+
+                    <div className="selected-student-header-actions">
+                      <button
+                        className="secondary-button"
+                        onClick={() => loadStudentDetails(selectedStudentId)}
+                        disabled={isStudentDetailLoading}
+                        type="button"
+                      >
+                        {isStudentDetailLoading ? "Refreshing..." : "Refresh Student"}
+                      </button>
+
+                      {isStudentDetailLoading && (
+                        <span className="badge neutral">Loading details...</span>
+                      )}
+                    </div>
+                  </section>
+
+                  <StudentSummaryCards summary={summary} />
+
+                  <div className="two-column instructor-detail-grid">
+                    <StudentTopicWeaknesses topicWeaknesses={topicWeaknesses} />
+                    <StudentScoreTrend scoreTrend={scoreTrend} />
+                  </div>
+
+                  <StudentSessionsTable sessions={sessions} />
+                </>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "analytics" && (
+        <div className="instructor-portal-shell">
+          {globalErrorMessage && (
+            <>
+              <MessageBox
+                type="error"
+                title="Analytics could not be loaded"
+                message={globalErrorMessage}
+              />
+
+              {globalErrorDetails && (
+                <div className="technical-detail-box">
+                  <strong>Diagnostics</strong>
+                  <p>{globalErrorDetails}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {isGlobalAnalyticsLoading && (
+            <MessageBox
+              type="info"
+              title="Refreshing analytics"
+              message="Instructor analytics are being updated."
+            />
+          )}
+
+          <AnalyticsSummaryCards summary={globalSummary} />
+
+          <div className="two-column analytics-main-grid">
+            <DifficultyDistributionChart distribution={difficultyDistribution} />
+            <TopicWeaknessList topicWeaknesses={globalTopicWeaknesses} />
+          </div>
+
+          <RecentSessionsTable sessions={recentSessions} />
+        </div>
+      )}
+
+      {activeTab === "system" && (
+        <div className="instructor-portal-shell">
+          <SystemReadinessSummary
+            runtimeReadiness={runtimeReadiness}
+            databaseReadiness={databaseReadiness}
+            isRuntimeReadinessLoading={isRuntimeReadinessLoading}
+            isDatabaseReadinessLoading={isDatabaseReadinessLoading}
+            runtimeReadinessError={runtimeReadinessError}
+            databaseReadinessError={databaseReadinessError}
+            systemStatus={systemStatus}
+          />
+
+          <div className="demo-readiness-grid">
+            <RuntimeReadinessCard
+              readiness={runtimeReadiness}
+              isLoading={isRuntimeReadinessLoading}
+              errorMessage={runtimeReadinessError}
+              errorDetails={runtimeReadinessErrorDetails}
+              lastCheckedAt={runtimeReadinessCheckedAt}
+              onRefresh={loadRuntimeReadiness}
+            />
+
+            <DatabaseReadinessCard
+              readiness={databaseReadiness}
+              isLoading={isDatabaseReadinessLoading}
+              errorMessage={databaseReadinessError}
+              errorDetails={databaseReadinessErrorDetails}
+              lastCheckedAt={databaseReadinessCheckedAt}
+              onRefresh={loadDatabaseReadiness}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

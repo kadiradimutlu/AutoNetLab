@@ -1,3 +1,4 @@
+import { useState } from "react";
 import MessageBox from "./MessageBox";
 
 function formatBoolean(value) {
@@ -6,7 +7,7 @@ function formatBoolean(value) {
   }
 
   if (value === false) {
-    return "Not Ready";
+    return "Needs Attention";
   }
 
   return "Unknown";
@@ -32,7 +33,58 @@ function getSafeText(value, fallback = "-") {
   return String(value);
 }
 
-function RuntimeMetricCard({ label, value, ok }) {
+function getRuntimeStatus(readiness, isLoading, errorMessage) {
+  if (isLoading) {
+    return {
+      label: "Checking",
+      badgeClass: "neutral",
+      message: "Runtime status is being refreshed."
+    };
+  }
+
+  if (errorMessage) {
+    return {
+      label: "Unavailable",
+      badgeClass: "fail",
+      message: "Runtime status could not be checked. Review diagnostics if needed."
+    };
+  }
+
+  if (readiness?.ready === true) {
+    return {
+      label: "Ready",
+      badgeClass: "pass",
+      message: "Runtime services are ready for lab deployment and Web CLI sessions."
+    };
+  }
+
+  if (readiness?.ready === false) {
+    return {
+      label: "Needs Attention",
+      badgeClass: "fail",
+      message: "One or more runtime requirements need attention before labs can run reliably."
+    };
+  }
+
+  return {
+    label: "Not Checked",
+    badgeClass: "neutral",
+    message: "Refresh runtime status to verify lab execution requirements."
+  };
+}
+
+function getCheckByName(checks, keywords) {
+  if (!Array.isArray(checks)) {
+    return null;
+  }
+
+  return checks.find((check) => {
+    const name = String(check?.name || "").toLowerCase();
+    return keywords.some((keyword) => name.includes(keyword));
+  });
+}
+
+function RuntimeMetricCard({ label, value, ok, helper }) {
   return (
     <div className="runtime-metric-card">
       <span>{label}</span>
@@ -42,6 +94,7 @@ function RuntimeMetricCard({ label, value, ok }) {
           {formatBoolean(ok)}
         </span>
       )}
+      {helper && <p className="muted">{helper}</p>}
     </div>
   );
 }
@@ -50,7 +103,7 @@ function RuntimeChecksList({ checks = [] }) {
   if (!Array.isArray(checks) || checks.length === 0) {
     return (
       <p className="muted">
-        Runtime checks will appear after the backend readiness endpoint responds.
+        Detailed runtime checks will appear after the status refresh completes.
       </p>
     );
   }
@@ -68,10 +121,19 @@ function RuntimeChecksList({ checks = [] }) {
 
           <div>
             <strong>{getSafeText(check.name, `Check ${index + 1}`)}</strong>
-            <p>{getSafeText(check.message, "No detail message returned.")}</p>
+            <p>{getSafeText(check.message, "No diagnostic detail reported.")}</p>
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function DiagnosticRow({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{getSafeText(value)}</strong>
     </div>
   );
 }
@@ -84,48 +146,45 @@ function RuntimeReadinessCard({
   lastCheckedAt,
   onRefresh
 }) {
-  const isReady = readiness?.ready === true;
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const status = getRuntimeStatus(readiness, isLoading, errorMessage);
+  const checks = Array.isArray(readiness?.checks) ? readiness.checks : [];
+
+  const dockerCommandCheck = getCheckByName(checks, ["docker command"]);
+  const dockerDaemonCheck = getCheckByName(checks, ["docker daemon"]);
+  const containerlabCheck = getCheckByName(checks, ["containerlab"]);
+  const templatesCheck = getCheckByName(checks, ["templates"]);
+
+  const dockerReady = readiness?.docker_available === true && readiness?.docker_ps_ok === true;
+  const containerlabReady = readiness?.containerlab_available === true;
+  const templatesReady = readiness?.templates_dir_exists === true && readiness?.generated_dir_exists === true;
 
   return (
-    <section className={`card runtime-readiness-card ${isReady ? "ready" : "not-ready"}`}>
+    <section className={`card runtime-readiness-card ${readiness?.ready === true ? "ready" : "not-ready"}`}>
       <div className="section-title-row">
         <div>
           <h3>Runtime Readiness</h3>
           <p className="muted">
-            Demo preflight status for Docker, Containerlab, templates, and Web CLI runtime.
+            Preflight status for lab deployment, topology runtime, and Web CLI support.
           </p>
         </div>
 
-        <span className={`badge ${isReady ? "pass" : "fail"}`}>
-          {isReady ? "READY" : "NOT READY"}
+        <span className={`badge ${status.badgeClass}`}>
+          {status.label}
         </span>
       </div>
 
-      {errorMessage && (
-        <>
-          <MessageBox
-            type="error"
-            title="Runtime readiness check is unavailable"
-            message={errorMessage}
-          />
-
-          {errorDetails && (
-            <div className="technical-detail-box">
-              <strong>Technical detail</strong>
-              <p>{errorDetails}</p>
-            </div>
-          )}
-        </>
-      )}
-
-      {!errorMessage && (
+      {errorMessage ? (
         <MessageBox
-          type={isReady ? "success" : "info"}
-          title={isReady ? "Demo runtime is ready" : "Demo runtime needs attention"}
-          message={
-            readiness?.message ||
-            "Runtime readiness check has not returned a message yet."
-          }
+          type="error"
+          title="Runtime status could not be checked"
+          message={errorMessage}
+        />
+      ) : (
+        <MessageBox
+          type={readiness?.ready === true ? "success" : "info"}
+          title={status.label}
+          message={status.message}
         />
       )}
 
@@ -136,7 +195,7 @@ function RuntimeReadinessCard({
           disabled={isLoading}
           type="button"
         >
-          {isLoading ? "Checking..." : "Refresh Runtime Readiness"}
+          {isLoading ? "Checking..." : "Refresh Runtime Status"}
         </button>
 
         <span className="muted">
@@ -146,110 +205,64 @@ function RuntimeReadinessCard({
 
       <div className="runtime-readiness-grid">
         <RuntimeMetricCard
-          label="Overall Status"
-          value={isReady ? "Ready" : "Not Ready"}
-          ok={readiness?.ready}
-        />
-
-        <RuntimeMetricCard
-          label="Docker Available"
-          value={formatBoolean(readiness?.docker_available)}
-          ok={readiness?.docker_available}
-        />
-
-        <RuntimeMetricCard
-          label="Docker Daemon"
-          value={formatBoolean(readiness?.docker_ps_ok)}
-          ok={readiness?.docker_ps_ok}
+          label="Docker"
+          value={dockerReady ? "Available" : "Needs Attention"}
+          ok={dockerReady}
+          helper={dockerDaemonCheck?.ok === false ? "Docker service check reported an issue." : "Container runtime visibility."}
         />
 
         <RuntimeMetricCard
           label="Containerlab"
-          value={formatBoolean(readiness?.containerlab_available)}
-          ok={readiness?.containerlab_available}
+          value={containerlabReady ? "Available" : "Needs Attention"}
+          ok={containerlabReady}
+          helper={containerlabCheck?.ok === false ? "Topology orchestration check reported an issue." : "Topology orchestration tool."}
         />
 
         <RuntimeMetricCard
-          label="Templates Directory"
-          value={formatBoolean(readiness?.templates_dir_exists)}
-          ok={readiness?.templates_dir_exists}
+          label="Lab Files"
+          value={templatesReady ? "Available" : "Needs Attention"}
+          ok={templatesReady}
+          helper={templatesCheck?.ok === false ? "Lab template paths need attention." : "Templates and generated lab folders."}
         />
 
         <RuntimeMetricCard
-          label="Generated Directory"
-          value={formatBoolean(readiness?.generated_dir_exists)}
-          ok={readiness?.generated_dir_exists}
-        />
-
-        <RuntimeMetricCard
-          label="Current CLI Mode"
-          value={getSafeText(readiness?.current_mode)}
-        />
-
-        <RuntimeMetricCard
-          label="Fallback Mode"
-          value={getSafeText(readiness?.fallback_mode)}
+          label="CLI Mode"
+          value={getSafeText(readiness?.current_mode, "Not reported")}
+          helper="Mode used by Web CLI sessions."
         />
       </div>
 
-      <div className="runtime-info-grid">
-        <div>
-          <span>Platform</span>
-          <strong>{getSafeText(readiness?.platform)}</strong>
-        </div>
+      <div className="readiness-diagnostics-toggle-row">
+        <button
+          className="secondary-button compact-button"
+          onClick={() => setShowDiagnostics((current) => !current)}
+          type="button"
+        >
+          {showDiagnostics ? "Hide Diagnostics" : "Show Diagnostics"}
+        </button>
 
-        <div>
-          <span>Platform Release</span>
-          <strong>{getSafeText(readiness?.platform_release)}</strong>
-        </div>
-
-        <div>
-          <span>Recommended Backend Environment</span>
-          <strong>{getSafeText(readiness?.recommended_backend_environment)}</strong>
-        </div>
-
-        <div>
-          <span>Docker Version</span>
-          <strong>{getSafeText(readiness?.docker_version)}</strong>
-        </div>
-
-        <div>
-          <span>Containerlab Version</span>
-          <strong>{getSafeText(readiness?.containerlab_version)}</strong>
-        </div>
-
-        <div>
-          <span>Project Root</span>
-          <strong>{getSafeText(readiness?.project_root)}</strong>
-        </div>
-
-        <div>
-          <span>Templates Directory</span>
-          <strong>{getSafeText(readiness?.templates_dir)}</strong>
-        </div>
-
-        <div>
-          <span>Generated Directory</span>
-          <strong>{getSafeText(readiness?.generated_dir)}</strong>
-        </div>
+        <span className="muted">
+          {checks.length} detailed checks available
+        </span>
       </div>
 
-      <div className="runtime-check-section">
-        <div className="section-title-row compact">
-          <div>
-            <h4>Preflight Checks</h4>
-            <p className="muted">
-              These checks help distinguish frontend issues from Docker or Containerlab runtime issues.
-            </p>
+      {showDiagnostics && (
+        <div className="readiness-diagnostics-panel">
+          <div className="database-detail-grid">
+            <DiagnosticRow label="Platform" value={readiness?.platform} />
+            <DiagnosticRow label="Project Root" value={readiness?.project_root} />
+            <DiagnosticRow label="Templates Directory" value={readiness?.templates_dir} />
+            <DiagnosticRow label="Generated Directory" value={readiness?.generated_dir} />
+            <DiagnosticRow label="Docker Version" value={readiness?.docker_version} />
+            <DiagnosticRow label="Containerlab Version" value={readiness?.containerlab_version} />
+            <DiagnosticRow label="Docker Command Check" value={dockerCommandCheck?.message} />
+            <DiagnosticRow label="Docker Service Check" value={dockerDaemonCheck?.message} />
+            <DiagnosticRow label="Additional Diagnostics" value={errorDetails} />
           </div>
 
-          <span className="badge neutral">
-            {Array.isArray(readiness?.checks) ? readiness.checks.length : 0} checks
-          </span>
+          <RuntimeChecksList checks={checks} />
         </div>
-
-        <RuntimeChecksList checks={readiness?.checks || []} />
-      </div>
+      )}
     </section>
   );
 }

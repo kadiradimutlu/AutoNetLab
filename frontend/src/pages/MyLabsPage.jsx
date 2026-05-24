@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
   getErrorDetails,
@@ -168,7 +168,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 
           {errorDetails && (
             <div className="technical-detail-box">
-              <strong>Technical detail</strong>
+              <strong>Diagnostics</strong>
               <p>{errorDetails}</p>
             </div>
           )}

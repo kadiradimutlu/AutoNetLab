@@ -1,3 +1,4 @@
+import { useState } from "react";
 import MessageBox from "./MessageBox";
 
 function getSafeText(value, fallback = "-") {
@@ -8,18 +9,80 @@ function getSafeText(value, fallback = "-") {
   return String(value);
 }
 
-function formatEngine(engine) {
-  const normalizedEngine = String(engine || "").toLowerCase();
-
-  if (normalizedEngine.includes("postgres")) {
-    return "PostgreSQL";
+function getDatabaseStatus(readiness, isLoading, errorMessage) {
+  if (isLoading) {
+    return {
+      label: "Checking",
+      badgeClass: "neutral",
+      message: "Database status is being refreshed."
+    };
   }
 
-  if (normalizedEngine.includes("sqlite")) {
-    return "SQLite";
+  if (errorMessage) {
+    return {
+      label: "Unavailable",
+      badgeClass: "fail",
+      message: "Database status could not be checked. Review diagnostics if needed."
+    };
   }
 
-  return engine ? String(engine) : "Unknown";
+  if (readiness?.ready === true) {
+    return {
+      label: "Ready",
+      badgeClass: "pass",
+      message: "Database persistence is active and analytics data can be stored."
+    };
+  }
+
+  if (readiness?.ready === false) {
+    return {
+      label: "Needs Attention",
+      badgeClass: "fail",
+      message: "Database persistence needs attention before analytics can be trusted."
+    };
+  }
+
+  return {
+    label: "Not Checked",
+    badgeClass: "neutral",
+    message: "Refresh database status to verify persistence."
+  };
+}
+
+function maskDatabaseUrl(value) {
+  const text = getSafeText(value, "Not reported");
+
+  if (text === "Not reported") {
+    return text;
+  }
+
+  return text
+    .replace(/:\/\/([^:@/]+):([^@/]+)@/, "://***:***@")
+    .replace(/password=[^&\s]+/i, "password=***");
+}
+
+function DatabaseMetricCard({ label, value, badgeClass, badgeLabel, helper }) {
+  return (
+    <div className="runtime-metric-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {badgeLabel && (
+        <span className={`badge ${badgeClass}`}>
+          {badgeLabel}
+        </span>
+      )}
+      {helper && <p className="muted">{helper}</p>}
+    </div>
+  );
+}
+
+function DiagnosticRow({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{getSafeText(value)}</strong>
+    </div>
+  );
 }
 
 function DatabaseReadinessCard({
@@ -30,53 +93,39 @@ function DatabaseReadinessCard({
   lastCheckedAt,
   onRefresh
 }) {
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const status = getDatabaseStatus(readiness, isLoading, errorMessage);
   const isReady = readiness?.ready === true;
-  const engineLabel = formatEngine(readiness?.database_engine);
-  const connectionLabel = isReady ? "OK" : "Failed";
-  const databaseUrl = getSafeText(readiness?.database_url);
-  const backendError = getSafeText(readiness?.error, "");
+  const engineLabel = getSafeText(readiness?.database_engine, "Not reported");
+  const connectionLabel = isReady ? "Connected" : readiness?.ready === false ? "Needs Attention" : "Unknown";
+  const reportedError = readiness?.error || errorDetails || "";
 
   return (
-    <section className={`card database-readiness-card ${isReady ? "ready" : "not-ready"}`}>
+    <section className={`card runtime-readiness-card database-readiness-card ${isReady ? "ready" : "not-ready"}`}>
       <div className="section-title-row">
         <div>
           <h3>Database Readiness</h3>
           <p className="muted">
-            PostgreSQL persistence visibility for lab sessions, validation results, and recommendations.
+            Persistence status for lab history, validation results, recommendations, and analytics.
           </p>
         </div>
 
-        <span className={`badge ${isReady ? "pass" : "fail"}`}>
-          {isReady ? "READY" : "NOT READY"}
+        <span className={`badge ${status.badgeClass}`}>
+          {status.label}
         </span>
       </div>
 
-      {errorMessage && (
-        <>
-          <MessageBox
-            type="error"
-            title="Database readiness check is unavailable"
-            message={errorMessage}
-          />
-
-          {errorDetails && (
-            <div className="technical-detail-box">
-              <strong>Technical detail</strong>
-              <p>{errorDetails}</p>
-            </div>
-          )}
-        </>
-      )}
-
-      {!errorMessage && (
+      {errorMessage ? (
         <MessageBox
-          type={isReady ? "success" : "error"}
-          title={isReady ? "Database Ready" : "Database Not Ready"}
-          message={
-            isReady
-              ? `${engineLabel} connection is healthy. Persistence layer is active.`
-              : readiness?.message || "Database connection is not ready."
-          }
+          type="error"
+          title="Database status could not be checked"
+          message={errorMessage}
+        />
+      ) : (
+        <MessageBox
+          type={isReady ? "success" : "info"}
+          title={status.label}
+          message={status.message}
         />
       )}
 
@@ -87,7 +136,7 @@ function DatabaseReadinessCard({
           disabled={isLoading}
           type="button"
         >
-          {isLoading ? "Checking..." : "Refresh Database Readiness"}
+          {isLoading ? "Checking..." : "Refresh Database Status"}
         </button>
 
         <span className="muted">
@@ -96,52 +145,60 @@ function DatabaseReadinessCard({
       </div>
 
       <div className="database-readiness-grid">
-        <div className="runtime-metric-card">
-          <span>Database Status</span>
-          <strong>{isReady ? "Ready" : "Not Ready"}</strong>
-          <span className={`badge ${isReady ? "pass" : "fail"}`}>
-            {isReady ? "Ready" : "Not Ready"}
-          </span>
-        </div>
+        <DatabaseMetricCard
+          label="Database Status"
+          value={status.label}
+          badgeClass={status.badgeClass}
+          badgeLabel={status.label}
+          helper="Overall persistence health."
+        />
 
-        <div className="runtime-metric-card">
-          <span>Engine</span>
-          <strong>{engineLabel}</strong>
-        </div>
+        <DatabaseMetricCard
+          label="Engine"
+          value={engineLabel}
+          helper="Storage engine used by the platform."
+        />
 
-        <div className="runtime-metric-card">
-          <span>Connection</span>
-          <strong>{connectionLabel}</strong>
-          <span className={`badge ${isReady ? "pass" : "fail"}`}>
-            {connectionLabel}
-          </span>
-        </div>
+        <DatabaseMetricCard
+          label="Connection"
+          value={connectionLabel}
+          badgeClass={isReady ? "pass" : "fail"}
+          badgeLabel={connectionLabel}
+          helper="Application connectivity status."
+        />
 
-        <div className="runtime-metric-card">
-          <span>Persistence Layer</span>
-          <strong>{isReady ? "Active" : "Unavailable"}</strong>
-          <span className={`badge ${isReady ? "pass" : "fail"}`}>
-            {isReady ? "Active" : "Issue"}
-          </span>
-        </div>
+        <DatabaseMetricCard
+          label="Persistence Layer"
+          value={isReady ? "Active" : "Unavailable"}
+          badgeClass={isReady ? "pass" : "fail"}
+          badgeLabel={isReady ? "Active" : "Issue"}
+          helper="Required for history and analytics."
+        />
       </div>
 
-      <div className="database-detail-grid">
-        <div>
-          <span>Message</span>
-          <strong>{getSafeText(readiness?.message, "No database readiness message returned.")}</strong>
-        </div>
+      <div className="readiness-diagnostics-toggle-row">
+        <button
+          className="secondary-button compact-button"
+          onClick={() => setShowDiagnostics((current) => !current)}
+          type="button"
+        >
+          {showDiagnostics ? "Hide Diagnostics" : "Show Diagnostics"}
+        </button>
 
-        <div>
-          <span>Database URL</span>
-          <strong>{databaseUrl}</strong>
-        </div>
-
-        <div>
-          <span>Error</span>
-          <strong>{backendError || "None"}</strong>
-        </div>
+        <span className="muted">
+          Diagnostics are hidden by default.
+        </span>
       </div>
+
+      {showDiagnostics && (
+        <div className="readiness-diagnostics-panel">
+          <div className="database-detail-grid">
+            <DiagnosticRow label="Reported Message" value={readiness?.message} />
+            <DiagnosticRow label="Connection String" value={maskDatabaseUrl(readiness?.database_url)} />
+            <DiagnosticRow label="Reported Error" value={reportedError || "None"} />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
