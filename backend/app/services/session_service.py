@@ -338,8 +338,7 @@ def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
                 mode="local_docker_exec_demo",
                 command=f"docker exec -it {container_name} sh",
                 description=(
-                    f"{node.id.upper()} cihazÄ±na CLI Ã¼zerinden baÄŸlanmak iÃ§in "
-                    f"bu komutu kullanÄ±n."
+                    f"Use this command to open a CLI shell on {node.id.upper()}."
                 ),
             )
         )
@@ -478,7 +477,7 @@ def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:
         command=raw_cli.get("command", f"docker exec -it {container_name} sh"),
         description=raw_cli.get(
             "description",
-            f"{device_id.upper()} cihazÄ±na CLI Ã¼zerinden baÄŸlanmak iÃ§in bu komutu kullanÄ±n.",
+            f"Use this command to open a CLI shell on {device_id.upper()}."
         ),
     )
 
