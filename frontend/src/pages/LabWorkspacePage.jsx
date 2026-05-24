@@ -4,9 +4,12 @@ import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
 import DeviceCliCard from "../components/DeviceCliCard";
 import {
+  deployLab,
+  destroyLab,
   getCliAccess,
   getErrorDetails,
-  getErrorMessage
+  getErrorMessage,
+  getLab
 } from "../services/apiService";
 import {
   formatDifficulty,
@@ -96,13 +99,19 @@ function getFallbackCliMode(labSession) {
   );
 }
 
-function LabWorkspacePage({ labSession, onNavigate }) {
+function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const [cliAccessList, setCliAccessList] = useState([]);
   const [cliAccessMode, setCliAccessMode] = useState("local_docker_exec_demo");
   const [cliAccessWarning, setCliAccessWarning] = useState("");
   const [cliAccessDetails, setCliAccessDetails] = useState("");
   const [copiedCommandKey, setCopiedCommandKey] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
+  const [isStartingLab, setIsStartingLab] = useState(false);
+  const [isStoppingLab, setIsStoppingLab] = useState(false);
+  const [lifecycleMessage, setLifecycleMessage] = useState("");
+  const [lifecycleError, setLifecycleError] = useState("");
+  const [lifecycleDetails, setLifecycleDetails] = useState("");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("topology");
 
   useEffect(() => {
     let isMounted = true;
@@ -151,6 +160,80 @@ function LabWorkspacePage({ labSession, onNavigate }) {
     };
   }, [labSession]);
 
+  async function refreshLabSession() {
+    if (!labSession?.session_id) {
+      return null;
+    }
+
+    const refreshedLab = await getLab(labSession.session_id);
+
+    if (onLabUpdated) {
+      onLabUpdated(refreshedLab);
+    }
+
+    return refreshedLab;
+  }
+
+  async function handleStartLabEnvironment() {
+    if (!labSession?.session_id) {
+      return;
+    }
+
+    setIsStartingLab(true);
+    setLifecycleMessage("");
+    setLifecycleError("");
+    setLifecycleDetails("");
+
+    try {
+      await deployLab(labSession.session_id);
+      const refreshedLab = await refreshLabSession();
+
+      setLifecycleMessage("Lab deployed successfully. Open the Web CLI tab to connect to devices.");
+      setCliAccessList([]);
+      setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
+    } catch (error) {
+      setLifecycleError(getErrorMessage(error, "Lab could not be deployed."));
+      setLifecycleDetails(getErrorDetails(error));
+      console.error("Lab deploy failed.", error);
+    } finally {
+      setIsStartingLab(false);
+    }
+  }
+
+  async function handleStopLabEnvironment() {
+    if (!labSession?.session_id) {
+      return;
+    }
+
+    const shouldStop = window.confirm(
+      "Destroy this lab? Running device containers will be removed."
+    );
+
+    if (!shouldStop) {
+      return;
+    }
+
+    setIsStoppingLab(true);
+    setLifecycleMessage("");
+    setLifecycleError("");
+    setLifecycleDetails("");
+
+    try {
+      await destroyLab(labSession.session_id);
+      const refreshedLab = await refreshLabSession();
+
+      setLifecycleMessage("Lab destroyed successfully.");
+      setCliAccessList([]);
+      setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
+    } catch (error) {
+      setLifecycleError(getErrorMessage(error, "Lab could not be destroyed."));
+      setLifecycleDetails(getErrorDetails(error));
+      console.error("Lab destroy failed.", error);
+    } finally {
+      setIsStoppingLab(false);
+    }
+  }
+
   async function handleCopyCommand(command, commandKey) {
     if (!command) {
       return;
@@ -187,8 +270,8 @@ function LabWorkspacePage({ labSession, onNavigate }) {
             Create Lab
           </button>
 
-          <button className="secondary-button" onClick={() => onNavigate("session")}>
-            Back to Session Detail
+          <button className="secondary-button" onClick={() => onNavigate("home")}>
+            Back to Home
           </button>
         </div>
       </section>
@@ -200,35 +283,140 @@ function LabWorkspacePage({ labSession, onNavigate }) {
   );
   const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const effectiveCliMode = cliAccessMode || getFallbackCliMode(labSession);
+  const normalizedStatus = String(labSession.status || "").toLowerCase();
+  const isLabRunning = normalizedStatus.includes("deployed") || normalizedStatus.includes("active");
+  const isLabStopped = normalizedStatus.includes("destroyed");
+
+  const workspaceActions = (
+    <div className="workspace-topology-actions">
+      {!isLabRunning && !isLabStopped && (
+        <button
+          className="primary-button"
+          onClick={handleStartLabEnvironment}
+          disabled={isStartingLab || isStoppingLab}
+          type="button"
+        >
+          {isStartingLab ? "Starting..." : "Deploy Lab"}
+        </button>
+      )}
+
+      {isLabRunning && (
+        <button
+          className="danger-button"
+          onClick={handleStopLabEnvironment}
+          disabled={isStartingLab || isStoppingLab}
+          type="button"
+        >
+          {isStoppingLab ? "Stopping..." : "Destroy Lab"}
+        </button>
+      )}
+
+      {isLabStopped && (
+        <button
+          className="primary-button"
+          onClick={handleStartLabEnvironment}
+          disabled={isStartingLab || isStoppingLab}
+          type="button"
+        >
+          {isStartingLab ? "Starting..." : "Deploy Lab"}
+        </button>
+      )}
+
+      <button className="secondary-button" onClick={() => onNavigate("myLabs")} type="button">
+        My Labs
+      </button>
+
+      <button className="primary-button" onClick={() => onNavigate("result")} type="button">
+        Validate Solution
+      </button>
+    </div>
+  );
   const difficultyClass = getDifficultyClass(labSession.difficulty);
 
   return (
     <div className="lab-workspace-page">
+      <section className="card workspace-action-card">
+        <div>
+          <h3>Lab Workspace</h3>
+          <p className="muted">
+            Review the topology, deploy the lab, open the Web CLI,
+            and validate your solution from this workspace.
+          </p>
+        </div>
+
+        {workspaceActions}
+
+        {(lifecycleMessage || lifecycleError) && (
+          <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
+            {lifecycleMessage && (
+              <MessageBox
+                type="success"
+                title="Lab updated"
+                message={lifecycleMessage}
+              />
+            )}
+
+            {lifecycleError && (
+              <>
+                <MessageBox
+                  type="error"
+                  title="Lab operation failed"
+                  message={lifecycleError}
+                />
+
+                {lifecycleDetails && (
+                  <details className="technical-detail-box">
+                    <summary>Show technical details</summary>
+                    <p>{lifecycleDetails}</p>
+                  </details>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="card workspace-tabs-card">
+        <div className="workspace-tab-list" role="tablist" aria-label="Workspace sections">
+          <button
+            className={activeWorkspaceTab === "topology" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "topology"}
+            onClick={() => setActiveWorkspaceTab("topology")}
+          >
+            Topology
+          </button>
+
+          <button
+            className={activeWorkspaceTab === "webCli" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "webCli"}
+            onClick={() => setActiveWorkspaceTab("webCli")}
+          >
+            Web CLI
+          </button>
+        </div>
+      </section>
+
+      {activeWorkspaceTab === "topology" && (
       <TopologyCard
         topology={labSession.topology}
         difficulty={labSession.difficulty}
         status={labSession.status}
         cliAccess={cliAccess}
         variant="workspace"
-        actions={
-          <div className="workspace-topology-actions">
-            <button className="secondary-button" onClick={() => onNavigate("session")}>
-              Back to Session Detail
-            </button>
-
-            <button className="primary-button" onClick={() => onNavigate("result")}>
-              Validate Lab
-            </button>
-          </div>
-        }
+        actions={null}
       />
-
+      )}
+{activeWorkspaceTab === "webCli" && (
       <section className="card lab-workspace-terminal-card">
         <div className="section-title-row">
           <div>
             <h3>Browser Terminal</h3>
             <p className="muted">
-              Select a device, check readiness, connect, and run troubleshooting commands from the browser.
+              Deploy the lab first, then select a device and open the browser-based CLI.
             </p>
           </div>
 
@@ -244,10 +432,10 @@ function LabWorkspacePage({ labSession, onNavigate }) {
             />
 
             {cliAccessDetails && (
-              <div className="technical-detail-box">
-                <strong>Technical detail</strong>
+              <details className="technical-detail-box">
+                <summary>Show technical details</summary>
                 <p>{cliAccessDetails}</p>
-              </div>
+              </details>
             )}
           </>
         )}
@@ -267,7 +455,7 @@ function LabWorkspacePage({ labSession, onNavigate }) {
         />
 
         <details className="workspace-fallback-details">
-          <summary>Local Docker Exec fallback commands</summary>
+          <summary>Alternative CLI commands</summary>
 
           <div className="result-list">
             {cliAccess.length === 0 && (
@@ -286,6 +474,7 @@ function LabWorkspacePage({ labSession, onNavigate }) {
           </div>
         </details>
       </section>
+      )}
     </div>
   );
 }

@@ -232,6 +232,7 @@ function WebCliTerminal({
 }) {
   const socketRef = useRef(null);
   const outputEndRef = useRef(null);
+  const hasRenderedTerminalOutputRef = useRef(false);
 
   const normalizedDevices = useMemo(() => {
     return devices
@@ -263,7 +264,15 @@ function WebCliTerminal({
   }, [normalizedDevices, selectedDeviceId]);
 
   useEffect(() => {
-    outputEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!hasRenderedTerminalOutputRef.current) {
+      hasRenderedTerminalOutputRef.current = true;
+      return;
+    }
+
+    outputEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest"
+    });
   }, [terminalLines]);
 
   useEffect(() => {

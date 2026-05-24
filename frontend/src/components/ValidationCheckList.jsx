@@ -218,7 +218,7 @@ function ValidationCheckList({
                     </div>
 
                     <div>
-                      <span>Student-safe Hint</span>
+                      <span>Hint</span>
                       <strong>{getDisplayValue(check.hint || check.message, "Review this topic and re-check the device configuration.")}</strong>
                     </div>
                   </div>

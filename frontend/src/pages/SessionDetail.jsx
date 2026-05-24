@@ -301,7 +301,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
             onClick={() => onNavigate("workspace")}
             type="button"
           >
-            Open Lab Workspace
+            Open Workspace
           </button>
         </div>
 
@@ -313,7 +313,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
             onClick={handleDeployLab}
             disabled={isDeploying || isDestroying}
           >
-            {isDeploying ? "Deploying..." : "Deploy Lab"}
+            {isDeploying ? "Starting..." : "Start Lab Environment"}
           </button>
 
           <button
@@ -321,11 +321,11 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
             onClick={handleDestroyLab}
             disabled={isDeploying || isDestroying}
           >
-            {isDestroying ? "Destroying..." : "Destroy Lab"}
+            {isDestroying ? "Stopping..." : "Stop Lab Environment"}
           </button>
 
           <button className="secondary-button" onClick={() => onNavigate("workspace")}>
-            Open Lab Workspace
+            Open Workspace
           </button>
 
           <button className="primary-button" onClick={() => onNavigate("result")}>
@@ -337,15 +337,15 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
           <>
             <MessageBox
               type="error"
-              title="Operation failed"
+              title="Lab operation failed"
               message={operationError}
             />
 
             {operationErrorDetails && (
-              <div className="technical-detail-box">
-                <strong>Technical detail</strong>
+              <details className="technical-detail-box">
+                <summary>Show technical details</summary>
                 <p>{operationErrorDetails}</p>
-              </div>
+              </details>
             )}
           </>
         )}
@@ -354,31 +354,36 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
           <div className="result-list runtime-result">
             <div className="list-item">
               <strong>
-                Runtime operation result: {operationResult.status || "unknown"}
+                {String(operationResult.status || "").toLowerCase() === "destroyed"
+                  ? "Lab environment stopped successfully."
+                  : "Lab environment is ready."}
               </strong>
 
-              {operationResult.message && <p>{operationResult.message}</p>}
-
-              {operationResult.return_code !== undefined &&
-                operationResult.return_code !== null &&
-                operationResult.return_code !== "" && (
-                  <p className="muted">
-                    Return code: {operationResult.return_code}
-                  </p>
-                )}
-
-              {operationResult.stderr && (
-                <p className="muted">stderr: {operationResult.stderr}</p>
+              {operationResult.message && (
+                <p className="muted">{operationResult.message}</p>
               )}
 
-              {operationResult.stdout && (
-                <p className="muted">stdout: {operationResult.stdout}</p>
+              {(operationResult.return_code !== undefined ||
+                operationResult.stderr ||
+                operationResult.stdout) && (
+                <details className="technical-detail-box">
+                  <summary>Show technical details</summary>
+
+                  {operationResult.return_code !== undefined &&
+                    operationResult.return_code !== null &&
+                    operationResult.return_code !== "" && (
+                      <p>Return code: {operationResult.return_code}</p>
+                    )}
+
+                  {operationResult.stderr && <p>stderr: {operationResult.stderr}</p>}
+                  {operationResult.stdout && <p>stdout: {operationResult.stdout}</p>}
+                </details>
               )}
             </div>
           </div>
         )}
 
-        <p className="footer-note">{t("backendFormatNote")}</p>
+
       </section>
 
 
