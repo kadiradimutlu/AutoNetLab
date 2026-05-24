@@ -343,7 +343,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
 
             {operationErrorDetails && (
               <details className="technical-detail-box">
-                <summary>Show technical details</summary>
+                <summary>Show diagnostics</summary>
                 <p>{operationErrorDetails}</p>
               </details>
             )}
@@ -367,7 +367,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
                 operationResult.stderr ||
                 operationResult.stdout) && (
                 <details className="technical-detail-box">
-                  <summary>Show technical details</summary>
+                  <summary>Show diagnostics</summary>
 
                   {operationResult.return_code !== undefined &&
                     operationResult.return_code !== null &&

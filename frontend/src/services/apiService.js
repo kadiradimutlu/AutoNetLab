@@ -1,4 +1,4 @@
-﻿import mockDifficulties from "../data/mock_difficulties.json";
+import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 import mockRecommendation from "../data/mock_recommendation.json";
@@ -891,11 +891,11 @@ function getFriendlyErrorMessage({ status, path, method, data }) {
   }
 
   if (status === 0) {
-    return "Backend API is not reachable. Please make sure the FastAPI server is running and the API base URL is correct.";
+    return "The application service is not reachable. Please check the server connection and API base URL.";
   }
 
   if (status === 400) {
-    return "The request was rejected by the backend. Please check the submitted data.";
+    return "The request was rejected by the application service. Please check the submitted data.";
   }
 
   if (status === 401) {
@@ -912,7 +912,7 @@ function getFriendlyErrorMessage({ status, path, method, data }) {
     }
 
     if (path.includes("/instructor")) {
-      return "Instructor analytics endpoint could not be found. Please make sure the Sprint 6 backend is running.";
+      return "Instructor analytics endpoint could not be found. Please make sure the analytics service is available.";
     }
 
     return "Invalid session ID or endpoint not found. Please create a new lab or check the API path.";
@@ -936,14 +936,14 @@ function getFriendlyErrorMessage({ status, path, method, data }) {
     }
 
     if (path.includes("/validate")) {
-      return "Validation operation failed on the backend side. Please try again.";
+      return "Validation operation failed. Please try again.";
     }
 
     if (path.includes("/instructor")) {
-      return "Instructor analytics could not be generated on the backend side. Please check the FastAPI terminal output.";
+      return "Instructor analytics could not be generated. Please check the application service logs.";
     }
 
-    return "An unexpected backend error occurred. Please check the FastAPI terminal output.";
+    return "An unexpected server error occurred. Please check the application service logs.";
   }
 
   return `${method} request failed. Please try again.`;
@@ -1049,7 +1049,7 @@ async function request(path, options = {}) {
         method,
         url,
         message:
-          "Network error, CORS error, or backend server is not reachable.",
+          "Network error, CORS error, or application service is not reachable.",
         originalError: error
       });
     }

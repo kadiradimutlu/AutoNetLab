@@ -155,7 +155,7 @@ function ValidationCheckList({
       <MessageBox
         type="empty"
         title="No check details"
-        message="No checks list was found in the backend validation response."
+        message="No checks list was found in the validation response."
       />
     );
   }

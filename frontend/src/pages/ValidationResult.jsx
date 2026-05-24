@@ -137,7 +137,7 @@ function ValidationResult({ labSession, onNavigate }) {
 
             {errorDetails && (
               <details className="technical-detail-box">
-                <summary>Show technical details</summary>
+                <summary>Show diagnostics</summary>
                 <p>{errorDetails}</p>
               </details>
             )}

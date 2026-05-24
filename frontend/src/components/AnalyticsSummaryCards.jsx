@@ -37,7 +37,7 @@ function AnalyticsSummaryCards({ summary }) {
     {
       title: "Average Score",
       value: formatScore(summary?.average_score),
-      helper: "Score range: 0–100"
+      helper: "Score range: 0-100"
     },
     {
       title: "Pass Rate",

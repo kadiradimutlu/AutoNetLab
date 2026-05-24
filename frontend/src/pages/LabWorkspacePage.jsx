@@ -366,7 +366,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
                 {lifecycleDetails && (
                   <details className="technical-detail-box">
-                    <summary>Show technical details</summary>
+                    <summary>Show diagnostics</summary>
                     <p>{lifecycleDetails}</p>
                   </details>
                 )}
@@ -433,7 +433,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
             {cliAccessDetails && (
               <details className="technical-detail-box">
-                <summary>Show technical details</summary>
+                <summary>Show diagnostics</summary>
                 <p>{cliAccessDetails}</p>
               </details>
             )}

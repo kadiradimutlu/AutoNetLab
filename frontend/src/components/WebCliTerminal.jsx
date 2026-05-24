@@ -16,12 +16,12 @@ const READABLE_WEB_CLI_ERRORS = {
   WEB_CLI_DEVICE_NOT_FOUND: "The selected device is not available for this lab session.",
   LAB_NOT_DEPLOYED_FOR_WEB_CLI: "Deploy the lab before opening Web CLI.",
   WEB_CLI_CONTAINER_METADATA_MISSING: "Container metadata is missing for the selected device.",
-  DOCKER_NOT_FOUND_FOR_WEB_CLI: "Docker is not available for Web CLI on the backend host.",
-  DOCKER_PERMISSION_DENIED_FOR_WEB_CLI: "The backend does not have permission to access Docker for Web CLI.",
-  WEB_CLI_CONTAINER_CHECK_TIMEOUT: "The backend timed out while checking the selected device container.",
-  WEB_CLI_CONTAINER_CHECK_FAILED: "The backend could not check the selected device container.",
+  DOCKER_NOT_FOUND_FOR_WEB_CLI: "Docker is not available for Web CLI on the application host.",
+  DOCKER_PERMISSION_DENIED_FOR_WEB_CLI: "The application service does not have permission to access Docker for Web CLI.",
+  WEB_CLI_CONTAINER_CHECK_TIMEOUT: "The application service timed out while checking the selected device container.",
+  WEB_CLI_CONTAINER_CHECK_FAILED: "The application service could not check the selected device container.",
   WEB_CLI_CONTAINER_NOT_RUNNING: "The selected device container is not running.",
-  WEB_CLI_PROCESS_START_FAILED: "The backend could not start the Web CLI runtime process."
+  WEB_CLI_PROCESS_START_FAILED: "The application service could not start the Web CLI runtime process."
 };
 
 function getDeviceId(device, index) {
@@ -461,7 +461,7 @@ function WebCliTerminal({
 
       socket.onerror = () => {
         setConnectionState("error");
-        setWebCliError("Web CLI connection failed. Check backend, lab deployment, and Docker runtime.");
+        setWebCliError("Web CLI connection failed. Check lab deployment and Docker runtime.");
         appendTerminalLine("error", "WebSocket connection error.");
       };
 
@@ -628,7 +628,7 @@ function WebCliTerminal({
 
           {webCliErrorDetails && (
             <div className="technical-detail-box">
-              <strong>Technical detail</strong>
+              <strong>Diagnostics</strong>
               <p>{webCliErrorDetails}</p>
             </div>
           )}
@@ -641,7 +641,7 @@ function WebCliTerminal({
         <MessageBox
           type="info"
           title="Safe Web CLI access"
-          message="Device selection uses trusted backend lab metadata. Container names cannot be typed or overridden from the browser."
+          message="Device selection uses trusted lab metadata. Container names cannot be typed or overridden from the browser."
         />
 
         <p className="footer-note">

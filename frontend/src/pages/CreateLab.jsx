@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createLab,
   getDifficulties,
@@ -140,7 +140,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
             {errorDetails && (
               <details className="technical-detail-box">
-                <summary>Show technical details</summary>
+                <summary>Show diagnostics</summary>
                 <p>{errorDetails}</p>
               </details>
             )}

@@ -229,7 +229,7 @@ function RegisterPage({ onNavigateLogin }) {
 
             {errorDetails && (
               <details className="technical-detail-box auth-technical-details">
-                <summary>Show technical details</summary>
+                <summary>Show diagnostics</summary>
                 <p>{errorDetails}</p>
               </details>
             )}
