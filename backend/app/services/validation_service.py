@@ -255,6 +255,18 @@ def _evaluate_live_container_state(
             "command": "ip addr show eth1",
             "expected": "inet 10.10.12.1/24",
         },
+        "VLAN_MISMATCH": {
+            "command": "ip addr show eth2",
+            "expected": "inet 10.10.14.1/24",
+        },
+        "VLAN_MISMATCH_R3": {
+            "command": "ip addr show eth2",
+            "expected": "inet 10.10.34.1/24",
+        },
+        "INTERFACE_DOWN_R2": {
+            "command": "ip link show eth1",
+            "expected": "state UP",
+        },
         "INTERFACE_DOWN_R4": {
             "command": "ip link show eth1",
             "expected": "state UP",
@@ -270,6 +282,10 @@ def _evaluate_live_container_state(
         "WRONG_GATEWAY": {
             "command": "ip route",
             "expected": "default via 10.10.12.1",
+        },
+        "WRONG_GATEWAY_R4": {
+            "command": "ip route",
+            "expected": "default via 10.10.34.1",
         },
     }
 
