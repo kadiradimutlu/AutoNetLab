@@ -133,6 +133,7 @@ def _build_validation_check(
         topic=topic,
         device=device,
         session=session,
+        error=error,
     )
 
     passed = evaluation["passed"]
@@ -196,6 +197,7 @@ def _evaluate_error_fix(
     topic: str,
     device: str,
     session: dict,
+    error: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     topic_label = _topic_label(topic)
 
@@ -204,6 +206,7 @@ def _evaluate_error_fix(
         code=code,
         topic=topic,
         device=device,
+        error=error,
     )
     if live_evaluation is not None:
         return live_evaluation
@@ -255,11 +258,23 @@ def _evaluate_live_container_state(
     code: str,
     topic: str,
     device: str,
+    error: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    rule = get_live_validation_rule(code)
+    session_rule = _session_validation_rule_from_error(error)
 
-    if rule is None:
-        return None
+    if session_rule is not None:
+        command = session_rule["command"]
+        expected_outputs = session_rule["expected_outputs"]
+        rule_description = session_rule["description"]
+    else:
+        rule = get_live_validation_rule(code)
+
+        if rule is None:
+            return None
+
+        command = rule.command
+        expected_outputs = list(rule.expected_outputs)
+        rule_description = rule.description
 
     container_name = _container_name_for_device(session=session, device=device)
     if not container_name:
@@ -267,14 +282,14 @@ def _evaluate_live_container_state(
 
     observed = _run_container_command(
         container_name=container_name,
-        command=rule.command,
+        command=command,
     )
     if observed is None:
         return None
 
     missing_outputs = [
         expected
-        for expected in rule.expected_outputs
+        for expected in expected_outputs
         if expected not in observed
     ]
 
@@ -289,10 +304,10 @@ def _evaluate_live_container_state(
         observed_state = "expected live state is missing"
 
     expected_state: str | list[str]
-    if len(rule.expected_outputs) == 1:
-        expected_state = rule.expected_outputs[0]
+    if len(expected_outputs) == 1:
+        expected_state = expected_outputs[0]
     else:
-        expected_state = list(rule.expected_outputs)
+        expected_state = list(expected_outputs)
 
     return {
         "passed": passed,
@@ -301,14 +316,46 @@ def _evaluate_live_container_state(
             "validation_mode": "live_container_state_check",
             "device": device,
             "container_name": container_name,
-            "command": rule.command,
-            "rule_description": rule.description,
+            "command": command,
+            "rule_description": rule_description,
             "expected_state": expected_state,
             "missing_expected_outputs": missing_outputs,
             "observed_state": observed_state,
             "observed_output": observed[:2000],
         },
     }
+
+
+def _session_validation_rule_from_error(error: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not error:
+        return None
+
+    command = error.get("validation_command")
+    expected_outputs = error.get("expected_outputs", [])
+
+    if isinstance(expected_outputs, str):
+        expected_outputs = [expected_outputs]
+
+    normalized_outputs = [
+        str(expected)
+        for expected in expected_outputs
+        if str(expected).strip()
+    ]
+
+    if not command or not normalized_outputs:
+        return None
+
+    return {
+        "command": str(command),
+        "expected_outputs": normalized_outputs,
+        "description": str(
+            error.get("description")
+            or error.get("variant_id")
+            or error.get("code")
+            or "Session-specific validation rule"
+        ),
+    }
+
 
 def _entry_value(entry: Any, key: str) -> Any:
     if isinstance(entry, dict):

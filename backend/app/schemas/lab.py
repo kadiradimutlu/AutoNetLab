@@ -27,6 +27,11 @@ class ErrorItem(BaseModel):
     device: str = Field(..., examples=["r1"])
     description: str = Field(..., examples=["VLAN-like mismatch on interface eth1"])
     severity: str = Field(..., examples=["medium"])
+    variant_id: str | None = Field(default=None, examples=["r1_eth2_wrong_link_subnet"])
+    interface: str | None = Field(default=None, examples=["eth1"])
+    validation_command: str | None = Field(default=None, examples=["ip addr show eth1"])
+    expected_outputs: list[str] = Field(default_factory=list, examples=[["inet 10.10.12.1/24"]])
+    injection_commands: list[str] = Field(default_factory=list, examples=[["ip link set eth1 down"]])
 
 
 class CliAccess(BaseModel):

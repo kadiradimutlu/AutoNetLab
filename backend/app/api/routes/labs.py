@@ -16,6 +16,7 @@ from app.schemas.recommendation import RecommendationResponse
 from app.schemas.validation import StudentValidationResult
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
+from app.services.runtime_error_injection import apply_runtime_error_injection
 from app.services.session_service import (
     create_lab_session,
     get_cli_access_response,
@@ -210,6 +211,34 @@ def deploy_lab(
         session_id=session_id,
         topology_file=session["topology_file"],
     )
+
+    if result["success"]:
+        runtime_result = apply_runtime_error_injection(session)
+
+        if not runtime_result["success"]:
+            update_session_status(session_id, runtime_result["status"])
+            return ActionResponse(**runtime_result)
+
+        result["message"] = (
+            result["message"]
+            + " Runtime error injection applied successfully."
+        )
+        result["stdout"] = "\n\n".join(
+            value
+            for value in [
+                result.get("stdout", ""),
+                runtime_result.get("stdout", ""),
+            ]
+            if value
+        )
+        result["stderr"] = "\n\n".join(
+            value
+            for value in [
+                result.get("stderr", ""),
+                runtime_result.get("stderr", ""),
+            ]
+            if value
+        )
 
     update_session_status(session_id, result["status"])
 
