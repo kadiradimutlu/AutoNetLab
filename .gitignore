@@ -49,3 +49,6 @@ temp/
 backend/.venv-wsl/
 sprint1_backend_snapshot.txt
 containerlab/generated/
+autonetlab_dev.db
+backend/.env
+frontend/.env.production

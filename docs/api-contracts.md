@@ -2,7 +2,7 @@
 
 This document defines the REST/HTTP JSON API contracts between the AutoNetLab Backend API and the Web Dashboard frontend.
 
-Bu dosya, AutoNetLab Backend API ile Web Dashboard frontend arasındaki REST/HTTP JSON sözleşmelerini tanımlar.
+Bu dosya, AutoNetLab Backend API ile Web Dashboard frontend arasÄ±ndaki REST/HTTP JSON sÃ¶zleÅŸmelerini tanÄ±mlar.
 
 ---
 
@@ -12,15 +12,15 @@ Bu dosya, AutoNetLab Backend API ile Web Dashboard frontend arasındaki REST/HTT
 http://127.0.0.1:8000/api/v1
 ```
 
-Local development / yerel geliştirme sırasında backend bu adres üzerinden çalışacaktır.
+Local development / yerel geliÅŸtirme sÄ±rasÄ±nda backend bu adres Ã¼zerinden Ã§alÄ±ÅŸacaktÄ±r.
 
 ---
 
 # 1. Health Check
 
-Health Check endpoint/uç noktası backend servisinin çalışıp çalışmadığını kontrol etmek için kullanılır.
+Health Check endpoint/uÃ§ noktasÄ± backend servisinin Ã§alÄ±ÅŸÄ±p Ã§alÄ±ÅŸmadÄ±ÄŸÄ±nÄ± kontrol etmek iÃ§in kullanÄ±lÄ±r.
 
-Bu endpoint genellikle frontend tarafından da kullanılabilir ama asıl amacı geliştirme sırasında backend ayakta mı diye hızlı kontrol yapmaktır.
+Bu endpoint genellikle frontend tarafÄ±ndan da kullanÄ±labilir ama asÄ±l amacÄ± geliÅŸtirme sÄ±rasÄ±nda backend ayakta mÄ± diye hÄ±zlÄ± kontrol yapmaktÄ±r.
 
 ## Request
 
@@ -49,15 +49,15 @@ http://127.0.0.1:8000/api/v1/health
 status = ok
 ```
 
-Backend API çalışıyor demektir.
+Backend API Ã§alÄ±ÅŸÄ±yor demektir.
 
 ---
 
 # 2. Get Difficulty Levels
 
-Bu endpoint/uç nokta frontend’e kullanılabilir zorluk seviyelerini döner.
+Bu endpoint/uÃ§ nokta frontendâ€™e kullanÄ±labilir zorluk seviyelerini dÃ¶ner.
 
-Muhammed bu response/cevap sayesinde ekranda şu seçenekleri gösterebilir:
+Muhammed bu response/cevap sayesinde ekranda ÅŸu seÃ§enekleri gÃ¶sterebilir:
 
 - Easy
 - Medium
@@ -103,9 +103,9 @@ http://127.0.0.1:8000/api/v1/meta/difficulties
 
 # 3. Create Lab Session
 
-Bu endpoint/uç nokta yeni bir lab session / laboratuvar oturumu oluşturur.
+Bu endpoint/uÃ§ nokta yeni bir lab session / laboratuvar oturumu oluÅŸturur.
 
-Frontend kullanıcının seçtiği zorluk seviyesini backend’e gönderir. Backend ise yeni bir session oluşturur, topology/topoloji bilgisini üretir, injected errors/enjekte edilen hataları belirler ve frontend’e JSON olarak döner.
+Frontend kullanÄ±cÄ±nÄ±n seÃ§tiÄŸi zorluk seviyesini backendâ€™e gÃ¶nderir. Backend ise yeni bir session oluÅŸturur, topology/topoloji bilgisini Ã¼retir, injected errors/enjekte edilen hatalarÄ± belirler ve frontendâ€™e JSON olarak dÃ¶ner.
 
 ## Request
 
@@ -133,9 +133,9 @@ http://127.0.0.1:8000/api/v1/labs
 
 | Field | Type | Required | Description |
 |---|---|---:|---|
-| student_id | string | yes | Öğrenci kullanıcı adı veya ID bilgisi |
+| student_id | string | yes | Ã–ÄŸrenci kullanÄ±cÄ± adÄ± veya ID bilgisi |
 | difficulty | string | yes | Lab zorluk seviyesi: easy, medium veya hard |
-| topology_template | string | yes | Kullanılacak topology/topoloji şablonu |
+| topology_template | string | yes | KullanÄ±lacak topology/topoloji ÅŸablonu |
 
 ## Response
 
@@ -203,22 +203,22 @@ http://127.0.0.1:8000/api/v1/labs
 
 | Field | Type | Description |
 |---|---|---|
-| session_id | string | Oluşturulan lab session/lab oturumu ID bilgisi |
-| student_id | string | Öğrenci ID bilgisi |
-| difficulty | string | Seçilen zorluk seviyesi |
+| session_id | string | OluÅŸturulan lab session/lab oturumu ID bilgisi |
+| student_id | string | Ã–ÄŸrenci ID bilgisi |
+| difficulty | string | SeÃ§ilen zorluk seviyesi |
 | status | string | Session durumu |
-| topology | object | Frontend’in topology görselleştirmesi için kullanacağı veri |
-| injected_errors | array | Sistemin lab içine eklediği hatalar |
-| cli_access | array | Öğrencinin CLI üzerinden bağlanacağı cihaz komutları |
-| message | string | Kullanıcıya gösterilecek açıklama mesajı |
+| topology | object | Frontendâ€™in topology gÃ¶rselleÅŸtirmesi iÃ§in kullanacaÄŸÄ± veri |
+| injected_errors | array | Sistemin lab iÃ§ine eklediÄŸi hatalar |
+| cli_access | array | Ã–ÄŸrencinin CLI Ã¼zerinden baÄŸlanacaÄŸÄ± cihaz komutlarÄ± |
+| message | string | KullanÄ±cÄ±ya gÃ¶sterilecek aÃ§Ä±klama mesajÄ± |
 
 ---
 
 # 4. Get Lab Session
 
-Bu endpoint/uç nokta daha önce oluşturulmuş bir lab session/lab oturumunu getirir.
+Bu endpoint/uÃ§ nokta daha Ã¶nce oluÅŸturulmuÅŸ bir lab session/lab oturumunu getirir.
 
-Frontend, sayfa yenilendiğinde veya session detayını göstermek istediğinde bu endpoint’i kullanabilir.
+Frontend, sayfa yenilendiÄŸinde veya session detayÄ±nÄ± gÃ¶stermek istediÄŸinde bu endpointâ€™i kullanabilir.
 
 ## Request
 
@@ -255,11 +255,11 @@ http://127.0.0.1:8000/api/v1/labs/lab-abc12345
 
 # 5. Deploy Lab
 
-Bu endpoint/uç nokta lab ortamını çalıştırmak için kullanılır.
+Bu endpoint/uÃ§ nokta lab ortamÄ±nÄ± Ã§alÄ±ÅŸtÄ±rmak iÃ§in kullanÄ±lÄ±r.
 
-Sprint 1 MVP aşamasında bu endpoint gerçek Containerlab komutu çalıştırmayacak. Şimdilik mock/sahte cevap dönecek.
+Sprint 1 MVP aÅŸamasÄ±nda bu endpoint gerÃ§ek Containerlab komutu Ã§alÄ±ÅŸtÄ±rmayacak. Åimdilik mock/sahte cevap dÃ¶necek.
 
-İleride burada şu komut backend tarafından çalıştırılacak:
+Ä°leride burada ÅŸu komut backend tarafÄ±ndan Ã§alÄ±ÅŸtÄ±rÄ±lacak:
 
 ```bash
 containerlab deploy -t path/to/topology.clab.yml
@@ -291,11 +291,11 @@ http://127.0.0.1:8000/api/v1/labs/lab-abc12345/deploy
 
 # 6. Validate Lab
 
-Bu endpoint/uç nokta öğrencinin yaptığı düzeltmelerden sonra validation/doğrulama işlemini başlatır.
+Bu endpoint/uÃ§ nokta Ã¶ÄŸrencinin yaptÄ±ÄŸÄ± dÃ¼zeltmelerden sonra validation/doÄŸrulama iÅŸlemini baÅŸlatÄ±r.
 
-Sprint 1 MVP aşamasında gerçek network validation/doğrulama yapılmayacak. Mock/sahte validation sonucu dönecek.
+Sprint 1 MVP aÅŸamasÄ±nda gerÃ§ek network validation/doÄŸrulama yapÄ±lmayacak. Mock/sahte validation sonucu dÃ¶necek.
 
-İleride burada Python validation scripts/doğrulama scriptleri çalıştırılacak.
+Ä°leride burada Python validation scripts/doÄŸrulama scriptleri Ã§alÄ±ÅŸtÄ±rÄ±lacak.
 
 ## Request
 
@@ -341,26 +341,26 @@ http://127.0.0.1:8000/api/v1/labs/lab-abc12345/validate
 
 | Field | Type | Description |
 |---|---|---|
-| session_id | string | Validation/doğrulama yapılan session ID |
+| session_id | string | Validation/doÄŸrulama yapÄ±lan session ID |
 | status | string | Session durumu |
-| passed | boolean | Genel başarı durumu |
-| score | integer | 0-100 arası puan |
-| checks | array | Her validation kontrolünün sonucu |
-| recommendations | array | Öğrenciye önerilen tekrar konuları |
+| passed | boolean | Genel baÅŸarÄ± durumu |
+| score | integer | 0-100 arasÄ± puan |
+| checks | array | Her validation kontrolÃ¼nÃ¼n sonucu |
+| recommendations | array | Ã–ÄŸrenciye Ã¶nerilen tekrar konularÄ± |
 
 ---
 
 # 7. Destroy Lab
 
-Bu endpoint/uç nokta çalışan lab ortamını kapatmak için kullanılır.
+Bu endpoint/uÃ§ nokta Ã§alÄ±ÅŸan lab ortamÄ±nÄ± kapatmak iÃ§in kullanÄ±lÄ±r.
 
-İleride backend bu endpoint içinde şu Containerlab komutunu çalıştıracak:
+Ä°leride backend bu endpoint iÃ§inde ÅŸu Containerlab komutunu Ã§alÄ±ÅŸtÄ±racak:
 
 ```bash
 containerlab destroy -t path/to/topology.clab.yml
 ```
 
-Sprint 1 MVP aşamasında mock/sahte cevap döner.
+Sprint 1 MVP aÅŸamasÄ±nda mock/sahte cevap dÃ¶ner.
 
 ## Request
 
@@ -388,15 +388,15 @@ http://127.0.0.1:8000/api/v1/labs/lab-abc12345/destroy
 
 # 8. Session Status Values
 
-Backend tarafında session/lab oturumu şu durumlardan birine sahip olabilir:
+Backend tarafÄ±nda session/lab oturumu ÅŸu durumlardan birine sahip olabilir:
 
 | Status | Meaning |
 |---|---|
-| created | Lab session oluşturuldu ama henüz deploy edilmedi |
-| deployed | Lab ortamı çalıştırıldı |
-| validated | Validation/doğrulama yapıldı |
-| destroyed | Lab ortamı kapatıldı |
-| error | Bir hata oluştu |
+| created | Lab session oluÅŸturuldu ama henÃ¼z deploy edilmedi |
+| deployed | Lab ortamÄ± Ã§alÄ±ÅŸtÄ±rÄ±ldÄ± |
+| validated | Validation/doÄŸrulama yapÄ±ldÄ± |
+| destroyed | Lab ortamÄ± kapatÄ±ldÄ± |
+| error | Bir hata oluÅŸtu |
 
 ---
 
@@ -404,7 +404,7 @@ Backend tarafında session/lab oturumu şu durumlardan birine sahip olabilir:
 
 | Difficulty | Error Count | Description |
 |---|---:|---|
-| easy | 2 | Başlangıç seviyesi |
+| easy | 2 | BaÅŸlangÄ±Ã§ seviyesi |
 | medium | 3 | Orta seviye |
 | hard | 5 | Zor seviye |
 
@@ -412,7 +412,7 @@ Backend tarafında session/lab oturumu şu durumlardan birine sahip olabilir:
 
 # 10. Frontend Notes for Muhammed
 
-Muhammed frontend tarafında öncelikle şu endpointleri kullanabilir:
+Muhammed frontend tarafÄ±nda Ã¶ncelikle ÅŸu endpointleri kullanabilir:
 
 ```text
 GET /api/v1/health
@@ -424,9 +424,9 @@ POST /api/v1/labs/{session_id}/validate
 POST /api/v1/labs/{session_id}/destroy
 ```
 
-Frontend ilk aşamada gerçek backend bağlantısı kurmadan önce `frontend-mocks/lab-session-response.json` dosyasını mock data/sahte veri olarak kullanabilir.
+Frontend ilk aÅŸamada gerÃ§ek backend baÄŸlantÄ±sÄ± kurmadan Ã¶nce `frontend-mocks/lab-session-response.json` dosyasÄ±nÄ± mock data/sahte veri olarak kullanabilir.
 
-Backend çalıştığında frontend base URL olarak şunu kullanmalıdır:
+Backend Ã§alÄ±ÅŸtÄ±ÄŸÄ±nda frontend base URL olarak ÅŸunu kullanmalÄ±dÄ±r:
 
 ```text
 http://127.0.0.1:8000/api/v1
@@ -479,3 +479,1070 @@ Validation servisi injected_errors.json dosyasini ve configs/<device>.conf dosya
 
 Backend restart edilse bile GET /labs/{session_id} endpointi session bilgisini session.json dosyasindan geri yukleyebilir.
 
+
+---
+
+# Sprint 5 Backend Addendum - Student-Safe Lab Responses
+
+Sprint 5 ile backend tarafında student-safe response / öğrenciye güvenli yanıt ve instructor/debug response / eğitmen veya debug yanıtı ayrımı eklenmiştir.
+
+## Main Rule
+
+Default student-facing endpoints must not expose injected_errors / enjekte edilen hatalar.
+
+Student-facing frontend must use:
+
+`	ext
+POST /api/v1/labs
+GET /api/v1/labs/{session_id}
+GET /api/v1/labs/{session_id}/cli
+POST /api/v1/labs/{session_id}/deploy
+GET /api/v1/labs/{session_id}/inspect
+POST /api/v1/labs/{session_id}/validate
+POST /api/v1/labs/{session_id}/destroy
+
+Instructor/debug tools may use:
+
+GET /api/v1/labs/{session_id}/debug
+Student-Safe Create Lab Response
+{
+  "success": true,
+  "session_id": "lab-abc12345",
+  "student_id": "demo-student",
+  "difficulty": "medium",
+  "status": "created",
+  "topology": {
+    "name": "autonetlab-lab-abc12345",
+    "nodes": [],
+    "links": []
+  },
+  "cli_access": [],
+  "hints": [
+    "Check IP addressing and subnet masks.",
+    "Verify interface status before testing connectivity.",
+    "Review routing and default gateway configuration.",
+    "Compare addressing, interfaces, and routing step by step across the topology."
+  ],
+  "message": "Lab session created successfully."
+}
+Student-Safe Get Lab Response
+{
+  "success": true,
+  "session_id": "lab-abc12345",
+  "student_id": "demo-student",
+  "difficulty": "medium",
+  "status": "created",
+  "topology": {
+    "name": "autonetlab-lab-abc12345",
+    "nodes": [],
+    "links": []
+  },
+  "cli_access": [],
+  "hints": [
+    "Check IP addressing and subnet masks.",
+    "Verify interface status before testing connectivity.",
+    "Review routing and default gateway configuration.",
+    "Compare addressing, interfaces, and routing step by step across the topology."
+  ],
+  "message": "Lab session retrieved successfully."
+}
+Debug/Instructor Get Lab Response
+{
+  "success": true,
+  "session_id": "lab-abc12345",
+  "student_id": "demo-student",
+  "difficulty": "medium",
+  "status": "created",
+  "topology": {
+    "name": "autonetlab-lab-abc12345",
+    "nodes": [],
+    "links": []
+  },
+  "cli_access": [],
+  "hints": [
+    "Check IP addressing and subnet masks.",
+    "Verify interface status before testing connectivity.",
+    "Review routing and default gateway configuration."
+  ],
+  "injected_errors": [
+    {
+      "code": "MISSING_ROUTE",
+      "topic": "Routing",
+      "device": "r2",
+      "description": "Required static route is missing on r2.",
+      "severity": "medium"
+    }
+  ],
+  "message": "Debug lab session retrieved successfully."
+}
+Frontend Adaptation Note for Muhammed
+
+Muhammed frontend tarafında student view / öğrenci ekranı için injected_errors alanını kullanmamalıdır.
+
+Student screen must use:
+
+POST /api/v1/labs
+GET /api/v1/labs/{session_id}
+
+Debug or instructor-only screen may use:
+
+GET /api/v1/labs/{session_id}/debug
+
+Topology visualization / topoloji görselleştirme için frontend şu alanları kullanmalıdır:
+
+topology.name
+topology.nodes[].id
+topology.nodes[].label
+topology.nodes[].kind
+topology.nodes[].image
+topology.links[].source.node
+topology.links[].source.interface
+topology.links[].target.node
+topology.links[].target.interface
+cli_access[].device_id
+cli_access[].name
+cli_access[].container_name
+cli_access[].command
+hints[]
+
+Student-safe response içinde şu alanlar bulunmamalıdır:
+
+injected_errors
+expected_fix
+solution
+answer
+debug
+
+---
+
+# Sprint 6 Backend Addendum - Instructor Analytics
+
+Sprint 6 ile backend tarafına instructor dashboard / eğitmen paneli için read-only analytics endpointleri eklenmiştir.
+
+Bu endpointler lab runtime state / lab çalışma durumunu değiştirmez. Sadece mevcut session metadata / oturum metadata dosyalarını okur.
+
+## Added Endpoints
+
+```text
+GET /api/v1/instructor/analytics/summary
+GET /api/v1/instructor/analytics/difficulty-distribution
+GET /api/v1/instructor/analytics/topic-weaknesses
+GET /api/v1/instructor/sessions/recent
+---
+
+# 10. Sprint 7 Recommendation Endpoint
+
+This endpoint returns explanatory recommendation data for the frontend recommendation UI.
+
+Bu endpoint, frontend tarafındaki recommendation UI / öneri arayüzü için açıklamalı öneri verisi döner.
+
+## Request
+
+GET /labs/{session_id}/recommendations
+
+## Example Full URL
+
+http://127.0.0.1:8000/api/v1/labs/lab-abc12345/recommendations
+
+## Response after validation
+
+```json
+{
+  "success": true,
+  "session_id": "lab-abc12345",
+  "status": "validated",
+  "score": 40,
+  "passed": false,
+  "source": "rule_based",
+  "fallback_used": true,
+  "recommendations": [
+    {
+      "topic": "ip_addressing",
+      "label": "IP Addressing",
+      "reason": "Failed validation checks indicate weakness in IP Addressing.",
+      "explanation": "1 validation check(s) related to IP Addressing failed. The topic failure rate is 100.0%. Current score: 40. The student should focus on this topic before attempting a harder lab.",
+      "priority": "high",
+      "confidence": 0.9,
+      "source": "rule_based",
+      "next_actions": [
+        "Review IP address and subnet mask configuration.",
+        "Compare both router interfaces that are connected to the same link.",
+        "Run basic connectivity tests after fixing addressing issues."
+      ],
+      "related_failed_checks": [
+        {
+          "check_id": "check_1_ip_address_mismatch",
+          "topic": "IP Addressing",
+          "message": "IP Addressing issue still exists on r1."
+        }
+      ]
+    }
+  ],
+  "message": "Rule-based fallback recommendations generated successfully. ML prototype was unavailable or did not produce a reliable prediction."
+}
+
+## Response before validation
+
+```json
+{
+  "success": true,
+  "session_id": "lab-abc12345",
+  "status": "created",
+  "score": null,
+  "passed": null,
+  "source": "rule_based",
+  "fallback_used": true,
+  "recommendations": [],
+  "message": "No validation result found yet. Run validation before requesting personalized learning recommendations."
+}
+Source field values
+ValueMeaning
+rule_basedRecommendation was generated by deterministic validation rules.
+ml_prototypeRecommendation was generated by the optional ML prototype.
+hybridRule-based signals and ML prototype output were combined.
+Frontend guidance for Muhammed
+
+Muhammed frontend tarafında:
+
+priority alanını badge olarak gösterebilir: high, medium, low.
+confidence alanını yüzde olarak gösterebilir.
+source alanı kullanıcıya dürüst şekilde gösterilebilir.
+fallback_used = true ise "Reliable rule-based fallback is active." benzeri bir bilgi gösterilebilir.
+recommendations boşsa validation henüz çalışmamıştır; empty state gösterilmelidir.
+reason, explanation, next_actions alanları recommendation card içinde kullanılabilir.
+related_failed_checks alanı expandable detail olarak gösterilebilir.
+
+---
+
+# Sprint 8 Backend Contract Addendum
+
+Sprint 8 adds advanced scenarios / ileri senaryolar, richer validation checks / daha detaylı doğrulama kontrolleri, canonical topic taxonomy / standart konu sınıflandırması, and CLI access mode metadata / CLI erişim modu bilgisi.
+
+## Error taxonomy / Hata sınıflandırması
+
+Canonical topic values:
+
+```text
+ip_addressing
+subnetting
+interface_status
+default_gateway
+static_routing
+vlan_like
+acl_like
+connectivity
+```
+
+Frontend should treat these as stable topic keys.
+
+Recommended labels:
+
+```text
+ip_addressing -> IP Addressing
+subnetting -> Subnetting
+interface_status -> Interface Status
+default_gateway -> Default Gateway
+static_routing -> Static Routing
+vlan_like -> VLAN-like Configuration
+acl_like -> ACL-like Policy
+connectivity -> Connectivity
+```
+
+## Validation result check format
+
+Endpoint:
+
+```text
+POST /api/v1/labs/{session_id}/validate
+```
+
+Each check now includes:
+
+```json
+{
+  "check_id": "check_1_static_routing",
+  "topic": "static_routing",
+  "description": "Validate whether Static Routing related configuration state is correct on r3.",
+  "status": "failed",
+  "passed": false,
+  "points": 0,
+  "max_points": 20,
+  "message": "Static Routing validation failed on r3. The related issue still appears unresolved.",
+  "hint": "Review static route destination networks and next-hop addresses.",
+  "evidence": {
+    "validation_mode": "config_marker_check",
+    "device": "r3",
+    "config_file": "r3.conf",
+    "config_file_present": true,
+    "observed_state": "issue marker is still present"
+  }
+}
+```
+
+## Student view / Öğrenci görünümü
+
+Student-facing frontend may show:
+
+- check_id
+- topic
+- description
+- status
+- passed
+- points
+- max_points
+- message
+- hint
+
+Student-facing frontend should not show exact injected_errors from the default lab session response.
+
+## Instructor/debug view / Eğitmen veya debug görünümü
+
+Instructor/debug screens may show:
+
+- evidence
+- observed_state
+- config_file
+- validation_mode
+- injected_errors from `/labs/{session_id}/debug`
+
+## CLI access response
+
+Endpoint:
+
+```text
+GET /api/v1/labs/{session_id}/cli
+```
+
+Sprint 8 adds:
+
+```json
+{
+  "current_mode": "local_docker_exec_demo",
+  "mode_info": {
+    "current_mode": "local_docker_exec_demo",
+    "default_mode": "local_docker_exec_demo",
+    "planned_modes": [
+      "ssh_gateway_planned",
+      "browser_cli_future_work"
+    ],
+    "decision": "Sprint 8 keeps docker exec local demo mode as the stable CLI access model.",
+    "reason": "The project prioritizes stable validation, scenario quality, and demo reliability."
+  }
+}
+```
+
+Each device includes:
+
+```json
+{
+  "device_id": "r1",
+  "name": "r1",
+  "container_name": "clab-autonetlab-lab-abc12345-r1",
+  "access_method": "docker_exec",
+  "mode": "local_docker_exec_demo",
+  "command": "docker exec -it clab-autonetlab-lab-abc12345-r1 sh"
+}
+```
+
+## CLI access mode metadata
+
+Endpoint:
+
+```text
+GET /api/v1/meta/cli-access-modes
+```
+
+Possible mode values:
+
+```text
+local_docker_exec_demo
+ssh_gateway_planned
+browser_cli_future_work
+```
+
+Current Sprint 8 mode:
+
+```text
+local_docker_exec_demo
+```
+
+## Frontend notes for Muhammed
+
+Muhammed frontend tarafında:
+
+- Validation cards can show `description`, `status`, `points/max_points`, `message`, and `hint`.
+- `evidence` should be hidden from the normal student view or shown only in instructor/debug view.
+- Topic values should use the canonical keys listed above.
+- Recommendation cards already receive compatible topic values.
+- CLI page should show `current_mode = local_docker_exec_demo`.
+- SSH Gateway and Browser-based CLI should be shown as planned/future work only if needed.
+---
+
+# Sprint 9 Backend Contract Addendum - Auth and Role Separation
+
+Sprint 9 adds demo authentication and role separation for AutoNetLab.
+
+This is a demo/prototype auth layer, not production-grade authentication.
+
+## Roles
+
+Supported roles:
+
+- student
+- instructor
+
+## Demo users
+
+- student / student123
+- instructor / instructor123
+
+## Auth endpoints
+
+- POST /api/v1/auth/login
+- GET /api/v1/auth/me
+
+## Login request example
+
+- username: student
+- password: student123
+
+## Login response fields
+
+- success
+- access_token
+- token_type
+- user.username
+- user.display_name
+- user.role
+- user.student_id
+- message
+
+## Authorization header
+
+Protected requests must include:
+
+- Authorization: Bearer <access_token>
+
+Example tokens:
+
+- demo-student-token
+- demo-instructor-token
+
+## Protected instructor endpoints
+
+The following endpoints require instructor role:
+
+- GET /api/v1/instructor/analytics/summary
+- GET /api/v1/instructor/analytics/difficulty-distribution
+- GET /api/v1/instructor/analytics/topic-weaknesses
+- GET /api/v1/instructor/sessions/recent
+- GET /api/v1/labs/{session_id}/debug
+
+Expected behavior:
+
+- No token -> 401 Unauthorized
+- Student token -> 403 Forbidden
+- Instructor token -> 200 OK
+
+## Student-safe endpoints
+
+Normal student-facing lab endpoints remain available for the demo flow.
+
+Important rules:
+
+- Default lab responses still do not expose injected_errors.
+- /labs/{session_id}/debug is now instructor-only.
+- Frontend must store the access token after login.
+- Frontend must send Authorization: Bearer <token> for instructor-only endpoints.
+- Student UI should not show instructor dashboard links.
+- Instructor UI should use the instructor token for analytics and debug views.
+
+## Frontend notes for Muhammed
+
+- Login page should call POST /api/v1/auth/login.
+- Auth state can be stored in localStorage for Sprint 9 demo usage.
+- GET /api/v1/auth/me can restore the current user after refresh.
+- Header/nav should change based on user.role.
+- Student role should route to student lab flow.
+- Instructor role should route to instructor dashboard.
+- Instructor API requests must include the bearer token.
+---
+
+# Sprint 10 Backend Contract Addendum - Instructor Dashboard v2
+
+Sprint 10 adds student-level instructor analytics for the Instructor Dashboard v2.
+
+All Sprint 10 instructor endpoints are read-only and require instructor role.
+
+Required header:
+
+- Authorization: Bearer demo-instructor-token
+
+Expected access behavior:
+
+- No token -> 401 Unauthorized
+- Student token -> 403 Forbidden
+- Instructor token -> 200 OK
+
+## New endpoints
+
+- GET /api/v1/instructor/students
+- GET /api/v1/instructor/students/{student_id}/summary
+- GET /api/v1/instructor/students/{student_id}/sessions
+- GET /api/v1/instructor/students/{student_id}/topic-weaknesses
+- GET /api/v1/instructor/students/{student_id}/score-trend
+
+## GET /api/v1/instructor/students
+
+Returns one summary item per student.
+
+Response fields:
+
+- success
+- students[]
+- students[].student_id
+- students[].total_sessions
+- students[].completed_sessions
+- students[].active_sessions
+- students[].average_score
+- students[].pass_rate
+- students[].last_activity_at
+- message
+
+## GET /api/v1/instructor/students/{student_id}/summary
+
+Returns summary metrics for a single student.
+
+Response fields:
+
+- success
+- student_id
+- total_sessions
+- completed_sessions
+- active_sessions
+- passed_sessions
+- average_score
+- pass_rate
+- first_seen_at
+- last_activity_at
+- message
+
+## GET /api/v1/instructor/students/{student_id}/sessions
+
+Returns recent lab sessions for a single student.
+
+Supported query parameter:
+
+- limit, default 50, min 1, max 200
+
+Session item fields:
+
+- session_id
+- student_id
+- difficulty
+- status
+- score
+- passed
+- created_at
+- completed_at
+
+## GET /api/v1/instructor/students/{student_id}/topic-weaknesses
+
+Returns topic weakness analytics for a single student.
+
+Topic weakness item fields:
+
+- topic
+- label
+- fail_count
+- attempt_count
+- failure_rate
+- average_score
+- severity
+
+## GET /api/v1/instructor/students/{student_id}/score-trend
+
+Returns chronological score trend data for a single student.
+
+Supported query parameter:
+
+- limit, default 50, min 1, max 200
+
+Score trend item fields:
+
+- session_id
+- difficulty
+- status
+- score
+- passed
+- created_at
+- completed_at
+
+## Frontend notes for Muhammed
+
+- Instructor Dashboard v2 can show a student list using GET /api/v1/instructor/students.
+- Clicking a student can load summary, sessions, topic weaknesses, and score trend endpoints.
+- All requests must include the instructor bearer token.
+- Student users must not access these endpoints.
+- Existing global analytics endpoints still work and were not removed.
+- These endpoints read session metadata only; they do not mutate lab runtime state.
+---
+
+# Sprint 11 Backend Contract Addendum - Web-based CLI MVP
+
+Sprint 11 adds a WebSocket-based Web CLI MVP for browser-based lab troubleshooting.
+
+## CLI mode
+
+Current primary CLI mode:
+
+- browser_cli_mvp
+
+Fallback mode:
+
+- local_docker_exec_demo_fallback
+
+The existing docker exec command information remains available as a fallback.
+
+## WebSocket endpoint
+
+- WS /api/v1/labs/{session_id}/cli/ws/{device_id}?token=<access_token>
+
+Example local URL:
+
+- ws://127.0.0.1:8000/api/v1/labs/lab-abc12345/cli/ws/r1?token=demo-student-token
+
+## Auth rules
+
+- token query parameter is required
+- student users may only access their own lab sessions
+- instructor users may access lab sessions for instruction/debug workflows
+- container_name is never accepted from the browser
+- backend resolves container_name from trusted session metadata
+
+## Runtime rules
+
+- The lab must be deployed before Web CLI opens
+- Unknown device_id is rejected
+- Docker/container runtime errors are returned as WebSocket error payloads
+- Sprint 11 uses WebSocket bridge MVP; Sprint 12 will harden lifecycle and terminal behavior
+
+## Initial WebSocket messages
+
+On accepted backend connection:
+
+- type: connected
+- success: true
+- session_id
+- device_id
+- container_name
+- mode: browser_cli_mvp
+- message
+
+If runtime process starts successfully:
+
+- type: runtime_started
+- success: true
+- session_id
+- device_id
+- container_name
+- message
+
+Error payload shape:
+
+- type: error
+- success: false
+- status_code
+- error_code
+- message
+
+Important error codes:
+
+- WEB_CLI_AUTH_REQUIRED
+- WEB_CLI_INVALID_TOKEN
+- WEB_CLI_FORBIDDEN
+- WEB_CLI_SESSION_NOT_FOUND
+- WEB_CLI_DEVICE_NOT_FOUND
+- LAB_NOT_DEPLOYED_FOR_WEB_CLI
+- DOCKER_NOT_FOUND_FOR_WEB_CLI
+- DOCKER_PERMISSION_DENIED_FOR_WEB_CLI
+- WEB_CLI_PROCESS_START_FAILED
+
+## CLI mode metadata endpoint
+
+- GET /api/v1/meta/cli-access-modes
+
+Important response fields:
+
+- current_mode: browser_cli_mvp
+- default_mode: browser_cli_mvp
+- fallback_mode: local_docker_exec_demo_fallback
+- websocket.path_template: /api/v1/labs/{session_id}/cli/ws/{device_id}
+- websocket.auth_query_param: token
+
+## Frontend notes for Muhammed
+
+- Build WebSocket URL from session_id, device_id, and access token.
+- Use token query parameter for Sprint 11 MVP.
+- Show clear error state if LAB_NOT_DEPLOYED_FOR_WEB_CLI is returned.
+- Keep local docker exec command as fallback UI information.
+- Do not allow users to type or override container_name.
+- Device selection should use cli_access device_id values.
+- Sprint 11 frontend can implement xterm.js or a minimal terminal-like UI.
+- Sprint 12 will improve lifecycle, terminal resizing, and UX hardening.
+---
+
+# Sprint 12 Backend Contract Addendum - Web CLI Stabilization
+
+Sprint 12 adds Web CLI readiness endpoints and runtime stabilization notes.
+
+## New readiness endpoints
+
+- GET /api/v1/labs/{session_id}/cli/readiness
+- GET /api/v1/labs/{session_id}/cli/readiness/{device_id}
+
+Both endpoints require authentication.
+
+Auth behavior:
+
+- No token -> 401 Unauthorized
+- Student token can access only the student's own lab session
+- Instructor token can access lab sessions for instruction/debug workflows
+
+## Readiness response fields
+
+- success
+- session_id
+- current_mode
+- lab_status
+- lab_deployed
+- ready
+- devices[]
+- error_code
+- message
+
+Device readiness fields:
+
+- device_id
+- container_name
+- docker_available
+- container_running
+- ready
+- error_code
+- message
+
+## Important readiness error codes
+
+- LAB_NOT_DEPLOYED_FOR_WEB_CLI
+- WEB_CLI_CONTAINER_METADATA_MISSING
+- DOCKER_NOT_FOUND_FOR_WEB_CLI
+- DOCKER_PERMISSION_DENIED_FOR_WEB_CLI
+- WEB_CLI_CONTAINER_CHECK_TIMEOUT
+- WEB_CLI_CONTAINER_CHECK_FAILED
+- WEB_CLI_CONTAINER_NOT_RUNNING
+
+## Frontend notes for Muhammed
+
+- Before opening Web CLI, frontend can call readiness endpoint.
+- If lab_deployed is false, show Deploy the lab before opening Web CLI.
+- If ready is false, show device-level readiness details.
+- For device-specific readiness, call /cli/readiness/{device_id}.
+- Keep local docker exec fallback visible for demo recovery.
+- Sprint 12 improves runtime readiness and UX stability; full VM demo validation continues in Sprint 13.
+---
+
+# Sprint 13 Backend Contract Addendum - Demo Runtime Readiness
+
+Sprint 13 adds runtime readiness metadata for free cloud VM and final demo preparation.
+
+## Demo environment target
+
+Primary target:
+
+- Free cloud VM/server
+- Ubuntu Linux
+- Docker + Containerlab installed
+- Backend and frontend running on the VM
+- Presentation laptop opens AutoNetLab from browser only
+
+Backup target:
+
+- Local laptop WSL2 environment
+- Local docker exec fallback commands
+
+## New endpoint
+
+- GET /api/v1/meta/runtime-readiness
+
+This endpoint reports whether the backend runtime environment is ready for Docker, Containerlab, and Web CLI demo workflows.
+
+## Response fields
+
+- success
+- ready
+- platform
+- platform_release
+- recommended_backend_environment
+- project_root
+- templates_dir
+- templates_dir_exists
+- generated_dir
+- generated_dir_exists
+- docker_available
+- docker_version
+- docker_ps_ok
+- containerlab_available
+- containerlab_version
+- current_mode
+- fallback_mode
+- checks[]
+- message
+
+## Check item fields
+
+- name
+- ok
+- message
+
+## Expected demo-ready values
+
+- ready: true
+- docker_available: true
+- docker_ps_ok: true
+- containerlab_available: true
+- templates_dir_exists: true
+
+## Notes
+
+- This endpoint is for demo/runtime diagnostics.
+- It does not mutate lab runtime state.
+- It helps distinguish frontend issues from Docker/Containerlab runtime issues.
+- Recommended backend runtime environment is WSL/Ubuntu or a Linux VM with Docker and Containerlab.
+- Sprint 14 will focus on actual free VM provisioning and deployment.
+- Sprint 15 will focus on production-like serving through one public VM address.
+
+## Related docs
+
+- docs/demo-vm-setup.md
+- docs/final-demo-runbook.md
+- docs/runtime-preflight-checklist.md
+
+---
+
+# Sprint 19 Backend Addendum - Advanced Topology Scenarios
+
+Sprint 19 strengthens difficulty-based topology behavior while keeping the existing API contract backward compatible.
+
+## Topology behavior
+
+- Easy difficulty remains the stable basic two-router topology.
+- Medium difficulty remains a three-router linear topology.
+- Hard difficulty uses an advanced four-router ring topology:
+  - r1 -- r2
+  - r2 -- r3
+  - r3 -- r4
+  - r1 -- r4
+
+The existing `topology.nodes` and `topology.links` response format is preserved.
+
+## CLI access behavior
+
+CLI access continues to be generated from `topology.nodes`, so hard topology sessions automatically return CLI metadata for r1, r2, r3, and r4.
+
+## Error injection and validation behavior
+
+Hard difficulty keeps five injected troubleshooting issues. Sprint 19 strengthens hard error selection so that, when the topology has at least three devices, selected hard errors cover at least three different topology devices.
+
+Validation remains compatible with the existing config-marker validation approach. Student-facing lab session responses continue to hide injected errors, expected fixes, solutions, answers, and evidence fields.
+
+---
+
+# Sprint 19 Hotfix Addendum - Student-safe Validation Response
+
+The student-facing `POST /api/v1/labs/{session_id}/validate` response now hides `checks[].evidence`.
+
+Internal validation still keeps evidence in the raw `ValidationResult` before persistence. This preserves backend debugging, PostgreSQL/session metadata persistence, instructor analytics compatibility, and recommendation generation while keeping the student-facing API response safe.
+
+---
+
+# Sprint 20 Backend Addendum - Real Auth and Student Ownership
+
+Sprint 20 adds real student registration and login while keeping the existing demo credentials stable for presentation.
+
+## Authentication
+
+- `POST /api/v1/auth/register`
+  - Registers a student user.
+  - Stores only a password hash; plain text passwords are never persisted.
+  - Supported fields: `username`, `password`, `display_name`, optional `email`, optional `student_id`.
+
+- `POST /api/v1/auth/login`
+  - Demo users still work:
+    - `student / student123`
+    - `instructor / instructor123`
+  - Registered PostgreSQL users can also log in.
+
+- `GET /api/v1/auth/me`
+  - Returns the current authenticated user from the bearer token.
+
+## Lab ownership
+
+- Authenticated students can access only their own lab sessions.
+- Instructors can access all lab sessions and instructor analytics.
+- `GET /api/v1/labs` returns:
+  - only the authenticated student's own labs for student users,
+  - all labs or filtered labs for instructor users.
+- Existing body-based demo lab creation remains available for backward compatibility.
+
+
+---
+
+# Sprint 21 Backend Product Completion and API Contract Freeze
+
+Sprint 21 freezes the backend-facing API contracts needed for Muhammed's frontend integration sprint.
+
+## Auth API contract
+
+### POST `/api/v1/auth/register`
+
+Registers a real student account.
+
+Request body:
+
+```json
+{
+  "username": "alice",
+  "password": "alice123",
+  "display_name": "Alice Student",
+  "email": "alice@example.com",
+  "student_id": "alice"
+}
+
+Response status: 201 Created
+
+Response body:
+
+{
+  "success": true,
+  "user": {
+    "username": "alice",
+    "display_name": "Alice Student",
+    "role": "student",
+    "student_id": "alice"
+  },
+  "message": "Registration successful."
+}
+
+Rules:
+
+Registered users have role student.
+Passwords are stored as hashes only.
+Plain text passwords must never be persisted.
+Duplicate username returns a frontend-friendly error response with error_code = USERNAME_ALREADY_EXISTS.
+POST /api/v1/auth/login
+
+Supports both demo users and registered PostgreSQL users.
+
+Demo credentials remain stable:
+
+student / student123
+instructor / instructor123
+
+Response body:
+
+{
+  "success": true,
+  "access_token": "token-value",
+  "token_type": "bearer",
+  "user": {
+    "username": "student",
+    "display_name": "Demo Student",
+    "role": "student",
+    "student_id": "demo-student"
+  },
+  "message": "Login successful."
+}
+
+Invalid username/password returns 401 with error_code = INVALID_CREDENTIALS.
+
+GET /api/v1/auth/me
+
+Requires:
+
+Authorization: Bearer <access_token>
+
+Returns the authenticated user object and is intended for frontend auth restore after page refresh.
+
+Missing or invalid auth returns 401 with error_code = AUTHENTICATION_REQUIRED.
+
+Student lab history / My Labs
+GET /api/v1/labs
+
+Requires authentication.
+
+Query parameters:
+
+limit: optional, default 50, min 1, max 200
+student_id: optional; instructor-only filtering helper
+
+Student behavior:
+
+Ignores spoofed student_id query.
+Always returns only the authenticated student's own labs.
+
+Instructor behavior:
+
+Can list all labs.
+Can filter by student_id.
+
+Response body:
+
+{
+  "success": true,
+  "sessions": [
+    {
+      "success": true,
+      "session_id": "lab-12345678",
+      "student_id": "alice",
+      "difficulty": "hard",
+      "status": "created",
+      "score": null,
+      "passed": null,
+      "created_at": "2026-05-16T13:30:00+00:00",
+      "completed_at": null,
+      "topology_summary": {
+        "name": "autonetlab-lab-12345678",
+        "node_count": 4,
+        "link_count": 4,
+        "devices": ["r1", "r2", "r3", "r4"]
+      },
+      "topology": {},
+      "cli_access": [],
+      "hints": [],
+      "message": "Lab session listed successfully."
+    }
+  ],
+  "count": 1,
+  "message": "Lab sessions retrieved successfully."
+}
+
+Frontend should use topology_summary for My Labs cards/tables and the full topology object for the Lab Workspace topology visualization.
+
+Ownership and role rules
+Authenticated students can access only their own lab sessions.
+Instructors can access all lab sessions.
+Demo body-based unauthenticated lab creation remains available for compatibility.
+Web CLI authorization follows the same ownership rules.
+
+Expected error behavior:
+
+ScenarioHTTPerror_code
+Missing auth on protected endpoint401AUTHENTICATION_REQUIRED
+Invalid login credentials401INVALID_CREDENTIALS
+Student opens another student's lab403LAB_OWNERSHIP_FORBIDDEN
+Student opens instructor endpoint403INSTRUCTOR_ROLE_REQUIRED
+Lab session missing404LAB_SESSION_NOT_FOUND
+Duplicate username400 or 409USERNAME_ALREADY_EXISTS
+Contract freeze note
+
+Sprint 21 does not change Containerlab runtime behavior, hard topology generation, validation logic, recommendation generation, or PostgreSQL table shape. It only makes response contracts and frontend-facing error behavior clearer.

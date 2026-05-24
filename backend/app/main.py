@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
@@ -8,21 +8,12 @@ from app.core.error_handlers import register_exception_handlers
 
 def get_cors_origins() -> list[str]:
     """
-    Returns allowed CORS origins for local frontend development.
+    Returns allowed CORS origins from application settings.
 
-    settings.cors_origins keeps config-based origins.
-    local_frontend_origins covers Vite dev server ports used during Sprint 1/2.
+    Local development and production deployment origins are configured through
+    CORS_ORIGINS in backend/.env.
     """
-    configured_origins = settings.cors_origins or []
-
-    local_frontend_origins = [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-    ]
-
-    return list(dict.fromkeys(configured_origins + local_frontend_origins))
+    return settings.get_cors_origins()
 
 
 app = FastAPI(
