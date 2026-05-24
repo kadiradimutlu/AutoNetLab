@@ -200,4 +200,3 @@ def test_live_validation_keeps_failed_ping_as_live_evidence(monkeypatch):
     assert result["passed"] is False
     assert result["evidence"]["validation_mode"] == "live_container_state_check"
     assert result["evidence"]["missing_expected_outputs"] == ["1 packets received"]
-
