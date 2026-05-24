@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +82,7 @@ def validate_session(session: dict) -> ValidationResult:
         check = _build_validation_check(
             index=index,
             error=error,
+            session=session,
             session_dir=session_dir,
         )
         checks.append(check)
@@ -106,6 +108,7 @@ def validate_session(session: dict) -> ValidationResult:
 def _build_validation_check(
     index: int,
     error: dict[str, Any],
+    session: dict,
     session_dir: Path,
 ) -> ValidationCheck:
     code = str(error.get("code", "UNKNOWN_ERROR"))
@@ -123,6 +126,7 @@ def _build_validation_check(
         code=code,
         topic=topic,
         device=device,
+        session=session,
     )
 
     passed = evaluation["passed"]
@@ -185,8 +189,18 @@ def _evaluate_error_fix(
     code: str,
     topic: str,
     device: str,
+    session: dict,
 ) -> dict[str, Any]:
     topic_label = _topic_label(topic)
+
+    live_evaluation = _evaluate_live_container_state(
+        session=session,
+        code=code,
+        topic=topic,
+        device=device,
+    )
+    if live_evaluation is not None:
+        return live_evaluation
 
     if not config_path.exists():
         return {
@@ -228,6 +242,123 @@ def _evaluate_error_fix(
             "observed_state": "issue marker is no longer present",
         },
     }
+
+
+def _evaluate_live_container_state(
+    session: dict,
+    code: str,
+    topic: str,
+    device: str,
+) -> dict[str, Any] | None:
+    expectations = {
+        "IP_ADDRESS_MISMATCH": {
+            "command": "ip addr show eth1",
+            "expected": "inet 10.10.12.1/24",
+        },
+        "INTERFACE_DOWN_R4": {
+            "command": "ip link show eth1",
+            "expected": "state UP",
+        },
+        "MISSING_ROUTE_R3": {
+            "command": "ip route",
+            "expected": "10.10.12.0/24 via 10.10.23.1",
+        },
+        "WRONG_SUBNET_MASK": {
+            "command": "ip addr show eth1",
+            "expected": "inet 10.10.23.2/24",
+        },
+        "WRONG_GATEWAY": {
+            "command": "ip route",
+            "expected": "default via 10.10.12.1",
+        },
+    }
+
+    expectation = expectations.get(code)
+    if expectation is None:
+        return None
+
+    container_name = _container_name_for_device(session=session, device=device)
+    if not container_name:
+        return None
+
+    observed = _run_container_command(
+        container_name=container_name,
+        command=expectation["command"],
+    )
+    if observed is None:
+        return None
+
+    expected = expectation["expected"]
+    passed = expected in observed
+    topic_label = _topic_label(topic)
+
+    if passed:
+        message = f"{topic_label} validation passed on {device}."
+        observed_state = "expected live state is present"
+    else:
+        message = f"{topic_label} validation failed on {device}. The related issue still appears unresolved."
+        observed_state = "expected live state is missing"
+
+    return {
+        "passed": passed,
+        "message": message,
+        "evidence": {
+            "validation_mode": "live_container_state_check",
+            "device": device,
+            "container_name": container_name,
+            "command": expectation["command"],
+            "expected_state": expected,
+            "observed_state": observed_state,
+            "observed_output": observed[:2000],
+        },
+    }
+
+
+
+def _entry_value(entry: Any, key: str) -> Any:
+    if isinstance(entry, dict):
+        return entry.get(key)
+    return getattr(entry, key, None)
+
+
+def _container_name_for_device(session: dict, device: str) -> str | None:
+    for entry in session.get("cli_access", []):
+        entry_device_id = _entry_value(entry, "device_id")
+        entry_name = _entry_value(entry, "name")
+
+        if entry_device_id == device or entry_name == device:
+            container_name = _entry_value(entry, "container_name")
+            if container_name:
+                return str(container_name)
+
+    lab_name = session.get("lab_name")
+    if lab_name:
+        return f"clab-{lab_name}-{device}"
+
+    session_id = session.get("session_id")
+    if session_id:
+        return f"clab-autonetlab-{session_id}-{device}"
+
+    return None
+
+
+def _run_container_command(container_name: str, command: str) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["docker", "exec", container_name, "sh", "-lc", command],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+    if completed.returncode != 0:
+        return None
+
+    output = completed.stdout.strip()
+    return output or completed.stderr.strip()
 
 
 def _build_recommendations(checks: list[ValidationCheck]) -> list[str]:
