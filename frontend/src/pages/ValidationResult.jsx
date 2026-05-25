@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
 import MessageBox from "../components/MessageBox";
@@ -7,6 +7,8 @@ import {
   getErrorDetails,
   getErrorMessage,
   getLab,
+  getRecommendations,
+  getValidationHistory,
   validateLab
 } from "../services/apiService";
 import {
@@ -21,6 +23,76 @@ function getRecommendationCount(validationResult) {
     [];
 
   return Array.isArray(recommendations) ? recommendations.length : 0;
+}
+
+function hasSavedValidationSignal(labSession) {
+  return (
+    labSession?.score !== null &&
+    labSession?.score !== undefined
+  ) || labSession?.passed === true || labSession?.passed === false;
+}
+
+function getLatestValidationAttempt(attempts) {
+  if (!Array.isArray(attempts) || attempts.length === 0) {
+    return null;
+  }
+
+  return [...attempts].sort((left, right) => {
+    const leftAttempt = Number(left?.attempt_number || 0);
+    const rightAttempt = Number(right?.attempt_number || 0);
+
+    if (leftAttempt !== rightAttempt) {
+      return leftAttempt - rightAttempt;
+    }
+
+    const leftTime = new Date(left?.created_at || 0).getTime();
+    const rightTime = new Date(right?.created_at || 0).getTime();
+
+    return leftTime - rightTime;
+  }).at(-1);
+}
+
+function buildSavedValidationResult(labSession, latestAttempt, recommendationPayload) {
+  const checks = Array.isArray(latestAttempt?.checks) ? latestAttempt.checks : [];
+  const passedChecks =
+    latestAttempt?.passed_checks ??
+    checks.filter((check) => check?.passed === true || check?.status === "passed").length;
+  const totalChecks =
+    latestAttempt?.total_checks ??
+    latestAttempt?.totalChecks ??
+    checks.length ??
+    0;
+  const failedChecks =
+    latestAttempt?.failed_checks ??
+    latestAttempt?.failedChecks ??
+    Math.max(totalChecks - passedChecks, 0);
+
+  const recommendations = Array.isArray(recommendationPayload?.recommendations)
+    ? recommendationPayload.recommendations
+    : [];
+
+  return {
+    success: true,
+    session_id: labSession?.session_id || latestAttempt?.session_id || "",
+    status: labSession?.status || "validated",
+    score: latestAttempt?.score ?? labSession?.score ?? 0,
+    passed: latestAttempt?.passed ?? labSession?.passed ?? failedChecks === 0,
+    checks,
+    passed_checks: passedChecks,
+    failed_checks: failedChecks,
+    total_checks: totalChecks,
+    attempt_number: latestAttempt?.attempt_number ?? null,
+    completed_at: latestAttempt?.created_at || labSession?.completed_at || "",
+    recommendations,
+    recommendation_payload: {
+      ...(recommendationPayload || {}),
+      recommendations
+    },
+    recommendation_source: recommendationPayload?.source || "rule_based",
+    recommendation_fallback_used: Boolean(recommendationPayload?.fallback_used),
+    recommendation_message: recommendationPayload?.message || "",
+    message: "Saved validation result loaded from history."
+  };
 }
 
 function isRuntimeInactiveStatus(status) {
@@ -38,6 +110,7 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
   const [validationResult, setValidationResult] = useState(null);
   const [isValidating, setIsValidating] = useState(false);
   const [isFinishingLab, setIsFinishingLab] = useState(false);
+  const [isLoadingSavedResult, setIsLoadingSavedResult] = useState(false);
   const [infoMessage, setInfoMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
@@ -53,6 +126,75 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
   const isLabInactive = isRuntimeInactiveStatus(effectiveStatus);
   const hasValidationResult = Boolean(validationResult);
   const resultPassed = validationResult?.passed === true;
+
+  useEffect(() => {
+    setValidationResult(null);
+    setInfoMessage("");
+    setErrorMessage("");
+    setErrorDetails("");
+  }, [labSession?.session_id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSavedValidationResult() {
+      if (!labSession?.session_id || validationResult || !hasSavedValidationSignal(labSession)) {
+        return;
+      }
+
+      setIsLoadingSavedResult(true);
+      setErrorMessage("");
+      setErrorDetails("");
+
+      try {
+        const [historyResult, recommendationResult] = await Promise.allSettled([
+          getValidationHistory(labSession.session_id),
+          getRecommendations(labSession.session_id)
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (historyResult.status !== "fulfilled") {
+          throw historyResult.reason;
+        }
+
+        const latestAttempt = getLatestValidationAttempt(historyResult.value?.attempts);
+
+        if (!latestAttempt) {
+          return;
+        }
+
+        const recommendationPayload =
+          recommendationResult.status === "fulfilled" ? recommendationResult.value : null;
+
+        setValidationResult(
+          buildSavedValidationResult(labSession, latestAttempt, recommendationPayload)
+        );
+        setActiveTab("summary");
+      } catch (error) {
+        if (isMounted) {
+          setErrorMessage(
+            getErrorMessage(error, "Saved validation result could not be loaded.")
+          );
+          setErrorDetails(getErrorDetails(error));
+        }
+
+        console.error("Saved validation result load failed.", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingSavedResult(false);
+        }
+      }
+    }
+
+    loadSavedValidationResult();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [labSession?.session_id, labSession?.score, labSession?.passed, validationResult]);
 
   async function refreshLabSession() {
     if (!labSession?.session_id) {
@@ -275,7 +417,7 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
           {activeTab === "summary" && (
             <ValidationSummary
               validationResult={validationResult}
-              isValidating={isValidating}
+              isValidating={isValidating || isLoadingSavedResult}
             />
           )}
 
