@@ -4781,3 +4781,69 @@ html {
     min-width: 0;
   }
 }
+
+/* Sprint 28 medium topology node detail readability */
+.network-diagram-canvas.linear .topology-linear-diagram {
+  grid-template-columns:
+    minmax(260px, 1fr)
+    minmax(70px, 90px)
+    minmax(260px, 1fr)
+    minmax(70px, 90px)
+    minmax(260px, 1fr);
+  gap: 10px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link {
+  min-width: 70px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-line {
+  min-width: 60px;
+}
+
+.network-diagram-canvas.linear .network-node-card,
+.network-diagram-canvas.linear .network-node-content,
+.network-diagram-canvas.linear .network-node-detail-grid,
+.network-diagram-canvas.linear .network-node-detail-grid > div {
+  min-width: 0;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div {
+  padding: 8px 10px;
+  overflow: hidden;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid span {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.18;
+}
+
+@media (min-width: 1450px) {
+  .network-diagram-canvas.linear .network-node-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .network-diagram-canvas.linear .topology-linear-diagram {
+    grid-template-columns: 1fr;
+  }
+}
