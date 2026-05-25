@@ -4387,9 +4387,22 @@ button:disabled,
   scroll-margin-top: 0;
 }
 
-/* Sprint 26 short workspace panel scroll runway */
-.workspace-session-detail-card,
-.workspace-history-card {
-  min-height: 100vh;
+/* Sprint 26 stable workspace tab ordering */
+.lab-workspace-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.lab-workspace-page > .workspace-tabs-card {
+  order: 0;
+  margin-bottom: 16px;
+}
+
+.lab-workspace-page > .workspace-action-card {
+  order: 1;
+}
+
+.lab-workspace-page > :not(.workspace-tabs-card):not(.workspace-action-card) {
+  order: 2;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
@@ -193,7 +193,6 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const [attemptsWarning, setAttemptsWarning] = useState("");
   const [attemptsDetails, setAttemptsDetails] = useState("");
   const workspaceTabsRef = useRef(null);
-  const shouldPinWorkspaceTabsRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -338,50 +337,17 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
     };
   }, [labSession?.session_id, labSession?.status]);
 
-  useLayoutEffect(() => {
-    if (!shouldPinWorkspaceTabsRef.current) {
-      return undefined;
-    }
+  function handleWorkspaceTabChange(tabId) {
+    setActiveWorkspaceTab(tabId);
 
-    function pinWorkspaceTabs() {
-      const element = workspaceTabsRef.current;
-
-      if (!element || typeof window === "undefined") {
-        return;
-      }
-
-      const tabContainer = element.closest(".workspace-tabs-card") || element;
-      const targetTop = tabContainer.getBoundingClientRect().top + window.scrollY;
-
-      window.scrollTo({
-        top: Math.max(targetTop, 0),
-        behavior: "auto"
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: "auto"
+        });
       });
     }
-
-    pinWorkspaceTabs();
-
-    let frameTwoId = 0;
-    const frameOneId = window.requestAnimationFrame(() => {
-      pinWorkspaceTabs();
-      frameTwoId = window.requestAnimationFrame(pinWorkspaceTabs);
-    });
-    const timeoutId = window.setTimeout(pinWorkspaceTabs, 80);
-
-    return () => {
-      window.cancelAnimationFrame(frameOneId);
-
-      if (frameTwoId) {
-        window.cancelAnimationFrame(frameTwoId);
-      }
-
-      window.clearTimeout(timeoutId);
-    };
-  }, [activeWorkspaceTab]);
-
-  function handleWorkspaceTabChange(tabId) {
-    shouldPinWorkspaceTabsRef.current = true;
-    setActiveWorkspaceTab(tabId);
   }
 
   async function refreshLabSession() {
