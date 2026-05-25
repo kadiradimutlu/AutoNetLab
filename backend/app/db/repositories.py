@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from app.db.models import (
     LabSessionRecord,
     RecommendationRecord,
     User,
+    ValidationAttemptRecord,
     ValidationResultRecord,
 )
 from app.db.session import session_scope
@@ -53,9 +55,15 @@ def persist_validation_result_snapshot(
     try:
         with session_scope() as db:
             _upsert_lab_session(db=db, session_payload=session_payload)
+            session_id = str(session_payload["session_id"])
             _upsert_validation_result(
                 db=db,
-                session_id=str(session_payload["session_id"]),
+                session_id=session_id,
+                validation_result_payload=validation_result_payload,
+            )
+            _upsert_validation_attempt(
+                db=db,
+                session_id=session_id,
                 validation_result_payload=validation_result_payload,
             )
         return True
@@ -197,6 +205,75 @@ def _upsert_validation_result(
     record.checks_json = _json_value(validation_result_payload.get("checks", []))
     record.recommendations_json = _json_value(validation_result_payload.get("recommendations", []))
     record.raw_result_json = _json_value(validation_result_payload)
+
+
+def _upsert_validation_attempt(
+    db: Session,
+    session_id: str,
+    validation_result_payload: dict[str, Any],
+) -> None:
+    attempt_number = int(validation_result_payload.get("attempt_number") or 0)
+
+    if attempt_number <= 0:
+        latest_attempt_number = (
+            db.query(func.max(ValidationAttemptRecord.attempt_number))
+            .filter(ValidationAttemptRecord.session_id == session_id)
+            .scalar()
+            or 0
+        )
+        attempt_number = int(latest_attempt_number) + 1
+
+    record = (
+        db.query(ValidationAttemptRecord)
+        .filter(
+            ValidationAttemptRecord.session_id == session_id,
+            ValidationAttemptRecord.attempt_number == attempt_number,
+        )
+        .one_or_none()
+    )
+
+    checks = _json_value(validation_result_payload.get("checks", []))
+    recommendations = _json_value(validation_result_payload.get("recommendations", []))
+    raw_result = _json_value(validation_result_payload)
+
+    passed_checks = int(
+        validation_result_payload.get("passed_checks")
+        or sum(1 for check in checks if check.get("passed") is True)
+    )
+    failed_checks = int(
+        validation_result_payload.get("failed_checks")
+        or sum(1 for check in checks if check.get("passed") is False)
+    )
+
+    created_at = _parse_datetime(validation_result_payload.get("created_at"))
+
+    if record is None:
+        db.add(
+            ValidationAttemptRecord(
+                session_id=session_id,
+                attempt_number=attempt_number,
+                status=_enum_value(validation_result_payload.get("status")),
+                passed=bool(validation_result_payload.get("passed", False)),
+                score=int(validation_result_payload.get("score", 0)),
+                passed_checks=passed_checks,
+                failed_checks=failed_checks,
+                checks_json=checks,
+                recommendations_json=recommendations,
+                raw_result_json=raw_result,
+                created_at=created_at,
+            )
+        )
+        return
+
+    record.status = _enum_value(validation_result_payload.get("status"))
+    record.passed = bool(validation_result_payload.get("passed", False))
+    record.score = int(validation_result_payload.get("score", 0))
+    record.passed_checks = passed_checks
+    record.failed_checks = failed_checks
+    record.checks_json = checks
+    record.recommendations_json = recommendations
+    record.raw_result_json = raw_result
+    record.created_at = created_at
 
 
 def _json_value(value: Any) -> Any:

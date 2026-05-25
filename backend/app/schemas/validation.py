@@ -71,6 +71,25 @@ class StudentValidationCheck(BaseModel):
     )
 
 
+
+class ValidationAttempt(BaseModel):
+    attempt_number: int = Field(..., ge=1, examples=[1])
+    session_id: str = Field(..., examples=["lab-abc12345"])
+    score: int = Field(..., ge=0, le=100, examples=[80])
+    passed: bool = Field(..., examples=[False])
+    passed_checks: int = Field(..., ge=0, examples=[4])
+    failed_checks: int = Field(..., ge=0, examples=[1])
+    created_at: str = Field(..., examples=["2026-05-25T19:45:00+00:00"])
+    checks: list[StudentValidationCheck] = Field(default_factory=list)
+
+
+class ValidationHistoryResponse(BaseModel):
+    success: bool = True
+    session_id: str
+    attempts: list[ValidationAttempt]
+    message: str
+
+
 class StudentValidationResult(BaseModel):
     """
     Student-facing validation result.

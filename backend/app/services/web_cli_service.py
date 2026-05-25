@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -9,7 +9,7 @@ from fastapi import HTTPException, WebSocket, WebSocketDisconnect
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.enums import SessionStatus
 from app.services.auth_service import get_user_by_token
-from app.services.session_service import get_lab_session
+from app.services.session_service import get_lab_session, is_runtime_active_status
 
 
 @dataclass
@@ -76,7 +76,7 @@ def build_web_cli_context(
 
     status_value = _enum_value(session.get("status"))
 
-    if status_value != SessionStatus.deployed.value:
+    if not is_runtime_active_status(status_value):
         raise WebCliError(
             status_code=409,
             error_code="LAB_NOT_DEPLOYED_FOR_WEB_CLI",
@@ -391,7 +391,7 @@ def get_web_cli_readiness(
             )
 
     lab_status = _enum_value(session.get("status"))
-    lab_deployed = lab_status == SessionStatus.deployed.value
+    lab_deployed = is_runtime_active_status(lab_status)
 
     devices = [
         _build_device_readiness(

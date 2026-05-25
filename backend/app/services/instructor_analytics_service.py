@@ -43,7 +43,7 @@ def get_analytics_summary() -> dict:
     active_sessions = [
         session
         for session in sessions
-        if _normalize_status(session.get("status")) in {"created", "deployed"}
+        if _normalize_status(session.get("status")) in {"created", "deployed", "validated"}
     ]
 
     scores = [
@@ -189,7 +189,7 @@ def get_students(limit: int = 100) -> dict:
         active_sessions = [
             session
             for session in student_sessions
-            if _normalize_status(session.get("status")) in {"created", "deployed"}
+            if _normalize_status(session.get("status")) in {"created", "deployed", "validated"}
         ]
         scores = [
             score
@@ -243,7 +243,7 @@ def get_student_summary(student_id: str) -> dict:
     active_sessions = [
         session
         for session in student_sessions
-        if _normalize_status(session.get("status")) in {"created", "deployed"}
+        if _normalize_status(session.get("status")) in {"created", "deployed", "validated"}
     ]
     passed_sessions = [
         session

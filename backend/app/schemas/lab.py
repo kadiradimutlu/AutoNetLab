@@ -95,6 +95,24 @@ class CliAccessResponse(BaseModel):
 
 
 
+
+class StudentHint(BaseModel):
+    topic: str = Field(..., examples=["Default Gateway"])
+    device: str | None = Field(default=None, examples=["r2"])
+    level: Literal["general"] = Field(default="general", examples=["general"])
+    message: str = Field(
+        ...,
+        examples=["Check whether the default route points to a reachable next-hop."],
+    )
+
+
+class LabHintsResponse(BaseModel):
+    success: bool = True
+    session_id: str
+    hints: list[StudentHint]
+    message: str
+
+
 class WebCliDeviceReadiness(BaseModel):
     device_id: str = Field(..., examples=["r1"])
     container_name: str | None = Field(default=None, examples=["clab-autonetlab-lab-abc12345-r1"])
@@ -133,6 +151,7 @@ class LabSessionResponse(BaseModel):
     passed: bool | None = Field(default=None, examples=[False])
     created_at: str | None = Field(default=None, examples=["2026-05-16T13:30:00+00:00"])
     completed_at: str | None = Field(default=None, examples=["2026-05-16T13:45:00+00:00"])
+    finished_at: str | None = Field(default=None, examples=["2026-05-16T13:50:00+00:00"])
     topology_summary: dict[str, str | int | list[str]] | None = Field(
         default=None,
         examples=[

@@ -28,16 +28,25 @@ def register_exception_handlers(app) -> None:
             detail=detail,
         )
 
+        content = {
+            "success": False,
+            "error_code": error_code,
+            "message": message,
+            "detail": detail,
+            "suggestion": suggestion,
+            "path": request.url.path,
+        }
+
+        if isinstance(detail, dict):
+            if isinstance(detail.get("message"), str):
+                content["message"] = detail["message"]
+
+            if "active_session_id" in detail:
+                content["active_session_id"] = detail["active_session_id"]
+
         return JSONResponse(
             status_code=exc.status_code,
-            content={
-                "success": False,
-                "error_code": error_code,
-                "message": message,
-                "detail": detail,
-                "suggestion": suggestion,
-                "path": request.url.path,
-            },
+            content=content,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -134,6 +143,13 @@ def _classify_http_error(
         )
 
     if status_code == status.HTTP_409_CONFLICT:
+        if "active_session_id" in detail_text or "active lab" in detail_text:
+            return (
+                "ACTIVE_LAB_ALREADY_EXISTS",
+                "You already have an active lab.",
+                "Finish or close the active lab before creating a new one.",
+            )
+
         if "username" in detail_text and ("already" in detail_text or "exists" in detail_text):
             return (
                 "USERNAME_ALREADY_EXISTS",
