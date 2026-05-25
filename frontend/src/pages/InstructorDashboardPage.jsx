@@ -153,6 +153,12 @@ function isForceClosableLabStatus(status) {
   );
 }
 
+function getForceClosableSessions(sessions) {
+  return Array.isArray(sessions)
+    ? sessions.filter((session) => isForceClosableLabStatus(session.status))
+    : [];
+}
+
 function getSeverityClass(severity) {
   const normalizedSeverity = String(severity || "").toLowerCase();
 
@@ -187,6 +193,25 @@ const INSTRUCTOR_PORTAL_TABS = [
   {
     id: "system",
     label: "System Readiness"
+  }
+];
+
+const STUDENT_DETAIL_TABS = [
+  {
+    id: "overview",
+    label: "Overview"
+  },
+  {
+    id: "sessions",
+    label: "Sessions"
+  },
+  {
+    id: "weaknesses",
+    label: "Weaknesses"
+  },
+  {
+    id: "scoreTrend",
+    label: "Score Trend"
   }
 ];
 
@@ -277,6 +302,25 @@ function InstructorPortalTabs({ activeTab, onChange }) {
   return (
     <div className="instructor-portal-tabs" role="tablist" aria-label="Instructor Portal sections">
       {INSTRUCTOR_PORTAL_TABS.map((tab) => (
+        <button
+          aria-selected={activeTab === tab.id}
+          className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StudentDetailTabs({ activeTab, onChange }) {
+  return (
+    <div className="instructor-portal-tabs student-detail-tabs" role="tablist" aria-label="Selected student detail sections">
+      {STUDENT_DETAIL_TABS.map((tab) => (
         <button
           aria-selected={activeTab === tab.id}
           className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
@@ -507,6 +551,79 @@ function StudentSummaryCards({ summary }) {
           <strong>{card.value}</strong>
         </div>
       ))}
+    </section>
+  );
+}
+
+function StudentDetailOverview({
+  sessions,
+  topicWeaknesses,
+  closingSessionId,
+  onForceCloseLab
+}) {
+  const activeSessions = getForceClosableSessions(sessions);
+  const priorityWeaknesses = Array.isArray(topicWeaknesses)
+    ? topicWeaknesses.slice(0, 3)
+    : [];
+
+  return (
+    <section className="card">
+      <div className="section-title-row">
+        <div>
+          <h3>Student Overview</h3>
+          <p className="muted">
+            Focused summary for active labs and the highest-priority practice areas.
+          </p>
+        </div>
+
+        <span className={`badge ${activeSessions.length > 0 ? "medium" : "neutral"}`}>
+          {activeSessions.length > 0 ? `${activeSessions.length} active lab${activeSessions.length === 1 ? "" : "s"}` : "No active labs"}
+        </span>
+      </div>
+
+      <div className="portal-workflow-list">
+        <div>
+          <strong>Active Labs</strong>
+
+          {activeSessions.length === 0 ? (
+            <p>No active lab is currently open for this student.</p>
+          ) : (
+            activeSessions.map((session) => (
+              <div className="result-title-row" key={session.session_id}>
+                <div>
+                  <strong>{session.session_id}</strong>
+                  <p className="muted">
+                    {formatTitleCase(session.difficulty)} difficulty - {getLifecycleStatusLabel(session.status)} - Last activity: {formatDateTime(getSessionLastActivityAt(session))}
+                  </p>
+                </div>
+
+                <button
+                  className="secondary-button"
+                  disabled={closingSessionId === session.session_id}
+                  onClick={() => onForceCloseLab(session)}
+                  type="button"
+                >
+                  {closingSessionId === session.session_id ? "Closing..." : "Force Close Lab"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div>
+          <strong>Priority Weaknesses</strong>
+
+          {priorityWeaknesses.length === 0 ? (
+            <p>No topic weakness data is available for this student yet.</p>
+          ) : (
+            priorityWeaknesses.map((topic) => (
+              <p key={topic.topic || topic.label}>
+                {topic.label || topic.topic || "Unknown topic"} - Failure Rate: {formatPercent(topic.failure_rate)} - Average Score: {formatNumber(topic.average_score, "-")}
+              </p>
+            ))
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -772,6 +889,7 @@ function InstructorDashboardPage() {
   const [forceCloseMessage, setForceCloseMessage] = useState("");
   const [forceCloseErrorMessage, setForceCloseErrorMessage] = useState("");
   const [forceCloseErrorDetails, setForceCloseErrorDetails] = useState("");
+  const [studentDetailTab, setStudentDetailTab] = useState("overview");
 
 
   async function loadGlobalAnalytics() {
@@ -1023,6 +1141,7 @@ function InstructorDashboardPage() {
 
 
   useEffect(() => {
+    setStudentDetailTab("overview");
     loadStudentDetails(selectedStudentId);
   }, [selectedStudentId]);
 
@@ -1213,16 +1332,35 @@ function InstructorDashboardPage() {
 
                   <StudentSummaryCards summary={summary} />
 
-                  <div className="two-column instructor-detail-grid">
-                    <StudentTopicWeaknesses topicWeaknesses={topicWeaknesses} />
-                    <StudentScoreTrend scoreTrend={scoreTrend} />
-                  </div>
-
-                  <StudentSessionsTable
-                    sessions={sessions}
-                    closingSessionId={forceCloseSessionId}
-                    onForceCloseLab={handleForceCloseLab}
+                  <StudentDetailTabs
+                    activeTab={studentDetailTab}
+                    onChange={setStudentDetailTab}
                   />
+
+                  {studentDetailTab === "overview" && (
+                    <StudentDetailOverview
+                      sessions={sessions}
+                      topicWeaknesses={topicWeaknesses}
+                      closingSessionId={forceCloseSessionId}
+                      onForceCloseLab={handleForceCloseLab}
+                    />
+                  )}
+
+                  {studentDetailTab === "sessions" && (
+                    <StudentSessionsTable
+                      sessions={sessions}
+                      closingSessionId={forceCloseSessionId}
+                      onForceCloseLab={handleForceCloseLab}
+                    />
+                  )}
+
+                  {studentDetailTab === "weaknesses" && (
+                    <StudentTopicWeaknesses topicWeaknesses={topicWeaknesses} />
+                  )}
+
+                  {studentDetailTab === "scoreTrend" && (
+                    <StudentScoreTrend scoreTrend={scoreTrend} />
+                  )}
                 </>
               )}
             </section>
