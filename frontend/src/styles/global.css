@@ -4393,13 +4393,13 @@ button:disabled,
   flex-direction: column;
 }
 
-.lab-workspace-page > .workspace-tabs-card {
+.lab-workspace-page > .workspace-action-card {
   order: 0;
-  margin-bottom: 16px;
 }
 
-.lab-workspace-page > .workspace-action-card {
+.lab-workspace-page > .workspace-tabs-card {
   order: 1;
+  margin-bottom: 16px;
 }
 
 .lab-workspace-page > :not(.workspace-tabs-card):not(.workspace-action-card) {
