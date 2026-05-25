@@ -59,6 +59,13 @@ function getPassBadgeClass(value) {
   return "neutral";
 }
 
+function hasSavedValidationResult(session) {
+  return (
+    session?.score !== null &&
+    session?.score !== undefined
+  ) || session?.passed === true || session?.passed === false;
+}
+
 function getTopologySummary(session) {
   const summary = session?.topology_summary || {};
 
@@ -153,7 +160,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         <div>
           <h2>My Labs</h2>
           <p className="muted">
-            Review your lab history, topology summary, validation state, and return to a workspace.
+            Review your lab history, open workspaces, and view saved validation results.
           </p>
         </div>
 
@@ -186,7 +193,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         <div className="stat-card">
           <span>Validated labs</span>
           <strong>
-            {sessions.filter((session) => session.score !== null && session.score !== undefined).length}
+            {sessions.filter((session) => hasSavedValidationResult(session)).length}
           </strong>
           <small>Sessions with scoring data</small>
         </div>
@@ -247,6 +254,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
             const isSelected = selectedSessionId === session.session_id;
             const isClosing = closingSessionId === session.session_id;
             const isActive = isActiveLabStatus(session.status);
+            const hasResults = hasSavedValidationResult(session);
 
             return (
               <article className="card my-lab-card" key={session.session_id}>
@@ -307,15 +315,6 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 
                 <div className="actions">
                   <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => handleOpenLab(session, "session")}
-                    disabled={isSelected || isClosing}
-                  >
-                    {isSelected ? "Opening..." : "View Summary"}
-                  </button>
-
-                  <button
                     className="primary-button"
                     type="button"
                     onClick={() => handleOpenLab(session, "workspace")}
@@ -323,6 +322,17 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                   >
                     {isSelected ? "Opening..." : "Open Workspace"}
                   </button>
+
+                  {hasResults && (
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => handleOpenLab(session, "result")}
+                      disabled={isSelected || isClosing}
+                    >
+                      {isSelected ? "Opening..." : "View Results"}
+                    </button>
+                  )}
 
                   {isActive && (
                     <button
