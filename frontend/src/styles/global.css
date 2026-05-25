@@ -4691,3 +4691,62 @@ button:disabled,
 html {
   scrollbar-gutter: stable;
 }
+
+/* Sprint 28 student lab console polish */
+.lab-console-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.lab-console-workspace > .card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.network-diagram-canvas.linear {
+  display: block;
+}
+
+.topology-linear-diagram {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+}
+
+.topology-linear-node {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.topology-linear-link {
+  flex: 0 0 132px;
+  align-self: center;
+  min-width: 112px;
+}
+
+.topology-linear-link .network-link-line {
+  width: 100%;
+  min-width: 100px;
+}
+
+.topology-linear-link .network-link-label {
+  max-width: 132px;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .topology-linear-diagram {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .topology-linear-link {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topology-linear-link .network-link-line {
+    min-width: 0;
+  }
+}
