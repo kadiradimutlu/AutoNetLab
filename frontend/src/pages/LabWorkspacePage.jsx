@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
