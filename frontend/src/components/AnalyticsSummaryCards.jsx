@@ -1,25 +1,43 @@
 function formatNumber(value) {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === "") {
     return "-";
   }
 
-  return Number(value).toLocaleString("en-US");
+  const numericValue = Number(value);
+
+  if (Number.isNaN(numericValue)) {
+    return "-";
+  }
+
+  return numericValue.toLocaleString("en-US");
 }
 
 function formatPercent(value) {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === "") {
     return "-";
   }
 
-  return `${Number(value).toFixed(1)}%`;
+  const numericValue = Number(value);
+
+  if (Number.isNaN(numericValue)) {
+    return "-";
+  }
+
+  return `${numericValue.toFixed(1)}%`;
 }
 
 function formatScore(value) {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === "") {
     return "-";
   }
 
-  return Number(value).toFixed(1);
+  const numericValue = Number(value);
+
+  if (Number.isNaN(numericValue)) {
+    return "-";
+  }
+
+  return numericValue.toFixed(1);
 }
 
 function AnalyticsSummaryCards({ summary }) {
@@ -27,12 +45,22 @@ function AnalyticsSummaryCards({ summary }) {
     {
       title: "Total Sessions",
       value: formatNumber(summary?.total_sessions),
-      helper: "All created lab sessions"
+      helper: "All tracked lab sessions"
+    },
+    {
+      title: "Active Sessions",
+      value: formatNumber(summary?.active_sessions),
+      helper: "Labs still open for troubleshooting"
     },
     {
       title: "Completed Sessions",
       value: formatNumber(summary?.completed_sessions),
       helper: "Validated or finished sessions"
+    },
+    {
+      title: "Passed Sessions",
+      value: formatNumber(summary?.passed_sessions),
+      helper: "Completed sessions with PASS result"
     },
     {
       title: "Average Score",

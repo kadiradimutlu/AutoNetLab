@@ -70,22 +70,80 @@ function formatDateTime(value) {
   });
 }
 
-function getStatusBadgeClass(status, passed) {
-  const normalizedStatus = String(status || "").toLowerCase();
+function formatTitleCase(value) {
+  const normalizedValue = String(value || "").replace(/_/g, " ").trim();
 
-  if (passed === true || normalizedStatus.includes("pass")) {
-    return "pass";
+  if (!normalizedValue) {
+    return "-";
   }
 
-  if (passed === false || normalizedStatus.includes("fail") || normalizedStatus.includes("error")) {
+  return normalizedValue
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getLifecycleStatusLabel(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  const statusLabels = {
+    created: "Created",
+    deployed: "Deployed",
+    active: "Active",
+    validated: "Validated",
+    finished: "Finished",
+    destroyed: "Destroyed",
+    error: "Error"
+  };
+
+  return statusLabels[normalizedStatus] || formatTitleCase(status);
+}
+
+function getLifecycleStatusBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
     return "fail";
   }
 
-  if (normalizedStatus.includes("active") || normalizedStatus.includes("deployed")) {
+  if (["created", "deployed", "active", "validated"].includes(normalizedStatus)) {
     return "medium";
   }
 
+  if (["finished", "destroyed"].includes(normalizedStatus)) {
+    return "neutral";
+  }
+
   return "neutral";
+}
+
+function getValidationResultLabel(passed) {
+  if (passed === true) {
+    return "PASS";
+  }
+
+  if (passed === false) {
+    return "FAIL";
+  }
+
+  return "Not Validated";
+}
+
+function getValidationResultBadgeClass(passed) {
+  if (passed === true) {
+    return "pass";
+  }
+
+  if (passed === false) {
+    return "fail";
+  }
+
+  return "neutral";
+}
+
+function getSessionLastActivityAt(session) {
+  return session?.completed_at || session?.updated_at || session?.created_at;
 }
 
 function getSeverityClass(severity) {
@@ -474,9 +532,9 @@ function StudentSessionsTable({ sessions }) {
                 <th>Difficulty</th>
                 <th>Status</th>
                 <th>Score</th>
-                <th>Passed</th>
+                <th>Result</th>
                 <th>Created</th>
-                <th>Completed</th>
+                <th>Last Activity</th>
               </tr>
             </thead>
 
@@ -489,15 +547,19 @@ function StudentSessionsTable({ sessions }) {
                       {session.difficulty || "-"}
                     </span>
                   </td>
-                  <td>{session.status || "-"}</td>
+                  <td>
+                    <span className={`badge ${getLifecycleStatusBadgeClass(session.status)}`}>
+                      {getLifecycleStatusLabel(session.status)}
+                    </span>
+                  </td>
                   <td>{session.score === null || session.score === undefined ? "-" : formatNumber(session.score)}</td>
                   <td>
-                    <span className={`badge ${getStatusBadgeClass(session.status, session.passed)}`}>
-                      {session.passed === true ? "PASS" : session.passed === false ? "FAIL" : "N/A"}
+                    <span className={`badge ${getValidationResultBadgeClass(session.passed)}`}>
+                      {getValidationResultLabel(session.passed)}
                     </span>
                   </td>
                   <td>{formatDateTime(session.created_at)}</td>
-                  <td>{formatDateTime(session.completed_at)}</td>
+                  <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
                 </tr>
               ))}
             </tbody>
@@ -633,7 +695,11 @@ function StudentScoreTrend({ scoreTrend }) {
                   <tr key={item.session_id}>
                     <td>{item.session_id}</td>
                     <td>{item.difficulty || "-"}</td>
-                    <td>{item.status || "-"}</td>
+                    <td>
+                      <span className={`badge ${getLifecycleStatusBadgeClass(item.status)}`}>
+                        {getLifecycleStatusLabel(item.status)}
+                      </span>
+                    </td>
                     <td>{item.score === null || item.score === undefined ? "-" : formatNumber(item.score)}</td>
                     <td>{formatDateTime(item.created_at)}</td>
                   </tr>
