@@ -202,16 +202,16 @@ const STUDENT_DETAIL_TABS = [
     label: "Overview"
   },
   {
-    id: "sessions",
-    label: "Sessions"
-  },
-  {
     id: "weaknesses",
     label: "Weaknesses"
   },
   {
     id: "scoreTrend",
     label: "Score Trend"
+  },
+  {
+    id: "sessions",
+    label: "Sessions"
   }
 ];
 
@@ -513,7 +513,7 @@ function StudentListPanel({
   );
 }
 
-function StudentSummaryCards({ summary }) {
+function StudentSummaryCards({ summary, compact = false }) {
   const cards = [
     {
       title: "Total Sessions",
@@ -544,14 +544,14 @@ function StudentSummaryCards({ summary }) {
   ];
 
   return (
-    <section className="student-summary-grid">
+    <div className={`student-summary-grid ${compact ? "compact" : ""}`}>
       {cards.map((card) => (
         <div className="metric-card" key={card.title}>
           <span>{card.title}</span>
           <strong>{card.value}</strong>
         </div>
       ))}
-    </section>
+    </div>
   );
 }
 
@@ -1306,31 +1306,33 @@ function InstructorDashboardPage() {
               {selectedStudentId && (
                 <>
                   <section className="card selected-student-header">
-                    <div>
-                      <span className="muted">Selected Student</span>
-                      <h3>{selectedStudentId}</h3>
-                      <p className="muted">
-                        Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
-                      </p>
+                    <div className="selected-student-header-main">
+                      <div>
+                        <span className="muted">Selected Student</span>
+                        <h3>{selectedStudentId}</h3>
+                        <p className="muted">
+                          Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
+                        </p>
+                      </div>
+
+                      <div className="selected-student-header-actions">
+                        <button
+                          className="secondary-button"
+                          onClick={() => loadStudentDetails(selectedStudentId)}
+                          disabled={isStudentDetailLoading}
+                          type="button"
+                        >
+                          {isStudentDetailLoading ? "Refreshing..." : "Refresh Student"}
+                        </button>
+
+                        {isStudentDetailLoading && (
+                          <span className="badge neutral">Loading details...</span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="selected-student-header-actions">
-                      <button
-                        className="secondary-button"
-                        onClick={() => loadStudentDetails(selectedStudentId)}
-                        disabled={isStudentDetailLoading}
-                        type="button"
-                      >
-                        {isStudentDetailLoading ? "Refreshing..." : "Refresh Student"}
-                      </button>
-
-                      {isStudentDetailLoading && (
-                        <span className="badge neutral">Loading details...</span>
-                      )}
-                    </div>
+                    <StudentSummaryCards summary={summary} compact />
                   </section>
-
-                  <StudentSummaryCards summary={summary} />
 
                   <StudentDetailTabs
                     activeTab={studentDetailTab}

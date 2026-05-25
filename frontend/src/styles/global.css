@@ -4406,3 +4406,50 @@ button:disabled,
   order: 2;
 }
 
+/* Sprint 27 selected student detail polish */
+.selected-student-header {
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.selected-student-header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.selected-student-header .student-summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.selected-student-header .metric-card {
+  padding: 10px 12px;
+}
+
+.selected-student-header .metric-card strong {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.student-detail-tabs {
+  margin-top: 0;
+}
+
+@media (max-width: 1200px) {
+  .selected-student-header .student-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .selected-student-header-main {
+    flex-direction: column;
+  }
+
+  .selected-student-header .student-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
