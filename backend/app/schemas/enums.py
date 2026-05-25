@@ -11,5 +11,6 @@ class SessionStatus(str, Enum):
     created = "created"
     deployed = "deployed"
     destroyed = "destroyed"
+    finished = "finished"
     validated = "validated"
     error = "error"

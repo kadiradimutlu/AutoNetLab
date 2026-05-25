@@ -7,19 +7,23 @@ from app.schemas.lab import (
     ActionResponse,
     CliAccessResponse,
     CreateLabRequest,
+    LabHintsResponse,
     LabSessionDebugResponse,
     LabSessionListResponse,
     LabSessionResponse,
     WebCliReadinessResponse,
 )
 from app.schemas.recommendation import RecommendationResponse
-from app.schemas.validation import StudentValidationResult
+from app.schemas.validation import StudentValidationResult, ValidationHistoryResponse
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.runtime_error_injection import apply_runtime_error_injection
 from app.services.session_service import (
+    build_lab_hints_response,
     create_lab_session,
+    finish_lab_session,
     get_cli_access_response,
+    get_validation_history_response,
     get_lab_session,
     list_lab_sessions,
     to_lab_session_debug_response,
@@ -302,6 +306,63 @@ def validate_lab(
     update_session_validation_result(session_id, result)
 
     return StudentValidationResult(**result.model_dump(mode="json"))
+
+
+@router.get("/{session_id}/validation-history", response_model=ValidationHistoryResponse)
+def get_lab_validation_history(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> ValidationHistoryResponse:
+    _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
+
+    return ValidationHistoryResponse(
+        **get_validation_history_response(session_id)
+    )
+
+
+@router.get("/{session_id}/hints", response_model=LabHintsResponse)
+def get_lab_hints(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> LabHintsResponse:
+    _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
+
+    return LabHintsResponse(
+        **build_lab_hints_response(session_id)
+    )
+
+
+@router.post("/{session_id}/finish", response_model=ActionResponse)
+def finish_lab(
+    session_id: str,
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
+) -> ActionResponse:
+    session = _get_authorized_lab_session(
+        session_id=session_id,
+        current_user=current_user,
+    )
+
+    result = containerlab_adapter.destroy(
+        session_id=session_id,
+        topology_file=session["topology_file"],
+    )
+
+    if not result["success"]:
+        update_session_status(session_id, result["status"])
+        return ActionResponse(**result)
+
+    finished_session = finish_lab_session(session_id)
+
+    result["status"] = finished_session["status"]
+    result["message"] = "Lab finished successfully. Validation history is preserved."
+
+    return ActionResponse(**result)
 
 
 @router.get("/{session_id}/recommendations", response_model=RecommendationResponse)
