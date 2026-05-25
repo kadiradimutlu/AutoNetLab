@@ -6,10 +6,13 @@ import DeviceCliCard from "../components/DeviceCliCard";
 import {
   deployLab,
   destroyLab,
+  finishLab,
   getCliAccess,
   getErrorDetails,
   getErrorMessage,
-  getLab
+  getLab,
+  getLabHints,
+  getValidationHistory
 } from "../services/apiService";
 import {
   formatDifficulty,
@@ -99,6 +102,70 @@ function getFallbackCliMode(labSession) {
   );
 }
 
+function isRuntimeActiveStatus(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  return (
+    normalizedStatus.includes("deployed") ||
+    normalizedStatus.includes("validated") ||
+    normalizedStatus.includes("active")
+  );
+}
+
+function isRuntimeFinishedStatus(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  return (
+    normalizedStatus.includes("finished") ||
+    normalizedStatus.includes("error")
+  );
+}
+
+function isRuntimeDestroyedStatus(status) {
+  return String(status || "").toLowerCase().includes("destroyed");
+}
+
+function getAttemptStatusLabel(attempt) {
+  if (attempt?.passed === true) {
+    return "Passed";
+  }
+
+  if (attempt?.passed === false) {
+    return "Needs work";
+  }
+
+  return "Unknown";
+}
+
+function getAttemptBadgeClass(attempt) {
+  if (attempt?.passed === true) {
+    return "pass";
+  }
+
+  if (attempt?.passed === false) {
+    return "fail";
+  }
+
+  return "neutral";
+}
+
+function formatAttemptDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+}
+
 function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const [cliAccessList, setCliAccessList] = useState([]);
   const [cliAccessMode, setCliAccessMode] = useState("local_docker_exec_demo");
@@ -108,10 +175,20 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const [copyNotice, setCopyNotice] = useState("");
   const [isStartingLab, setIsStartingLab] = useState(false);
   const [isStoppingLab, setIsStoppingLab] = useState(false);
+  const [isResettingLab, setIsResettingLab] = useState(false);
   const [lifecycleMessage, setLifecycleMessage] = useState("");
   const [lifecycleError, setLifecycleError] = useState("");
   const [lifecycleDetails, setLifecycleDetails] = useState("");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("topology");
+  const [hints, setHints] = useState([]);
+  const [isLoadingHints, setIsLoadingHints] = useState(false);
+  const [hintsWarning, setHintsWarning] = useState("");
+  const [hintsDetails, setHintsDetails] = useState("");
+  const [attempts, setAttempts] = useState([]);
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
+  const [attemptsWarning, setAttemptsWarning] = useState("");
+  const [attemptsDetails, setAttemptsDetails] = useState("");
+  const workspaceTabsRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -160,6 +237,117 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
     };
   }, [labSession]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadHints() {
+      if (!labSession?.session_id) {
+        setHints([]);
+        setHintsWarning("");
+        setHintsDetails("");
+        return;
+      }
+
+      setIsLoadingHints(true);
+      setHintsWarning("");
+      setHintsDetails("");
+
+      try {
+        const result = await getLabHints(labSession.session_id);
+
+        if (isMounted) {
+          setHints(Array.isArray(result?.hints) ? result.hints : []);
+        }
+      } catch (error) {
+        console.error("Workspace hints fetch failed.", error);
+
+        if (isMounted) {
+          setHints([]);
+          setHintsWarning(
+            getErrorMessage(
+              error,
+              "Hints could not be loaded for this lab."
+            )
+          );
+          setHintsDetails(getErrorDetails(error));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingHints(false);
+        }
+      }
+    }
+
+    loadHints();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [labSession?.session_id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadValidationHistory() {
+      if (!labSession?.session_id) {
+        setAttempts([]);
+        setAttemptsWarning("");
+        setAttemptsDetails("");
+        return;
+      }
+
+      setIsLoadingAttempts(true);
+      setAttemptsWarning("");
+      setAttemptsDetails("");
+
+      try {
+        const result = await getValidationHistory(labSession.session_id);
+
+        if (isMounted) {
+          setAttempts(Array.isArray(result?.attempts) ? result.attempts : []);
+        }
+      } catch (error) {
+        console.error("Validation history fetch failed.", error);
+
+        if (isMounted) {
+          setAttempts([]);
+          setAttemptsWarning(
+            getErrorMessage(
+              error,
+              "Validation history could not be loaded for this lab."
+            )
+          );
+          setAttemptsDetails(getErrorDetails(error));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingAttempts(false);
+        }
+      }
+    }
+
+    loadValidationHistory();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [labSession?.session_id, labSession?.status]);
+
+  function handleWorkspaceTabChange(tabId) {
+    setActiveWorkspaceTab(tabId);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      workspaceTabsRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto"
+      });
+    });
+  }
+
   async function refreshLabSession() {
     if (!labSession?.session_id) {
       return null;
@@ -200,13 +388,44 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
     }
   }
 
+  async function handleResetLabRuntime() {
+    if (!labSession?.session_id) {
+      return;
+    }
+
+    const shouldReset = window.confirm(
+      "Reset this lab runtime? Running containers will be removed. You can deploy the same lab again from this workspace."
+    );
+
+    if (!shouldReset) {
+      return;
+    }
+
+    setIsResettingLab(true);
+    setLifecycleMessage("");
+    setLifecycleError("");
+    setLifecycleDetails("");
+
+    try {
+      await destroyLab(labSession.session_id);
+      await refreshLabSession();
+      setLifecycleMessage("Lab runtime reset successfully. Deploy the lab again when you are ready.");
+    } catch (error) {
+      setLifecycleError(getErrorMessage(error, "Lab runtime could not be reset."));
+      setLifecycleDetails(getErrorDetails(error));
+      console.error("Lab runtime reset failed.", error);
+    } finally {
+      setIsResettingLab(false);
+    }
+  }
+
   async function handleStopLabEnvironment() {
     if (!labSession?.session_id) {
       return;
     }
 
     const shouldStop = window.confirm(
-      "Destroy this lab? Running device containers will be removed."
+      "Finish this lab? Running containers will be stopped, but validation history and results will be preserved."
     );
 
     if (!shouldStop) {
@@ -219,16 +438,16 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
     setLifecycleDetails("");
 
     try {
-      await destroyLab(labSession.session_id);
+      await finishLab(labSession.session_id);
       const refreshedLab = await refreshLabSession();
 
-      setLifecycleMessage("Lab destroyed successfully.");
+      setLifecycleMessage("Lab finished successfully. Validation history is preserved.");
       setCliAccessList([]);
       setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
     } catch (error) {
-      setLifecycleError(getErrorMessage(error, "Lab could not be destroyed."));
+      setLifecycleError(getErrorMessage(error, "Lab could not be finished."));
       setLifecycleDetails(getErrorDetails(error));
-      console.error("Lab destroy failed.", error);
+      console.error("Lab finish failed.", error);
     } finally {
       setIsStoppingLab(false);
     }
@@ -284,16 +503,17 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const effectiveCliMode = cliAccessMode || getFallbackCliMode(labSession);
   const normalizedStatus = String(labSession.status || "").toLowerCase();
-  const isLabRunning = normalizedStatus.includes("deployed") || normalizedStatus.includes("active");
-  const isLabStopped = normalizedStatus.includes("destroyed");
+  const isLabRunning = isRuntimeActiveStatus(normalizedStatus);
+  const isLabStopped = isRuntimeDestroyedStatus(normalizedStatus);
+  const isLabFinished = isRuntimeFinishedStatus(normalizedStatus);
 
   const workspaceActions = (
     <div className="workspace-topology-actions">
-      {!isLabRunning && !isLabStopped && (
+      {!isLabRunning && !isLabStopped && !isLabFinished && (
         <button
           className="primary-button"
           onClick={handleStartLabEnvironment}
-          disabled={isStartingLab || isStoppingLab}
+          disabled={isStartingLab || isStoppingLab || isResettingLab}
           type="button"
         >
           {isStartingLab ? "Starting..." : "Deploy Lab"}
@@ -301,24 +521,45 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       )}
 
       {isLabRunning && (
-        <button
-          className="danger-button"
-          onClick={handleStopLabEnvironment}
-          disabled={isStartingLab || isStoppingLab}
-          type="button"
-        >
-          {isStoppingLab ? "Stopping..." : "Destroy Lab"}
-        </button>
+        <>
+          <button
+            className="secondary-button"
+            onClick={handleResetLabRuntime}
+            disabled={isStartingLab || isStoppingLab || isResettingLab}
+            type="button"
+          >
+            {isResettingLab ? "Resetting..." : "Reset Runtime"}
+          </button>
+
+          <button
+            className="danger-button"
+            onClick={handleStopLabEnvironment}
+            disabled={isStartingLab || isStoppingLab || isResettingLab}
+            type="button"
+          >
+            {isStoppingLab ? "Finishing..." : "Finish Lab"}
+          </button>
+        </>
       )}
 
-      {isLabStopped && (
+      {isLabStopped && !isLabFinished && (
         <button
           className="primary-button"
           onClick={handleStartLabEnvironment}
-          disabled={isStartingLab || isStoppingLab}
+          disabled={isStartingLab || isStoppingLab || isResettingLab}
           type="button"
         >
           {isStartingLab ? "Starting..." : "Deploy Lab"}
+        </button>
+      )}
+
+      {isLabFinished && (
+        <button
+          className="primary-button"
+          onClick={() => onNavigate("create")}
+          type="button"
+        >
+          Create New Lab
         </button>
       )}
 
@@ -377,13 +618,13 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       </section>
 
       <section className="card workspace-tabs-card">
-        <div className="workspace-tab-list" role="tablist" aria-label="Workspace sections">
+        <div className="workspace-tab-list" role="tablist" ref={workspaceTabsRef} aria-label="Workspace sections">
           <button
             className={activeWorkspaceTab === "topology" ? "active" : ""}
             type="button"
             role="tab"
             aria-selected={activeWorkspaceTab === "topology"}
-            onClick={() => setActiveWorkspaceTab("topology")}
+            onClick={() => handleWorkspaceTabChange("topology")}
           >
             Topology
           </button>
@@ -393,9 +634,35 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
             type="button"
             role="tab"
             aria-selected={activeWorkspaceTab === "webCli"}
-            onClick={() => setActiveWorkspaceTab("webCli")}
+            onClick={() => handleWorkspaceTabChange("webCli")}
           >
             Web CLI
+          </button>
+
+          <button
+            className={activeWorkspaceTab === "hints" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "hints"}
+            onClick={() => handleWorkspaceTabChange("hints")}
+          >
+            Hints
+            {hints.length > 0 && (
+              <span className="tab-count">{hints.length}</span>
+            )}
+          </button>
+
+          <button
+            className={activeWorkspaceTab === "attempts" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "attempts"}
+            onClick={() => handleWorkspaceTabChange("attempts")}
+          >
+            Attempts
+            {attempts.length > 0 && (
+              <span className="tab-count">{attempts.length}</span>
+            )}
           </button>
         </div>
       </section>
@@ -416,65 +683,239 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           <div>
             <h3>Browser Terminal</h3>
             <p className="muted">
-              Deploy the lab first, then select a device and open the browser-based CLI.
+              Web CLI is available while the lab is deployed or validated.
             </p>
           </div>
 
           <span className="badge neutral">Web CLI</span>
         </div>
 
-        {cliAccessWarning && (
-          <>
-            <MessageBox
-              type="error"
-              title="CLI access warning"
-              message={cliAccessWarning}
-            />
-
-            {cliAccessDetails && (
-              <details className="technical-detail-box">
-                <summary>Show diagnostics</summary>
-                <p>{cliAccessDetails}</p>
-              </details>
-            )}
-          </>
-        )}
-
-        {copyNotice && (
+        {!isLabRunning && (
           <MessageBox
             type="info"
-            title="Copy successful"
-            message={copyNotice}
+            title="Web CLI is not active"
+            message={
+              isLabFinished
+                ? "This lab is finished. Running containers are closed, but validation history remains available."
+                : "Deploy the lab before opening Web CLI."
+            }
           />
         )}
 
-        <WebCliTerminal
-          sessionId={labSession.session_id}
-          devices={cliAccess}
-          mode={effectiveCliMode}
-        />
+        {isLabRunning && (
+          <>
+            {cliAccessWarning && (
+              <>
+                <MessageBox
+                  type="error"
+                  title="CLI access warning"
+                  message={cliAccessWarning}
+                />
 
-        <details className="workspace-fallback-details">
-          <summary>Alternative CLI commands</summary>
-
-          <div className="result-list">
-            {cliAccess.length === 0 && (
-              <p className="muted">CLI access information is not available yet.</p>
+                {cliAccessDetails && (
+                  <details className="technical-detail-box">
+                    <summary>Show diagnostics</summary>
+                    <p>{cliAccessDetails}</p>
+                  </details>
+                )}
+              </>
             )}
 
-            {cliAccess.map((cli, index) => (
-              <DeviceCliCard
-                cli={cli}
-                index={index}
-                key={`${cli.deviceName || cli.device_name || "device"}-${index}`}
-                copiedCommandKey={copiedCommandKey}
-                onCopyCommand={handleCopyCommand}
+            {copyNotice && (
+              <MessageBox
+                type="info"
+                title="Copy successful"
+                message={copyNotice}
               />
-            ))}
-          </div>
-        </details>
+            )}
+
+            <WebCliTerminal
+              sessionId={labSession.session_id}
+              devices={cliAccess}
+              mode={effectiveCliMode}
+            />
+
+            <details className="workspace-fallback-details">
+              <summary>Alternative CLI commands</summary>
+
+              <div className="result-list">
+                {cliAccess.length === 0 && (
+                  <p className="muted">CLI access information is not available yet.</p>
+                )}
+
+                {cliAccess.map((cli, index) => (
+                  <DeviceCliCard
+                    cli={cli}
+                    index={index}
+                    key={`${cli.deviceName || cli.device_name || "device"}-${index}`}
+                    copiedCommandKey={copiedCommandKey}
+                    onCopyCommand={handleCopyCommand}
+                  />
+                ))}
+              </div>
+            </details>
+          </>
+        )}
       </section>
       )}
+      {activeWorkspaceTab === "hints" && (
+        <section className="card workspace-hints-card">
+          <div className="section-title-row">
+            <div>
+              <h3>Hints</h3>
+              <p className="muted">
+                Use these student-safe hints to guide your troubleshooting process without revealing exact solution commands.
+              </p>
+            </div>
+
+            <span className="badge neutral">{hints.length} hints</span>
+          </div>
+
+          {isLoadingHints && (
+            <MessageBox
+              type="info"
+              title="Loading hints"
+              message="Loading troubleshooting guidance for this lab."
+            />
+          )}
+
+          {hintsWarning && (
+            <>
+              <MessageBox
+                type="error"
+                title="Hints could not be loaded"
+                message={hintsWarning}
+              />
+
+              {hintsDetails && (
+                <details className="technical-detail-box">
+                  <summary>Show diagnostics</summary>
+                  <p>{hintsDetails}</p>
+                </details>
+              )}
+            </>
+          )}
+
+          {!isLoadingHints && !hintsWarning && hints.length === 0 && (
+            <MessageBox
+              type="info"
+              title="No hints available"
+              message="No student-safe hints were returned for this lab yet."
+            />
+          )}
+
+          {!isLoadingHints && !hintsWarning && hints.length > 0 && (
+            <div className="result-list">
+              {hints.map((hint, index) => (
+                <article className="list-item" key={hint.id || `${hint.topic}-${index}`}>
+                  <div className="result-title-row">
+                    <div>
+                      <strong>{hint.topic || "General Troubleshooting"}</strong>
+                      <p className="muted">
+                        {hint.device ? `Device: ${hint.device}` : "Scenario-level guidance"}
+                      </p>
+                    </div>
+
+                    <span className="badge neutral">{hint.level || "general"}</span>
+                  </div>
+
+                  <p>{hint.message}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeWorkspaceTab === "attempts" && (
+        <section className="card workspace-attempts-card">
+          <div className="section-title-row">
+            <div>
+              <h3>Validation Attempts</h3>
+              <p className="muted">
+                Track each validation run for this lab. Use the results to continue improving the live configuration.
+              </p>
+            </div>
+
+            <span className="badge neutral">{attempts.length} attempts</span>
+          </div>
+
+          {isLoadingAttempts && (
+            <MessageBox
+              type="info"
+              title="Loading attempts"
+              message="Loading validation attempt history for this lab."
+            />
+          )}
+
+          {attemptsWarning && (
+            <>
+              <MessageBox
+                type="error"
+                title="Validation history could not be loaded"
+                message={attemptsWarning}
+              />
+
+              {attemptsDetails && (
+                <details className="technical-detail-box">
+                  <summary>Show diagnostics</summary>
+                  <p>{attemptsDetails}</p>
+                </details>
+              )}
+            </>
+          )}
+
+          {!isLoadingAttempts && !attemptsWarning && attempts.length === 0 && (
+            <MessageBox
+              type="info"
+              title="No validation attempts yet"
+              message="Run validation to create the first attempt record for this lab."
+            />
+          )}
+
+          {!isLoadingAttempts && !attemptsWarning && attempts.length > 0 && (
+            <div className="result-list">
+              {attempts.map((attempt) => (
+                <article className="list-item" key={attempt.attempt_number}>
+                  <div className="result-title-row">
+                    <div>
+                      <strong>Attempt {attempt.attempt_number}</strong>
+                      <p className="muted">{formatAttemptDateTime(attempt.created_at)}</p>
+                    </div>
+
+                    <span className={`badge ${getAttemptBadgeClass(attempt)}`}>
+                      {getAttemptStatusLabel(attempt)}
+                    </span>
+                  </div>
+
+                  <div className="validation-compact-summary">
+                    <div>
+                      <span>Score</span>
+                      <strong>{attempt.score ?? "-"}/100</strong>
+                    </div>
+
+                    <div>
+                      <span>Passed Checks</span>
+                      <strong>{attempt.passed_checks ?? "-"}</strong>
+                    </div>
+
+                    <div>
+                      <span>Failed Checks</span>
+                      <strong>{attempt.failed_checks ?? "-"}</strong>
+                    </div>
+
+                    <div>
+                      <span>Total Checks</span>
+                      <strong>{attempt.total_checks ?? "-"}</strong>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
     </div>
   );
 }

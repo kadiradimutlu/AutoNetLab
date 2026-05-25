@@ -856,9 +856,22 @@ function getRawErrorMessage(data, fallbackMessage) {
 }
 
 function getFriendlyErrorMessage({ status, path, method, data }) {
-  const backendMessage = formatBackendDetail(data?.message);
-  const backendSuggestion = formatBackendDetail(data?.suggestion);
-  const backendErrorCode = data?.error_code || data?.code;
+  const detailObject =
+    data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail)
+      ? data.detail
+      : {};
+  const backendMessage =
+    formatBackendDetail(data?.message) ||
+    formatBackendDetail(detailObject.message);
+  const backendSuggestion =
+    formatBackendDetail(data?.suggestion) ||
+    formatBackendDetail(detailObject.suggestion);
+  const backendErrorCode =
+    data?.error_code ||
+    data?.code ||
+    detailObject.error_code ||
+    detailObject.code ||
+    "";
 
   if (backendMessage) {
     return backendSuggestion
@@ -888,6 +901,10 @@ function getFriendlyErrorMessage({ status, path, method, data }) {
 
   if (backendErrorCode === "LAB_SESSION_NOT_FOUND") {
     return "Lab session was not found.";
+  }
+
+  if (backendErrorCode === "ACTIVE_LAB_ALREADY_EXISTS") {
+    return "You already have an active lab. Finish or close it before creating a new one.";
   }
 
   if (status === 0) {
@@ -970,8 +987,24 @@ function createApiError({
   error.name = "ApiServiceError";
   error.status = status;
   error.data = data;
-  error.errorCode = data?.error_code || data?.code || "";
-  error.suggestion = data?.suggestion || "";
+  const detailObject =
+    data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail)
+      ? data.detail
+      : {};
+
+  error.errorCode =
+    data?.error_code ||
+    data?.code ||
+    detailObject.error_code ||
+    detailObject.code ||
+    "";
+  error.suggestion = data?.suggestion || detailObject.suggestion || "";
+  error.activeSessionId =
+    data?.active_session_id ||
+    data?.activeSessionId ||
+    detailObject.active_session_id ||
+    detailObject.activeSessionId ||
+    "";
   error.path = path;
   error.method = method;
   error.url = url;
@@ -1648,6 +1681,194 @@ export async function destroySession(sessionId) {
   });
 }
 
+
+export async function finishSession(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    return {
+      success: true,
+      session_id: sessionId,
+      status: "finished",
+      message: "MOCK: Lab finished successfully. Validation history is preserved."
+    };
+  }
+
+  return request(`/labs/${encodeURIComponent(sessionId)}/finish`, {
+    method: "POST"
+  });
+}
+
+function normalizeHintItem(item, index) {
+  if (typeof item === "string") {
+    return {
+      id: `hint-${index + 1}`,
+      topic: "General Troubleshooting",
+      device: "",
+      level: "general",
+      message: item
+    };
+  }
+
+  const safeItem = item && typeof item === "object" ? item : {};
+
+  return {
+    id: safeItem.id || safeItem.hint_id || `hint-${index + 1}`,
+    topic: safeItem.topic || safeItem.category || "General Troubleshooting",
+    device: safeItem.device || safeItem.device_id || safeItem.node || "",
+    level: safeItem.level || safeItem.type || "general",
+    message:
+      safeItem.message ||
+      safeItem.hint ||
+      safeItem.description ||
+      "Review the related configuration area and validate again."
+  };
+}
+
+function normalizeHintsPayload(payload, sessionId = "") {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const rawHints = Array.isArray(safePayload.hints)
+    ? safePayload.hints
+    : Array.isArray(payload)
+      ? payload
+      : [];
+
+  return {
+    success: safePayload.success ?? true,
+    session_id: safePayload.session_id || sessionId || "",
+    hints: rawHints.map((item, index) => normalizeHintItem(item, index)),
+    message: safePayload.message || ""
+  };
+}
+
+export async function getLabHints(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    return normalizeHintsPayload(
+      {
+        success: true,
+        session_id: sessionId,
+        hints: DEFAULT_STUDENT_HINTS,
+        message: "MOCK: Student-safe hints loaded."
+      },
+      sessionId
+    );
+  }
+
+  const result = await request(`/labs/${encodeURIComponent(sessionId)}/hints`);
+
+  return normalizeHintsPayload(result, sessionId);
+}
+
+function sanitizeHistoryCheck(check, index) {
+  const normalizedCheck = normalizeValidationCheck(check, index);
+
+  delete normalizedCheck.evidence;
+  delete normalizedCheck.observed_state;
+  delete normalizedCheck.expected_state;
+  delete normalizedCheck.failed_command_output;
+  delete normalizedCheck.expected_outputs;
+  delete normalizedCheck.validation_command;
+  delete normalizedCheck.injection_commands;
+
+  return normalizedCheck;
+}
+
+function normalizeValidationAttempt(item, index) {
+  const safeItem = item && typeof item === "object" ? item : {};
+  const checks = Array.isArray(safeItem.checks)
+    ? safeItem.checks.map((check, checkIndex) => sanitizeHistoryCheck(check, checkIndex))
+    : [];
+  const passedChecks =
+    safeItem.passed_checks ??
+    checks.filter((check) => check.passed).length;
+  const totalChecks = safeItem.total_checks ?? checks.length;
+  const failedChecks =
+    safeItem.failed_checks ??
+    Math.max(totalChecks - passedChecks, 0);
+
+  return {
+    attempt_number: safeItem.attempt_number ?? safeItem.attemptNumber ?? index + 1,
+    score: safeItem.score ?? null,
+    passed: safeItem.passed ?? false,
+    passed_checks: passedChecks,
+    failed_checks: failedChecks,
+    total_checks: totalChecks,
+    created_at: safeItem.created_at || safeItem.createdAt || safeItem.timestamp || "",
+    checks
+  };
+}
+
+function normalizeValidationHistoryPayload(payload, sessionId = "") {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const rawAttempts = Array.isArray(safePayload.attempts)
+    ? safePayload.attempts
+    : Array.isArray(payload)
+      ? payload
+      : [];
+
+  return {
+    success: safePayload.success ?? true,
+    session_id: safePayload.session_id || sessionId || "",
+    attempts: rawAttempts.map((item, index) => normalizeValidationAttempt(item, index)),
+    message: safePayload.message || ""
+  };
+}
+
+export async function getValidationHistory(sessionId) {
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+
+  if (USE_MOCK_API) {
+    await wait();
+
+    return normalizeValidationHistoryPayload(
+      {
+        success: true,
+        session_id: sessionId,
+        attempts: [
+          {
+            attempt_number: 1,
+            score: 40,
+            passed: false,
+            passed_checks: 2,
+            failed_checks: 3,
+            total_checks: 5,
+            created_at: "2026-05-25T02:10:00Z",
+            checks: mockValidationResult.checks || []
+          },
+          {
+            attempt_number: 2,
+            score: 80,
+            passed: false,
+            passed_checks: 4,
+            failed_checks: 1,
+            total_checks: 5,
+            created_at: "2026-05-25T02:18:00Z",
+            checks: mockValidationResult.checks || []
+          }
+        ],
+        message: "MOCK: Validation history loaded."
+      },
+      sessionId
+    );
+  }
+
+  const result = await request(`/labs/${encodeURIComponent(sessionId)}/validation-history`);
+
+  return normalizeValidationHistoryPayload(result, sessionId);
+}
+
 export async function getRecommendations(sessionId) {
   if (!sessionId) {
     throw new Error("sessionId is required.");
@@ -1877,6 +2098,7 @@ export const createLab = createSession;
 export const getLab = getSession;
 export const deployLab = deploySession;
 export const destroyLab = destroySession;
+export const finishLab = finishSession;
 export const validateLab = validateSession;
 
 

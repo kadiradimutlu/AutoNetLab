@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
+  finishLab,
   getErrorDetails,
   getErrorMessage,
   listLabSessions
@@ -10,6 +11,12 @@ import {
   formatStatus,
   getDifficultyClass
 } from "../utils/formatters";
+
+const ACTIVE_LAB_STATUSES = ["created", "deployed", "validated", "active"];
+
+function isActiveLabStatus(status) {
+  return ACTIVE_LAB_STATUSES.includes(String(status || "").toLowerCase());
+}
 
 function formatDateTime(value) {
   if (!value) {
@@ -67,6 +74,8 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [closingSessionId, setClosingSessionId] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
 
@@ -107,6 +116,37 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
     }
   }
 
+  async function handleCloseActiveLab(session) {
+    if (!session?.session_id) {
+      return;
+    }
+
+    const shouldClose = window.confirm(
+      "Close this active lab? Running containers will be stopped, but validation history and results will be preserved."
+    );
+
+    if (!shouldClose) {
+      return;
+    }
+
+    setClosingSessionId(session.session_id);
+    setInfoMessage("");
+    setErrorMessage("");
+    setErrorDetails("");
+
+    try {
+      await finishLab(session.session_id);
+      setInfoMessage("Active lab closed successfully. Validation history is preserved.");
+      await loadLabs();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Active lab could not be closed."));
+      setErrorDetails(getErrorDetails(error));
+      console.error("Active lab close failed.", error);
+    } finally {
+      setClosingSessionId("");
+    }
+  }
+
   return (
     <section className="my-labs-page">
       <div className="section-title-row">
@@ -138,9 +178,9 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         <div className="stat-card">
           <span>Active labs</span>
           <strong>
-            {sessions.filter((session) => ["created", "deployed", "active"].includes(String(session.status || "").toLowerCase())).length}
+            {sessions.filter((session) => isActiveLabStatus(session.status)).length}
           </strong>
-          <small>Created or deployed sessions</small>
+          <small>Created, deployed, or validated sessions</small>
         </div>
 
         <div className="stat-card">
@@ -157,6 +197,14 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Successful validation results</small>
         </div>
       </section>
+
+      {infoMessage && (
+        <MessageBox
+          type="success"
+          title="Lab updated"
+          message={infoMessage}
+        />
+      )}
 
       {errorMessage && (
         <>
@@ -197,6 +245,8 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
             const difficultyClass = getDifficultyClass(session.difficulty);
             const passBadgeClass = getPassBadgeClass(session.passed);
             const isSelected = selectedSessionId === session.session_id;
+            const isClosing = closingSessionId === session.session_id;
+            const isActive = isActiveLabStatus(session.status);
 
             return (
               <article className="card my-lab-card" key={session.session_id}>
@@ -247,12 +297,20 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                   </div>
                 </div>
 
+                {isActive && (
+                  <MessageBox
+                    type="info"
+                    title="Active lab"
+                    message="This lab can still be opened. Close it when you no longer need the running containers."
+                  />
+                )}
+
                 <div className="actions">
                   <button
                     className="secondary-button"
                     type="button"
                     onClick={() => handleOpenLab(session, "session")}
-                    disabled={isSelected}
+                    disabled={isSelected || isClosing}
                   >
                     {isSelected ? "Opening..." : "View Summary"}
                   </button>
@@ -261,10 +319,21 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                     className="primary-button"
                     type="button"
                     onClick={() => handleOpenLab(session, "workspace")}
-                    disabled={isSelected}
+                    disabled={isSelected || isClosing}
                   >
                     {isSelected ? "Opening..." : "Open Workspace"}
                   </button>
+
+                  {isActive && (
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => handleCloseActiveLab(session)}
+                      disabled={isSelected || isClosing}
+                    >
+                      {isClosing ? "Closing..." : "Close Active Lab"}
+                    </button>
+                  )}
                 </div>
               </article>
             );
