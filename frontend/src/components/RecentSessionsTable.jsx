@@ -33,6 +33,54 @@ function formatScore(value) {
   return value;
 }
 
+function formatTitleCase(value) {
+  const normalizedValue = String(value || "").replace(/_/g, " ").trim();
+
+  if (!normalizedValue) {
+    return "-";
+  }
+
+  return normalizedValue
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getLifecycleStatusLabel(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  const statusLabels = {
+    created: "Created",
+    deployed: "Deployed",
+    active: "Active",
+    validated: "Validated",
+    finished: "Finished",
+    destroyed: "Destroyed",
+    error: "Error"
+  };
+
+  return statusLabels[normalizedStatus] || formatTitleCase(status);
+}
+
+function getLifecycleStatusClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
+    return "fail";
+  }
+
+  if (["created", "deployed", "active", "validated"].includes(normalizedStatus)) {
+    return "medium";
+  }
+
+  if (["finished", "destroyed"].includes(normalizedStatus)) {
+    return "neutral";
+  }
+
+  return "neutral";
+}
+
 function getResultLabel(passed) {
   if (passed === true) {
     return "PASS";
@@ -42,7 +90,7 @@ function getResultLabel(passed) {
     return "FAIL";
   }
 
-  return "Pending";
+  return "Not Validated";
 }
 
 function getResultClass(passed) {
@@ -55,6 +103,10 @@ function getResultClass(passed) {
   }
 
   return "neutral";
+}
+
+function getLastActivityAt(session) {
+  return session.completed_at || session.updated_at || session.created_at;
 }
 
 function RecentSessionsTable({ sessions }) {
@@ -87,7 +139,7 @@ function RecentSessionsTable({ sessions }) {
                 <th>Status</th>
                 <th>Score</th>
                 <th>Result</th>
-                <th>Completed At</th>
+                <th>Last Activity</th>
               </tr>
             </thead>
 
@@ -101,14 +153,18 @@ function RecentSessionsTable({ sessions }) {
                       {formatDifficultyLabel(session.difficulty)}
                     </span>
                   </td>
-                  <td>{session.status || "-"}</td>
+                  <td>
+                    <span className={`badge ${getLifecycleStatusClass(session.status)}`}>
+                      {getLifecycleStatusLabel(session.status)}
+                    </span>
+                  </td>
                   <td>{formatScore(session.score)}</td>
                   <td>
                     <span className={`badge ${getResultClass(session.passed)}`}>
                       {getResultLabel(session.passed)}
                     </span>
                   </td>
-                  <td>{formatDate(session.completed_at)}</td>
+                  <td>{formatDate(getLastActivityAt(session))}</td>
                 </tr>
               ))}
             </tbody>

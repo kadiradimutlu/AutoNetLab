@@ -9,6 +9,7 @@ import RuntimeReadinessCard from "../components/RuntimeReadinessCard";
 import DatabaseReadinessCard from "../components/DatabaseReadinessCard";
 import {
   getDifficultyDistribution,
+  finishLab,
   getErrorDetails,
   getErrorMessage,
   getInstructorSummary,
@@ -70,22 +71,92 @@ function formatDateTime(value) {
   });
 }
 
-function getStatusBadgeClass(status, passed) {
-  const normalizedStatus = String(status || "").toLowerCase();
+function formatTitleCase(value) {
+  const normalizedValue = String(value || "").replace(/_/g, " ").trim();
 
-  if (passed === true || normalizedStatus.includes("pass")) {
-    return "pass";
+  if (!normalizedValue) {
+    return "-";
   }
 
-  if (passed === false || normalizedStatus.includes("fail") || normalizedStatus.includes("error")) {
+  return normalizedValue
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getLifecycleStatusLabel(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  const statusLabels = {
+    created: "Created",
+    deployed: "Deployed",
+    active: "Active",
+    validated: "Validated",
+    finished: "Finished",
+    destroyed: "Destroyed",
+    error: "Error"
+  };
+
+  return statusLabels[normalizedStatus] || formatTitleCase(status);
+}
+
+function getLifecycleStatusBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
     return "fail";
   }
 
-  if (normalizedStatus.includes("active") || normalizedStatus.includes("deployed")) {
+  if (["created", "deployed", "active", "validated"].includes(normalizedStatus)) {
     return "medium";
   }
 
+  if (["finished", "destroyed"].includes(normalizedStatus)) {
+    return "neutral";
+  }
+
   return "neutral";
+}
+
+function getValidationResultLabel(passed) {
+  if (passed === true) {
+    return "PASS";
+  }
+
+  if (passed === false) {
+    return "FAIL";
+  }
+
+  return "Not Validated";
+}
+
+function getValidationResultBadgeClass(passed) {
+  if (passed === true) {
+    return "pass";
+  }
+
+  if (passed === false) {
+    return "fail";
+  }
+
+  return "neutral";
+}
+
+function getSessionLastActivityAt(session) {
+  return session?.completed_at || session?.updated_at || session?.created_at;
+}
+
+function isForceClosableLabStatus(status) {
+  return ["created", "deployed", "active", "validated"].includes(
+    String(status || "").toLowerCase()
+  );
+}
+
+function getForceClosableSessions(sessions) {
+  return Array.isArray(sessions)
+    ? sessions.filter((session) => isForceClosableLabStatus(session.status))
+    : [];
 }
 
 function getSeverityClass(severity) {
@@ -122,6 +193,40 @@ const INSTRUCTOR_PORTAL_TABS = [
   {
     id: "system",
     label: "System Readiness"
+  }
+];
+
+const STUDENT_DETAIL_TABS = [
+  {
+    id: "overview",
+    label: "Overview"
+  },
+  {
+    id: "weaknesses",
+    label: "Weaknesses"
+  },
+  {
+    id: "scoreTrend",
+    label: "Score Trend"
+  },
+  {
+    id: "sessions",
+    label: "Sessions"
+  }
+];
+
+const ANALYTICS_DETAIL_TABS = [
+  {
+    id: "difficulty",
+    label: "Difficulty Distribution"
+  },
+  {
+    id: "weaknesses",
+    label: "Topic Weakness Analytics"
+  },
+  {
+    id: "recentSessions",
+    label: "Recent Sessions"
   }
 ];
 
@@ -212,6 +317,44 @@ function InstructorPortalTabs({ activeTab, onChange }) {
   return (
     <div className="instructor-portal-tabs" role="tablist" aria-label="Instructor Portal sections">
       {INSTRUCTOR_PORTAL_TABS.map((tab) => (
+        <button
+          aria-selected={activeTab === tab.id}
+          className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StudentDetailTabs({ activeTab, onChange }) {
+  return (
+    <div className="instructor-portal-tabs student-detail-tabs" role="tablist" aria-label="Selected student detail sections">
+      {STUDENT_DETAIL_TABS.map((tab) => (
+        <button
+          aria-selected={activeTab === tab.id}
+          className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AnalyticsDetailTabs({ activeTab, onChange }) {
+  return (
+    <div className="instructor-portal-tabs analytics-detail-tabs" role="tablist" aria-label="Instructor analytics sections">
+      {ANALYTICS_DETAIL_TABS.map((tab) => (
         <button
           aria-selected={activeTab === tab.id}
           className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
@@ -404,7 +547,7 @@ function StudentListPanel({
   );
 }
 
-function StudentSummaryCards({ summary }) {
+function StudentSummaryCards({ summary, compact = false }) {
   const cards = [
     {
       title: "Total Sessions",
@@ -427,21 +570,90 @@ function StudentSummaryCards({ summary }) {
     {
       title: "Pass Rate",
       value: formatPercent(summary?.pass_rate)
-    },
-    {
-      title: "Last Activity",
-      value: formatDateTime(summary?.last_activity_at)
     }
   ];
 
   return (
-    <section className="student-summary-grid">
+    <div className={`student-summary-grid ${compact ? "compact" : ""}`}>
       {cards.map((card) => (
         <div className="metric-card" key={card.title}>
           <span>{card.title}</span>
           <strong>{card.value}</strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+function StudentDetailOverview({
+  sessions,
+  topicWeaknesses,
+  closingSessionId,
+  onForceCloseLab
+}) {
+  const activeSessions = getForceClosableSessions(sessions);
+  const priorityWeaknesses = Array.isArray(topicWeaknesses)
+    ? topicWeaknesses.slice(0, 3)
+    : [];
+
+  return (
+    <section className="card">
+      <div className="section-title-row">
+        <div>
+          <h3>Student Overview</h3>
+          <p className="muted">
+            Focused summary for active labs and the highest-priority practice areas.
+          </p>
+        </div>
+
+        <span className={`badge ${activeSessions.length > 0 ? "medium" : "neutral"}`}>
+          {activeSessions.length > 0 ? `${activeSessions.length} active lab${activeSessions.length === 1 ? "" : "s"}` : "No active labs"}
+        </span>
+      </div>
+
+      <div className="portal-workflow-list">
+        <div>
+          <strong>Active Labs</strong>
+
+          {activeSessions.length === 0 ? (
+            <p>No active lab is currently open for this student.</p>
+          ) : (
+            activeSessions.map((session) => (
+              <div className="result-title-row" key={session.session_id}>
+                <div>
+                  <strong>{session.session_id}</strong>
+                  <p className="muted">
+                    {formatTitleCase(session.difficulty)} difficulty - {getLifecycleStatusLabel(session.status)} - Last activity: {formatDateTime(getSessionLastActivityAt(session))}
+                  </p>
+                </div>
+
+                <button
+                  className="secondary-button"
+                  disabled={closingSessionId === session.session_id}
+                  onClick={() => onForceCloseLab(session)}
+                  type="button"
+                >
+                  {closingSessionId === session.session_id ? "Closing..." : "Force Close Lab"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div>
+          <strong>Priority Weaknesses</strong>
+
+          {priorityWeaknesses.length === 0 ? (
+            <p>No topic weakness data is available for this student yet.</p>
+          ) : (
+            priorityWeaknesses.map((topic) => (
+              <p key={topic.topic || topic.label}>
+                {topic.label || topic.topic || "Unknown topic"} - Failure Rate: {formatPercent(topic.failure_rate)} - Average Score: {formatNumber(topic.average_score, "-")}
+              </p>
+            ))
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -474,9 +686,9 @@ function StudentSessionsTable({ sessions }) {
                 <th>Difficulty</th>
                 <th>Status</th>
                 <th>Score</th>
-                <th>Passed</th>
+                <th>Result</th>
                 <th>Created</th>
-                <th>Completed</th>
+                <th>Last Activity</th>
               </tr>
             </thead>
 
@@ -489,15 +701,19 @@ function StudentSessionsTable({ sessions }) {
                       {session.difficulty || "-"}
                     </span>
                   </td>
-                  <td>{session.status || "-"}</td>
+                  <td>
+                    <span className={`badge ${getLifecycleStatusBadgeClass(session.status)}`}>
+                      {getLifecycleStatusLabel(session.status)}
+                    </span>
+                  </td>
                   <td>{session.score === null || session.score === undefined ? "-" : formatNumber(session.score)}</td>
                   <td>
-                    <span className={`badge ${getStatusBadgeClass(session.status, session.passed)}`}>
-                      {session.passed === true ? "PASS" : session.passed === false ? "FAIL" : "N/A"}
+                    <span className={`badge ${getValidationResultBadgeClass(session.passed)}`}>
+                      {getValidationResultLabel(session.passed)}
                     </span>
                   </td>
                   <td>{formatDateTime(session.created_at)}</td>
-                  <td>{formatDateTime(session.completed_at)}</td>
+                  <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
                 </tr>
               ))}
             </tbody>
@@ -633,7 +849,11 @@ function StudentScoreTrend({ scoreTrend }) {
                   <tr key={item.session_id}>
                     <td>{item.session_id}</td>
                     <td>{item.difficulty || "-"}</td>
-                    <td>{item.status || "-"}</td>
+                    <td>
+                      <span className={`badge ${getLifecycleStatusBadgeClass(item.status)}`}>
+                        {getLifecycleStatusLabel(item.status)}
+                      </span>
+                    </td>
                     <td>{item.score === null || item.score === undefined ? "-" : formatNumber(item.score)}</td>
                     <td>{formatDateTime(item.created_at)}</td>
                   </tr>
@@ -676,6 +896,12 @@ function InstructorDashboardPage() {
   const [isGlobalAnalyticsLoading, setIsGlobalAnalyticsLoading] = useState(false);
   const [globalErrorMessage, setGlobalErrorMessage] = useState("");
   const [globalErrorDetails, setGlobalErrorDetails] = useState("");
+  const [forceCloseSessionId, setForceCloseSessionId] = useState("");
+  const [forceCloseMessage, setForceCloseMessage] = useState("");
+  const [forceCloseErrorMessage, setForceCloseErrorMessage] = useState("");
+  const [forceCloseErrorDetails, setForceCloseErrorDetails] = useState("");
+  const [studentDetailTab, setStudentDetailTab] = useState("overview");
+  const [analyticsDetailTab, setAnalyticsDetailTab] = useState("difficulty");
 
 
   async function loadGlobalAnalytics() {
@@ -869,6 +1095,55 @@ function InstructorDashboardPage() {
     }
   }
 
+  async function handleForceCloseLab(session) {
+    const sessionId = session?.session_id;
+
+    if (!sessionId) {
+      return;
+    }
+
+    const confirmed = typeof window === "undefined"
+      ? true
+      : window.confirm(
+        `Force close lab ${sessionId}? This will stop the runtime while preserving validation history.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setForceCloseSessionId(sessionId);
+    setForceCloseMessage("");
+    setForceCloseErrorMessage("");
+    setForceCloseErrorDetails("");
+
+    try {
+      const response = await finishLab(sessionId);
+
+      setForceCloseMessage(
+        response?.message ||
+          `Lab ${sessionId} was force closed. Validation history is preserved.`
+      );
+
+      await Promise.all([
+        loadGlobalAnalytics(),
+        loadStudents(),
+        selectedStudentId ? loadStudentDetails(selectedStudentId) : Promise.resolve()
+      ]);
+    } catch (error) {
+      setForceCloseErrorMessage(
+        getErrorMessage(
+          error,
+          "Lab could not be force closed."
+        )
+      );
+      setForceCloseErrorDetails(getErrorDetails(error));
+      console.error("Instructor force close failed.", error);
+    } finally {
+      setForceCloseSessionId("");
+    }
+  }
+
   useEffect(() => {
     loadGlobalAnalytics();
     loadRuntimeReadiness();
@@ -878,6 +1153,7 @@ function InstructorDashboardPage() {
 
 
   useEffect(() => {
+    setStudentDetailTab("overview");
     loadStudentDetails(selectedStudentId);
   }, [selectedStudentId]);
 
@@ -996,6 +1272,31 @@ function InstructorDashboardPage() {
             </>
           )}
 
+          {forceCloseMessage && (
+            <MessageBox
+              type="info"
+              title="Lab force close completed"
+              message={forceCloseMessage}
+            />
+          )}
+
+          {forceCloseErrorMessage && (
+            <>
+              <MessageBox
+                type="error"
+                title="Lab could not be force closed"
+                message={forceCloseErrorMessage}
+              />
+
+              {forceCloseErrorDetails && (
+                <div className="technical-detail-box">
+                  <strong>Diagnostics</strong>
+                  <p>{forceCloseErrorDetails}</p>
+                </div>
+              )}
+            </>
+          )}
+
           <div className="instructor-dashboard-v2">
             <StudentListPanel
               students={students}
@@ -1017,38 +1318,59 @@ function InstructorDashboardPage() {
               {selectedStudentId && (
                 <>
                   <section className="card selected-student-header">
-                    <div>
-                      <span className="muted">Selected Student</span>
-                      <h3>{selectedStudentId}</h3>
-                      <p className="muted">
-                        Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
-                      </p>
+                    <div className="selected-student-header-main">
+                      <div>
+                        <span className="muted">Selected Student</span>
+                        <h3>{selectedStudentId}</h3>
+                        <p className="muted">
+                          Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
+                        </p>
+                      </div>
+
+                      <div className="selected-student-header-actions">
+                        <button
+                          className="secondary-button"
+                          onClick={() => loadStudentDetails(selectedStudentId)}
+                          disabled={isStudentDetailLoading}
+                          type="button"
+                        >
+                          {isStudentDetailLoading ? "Refreshing..." : "Refresh Student"}
+                        </button>
+
+                        {isStudentDetailLoading && (
+                          <span className="badge neutral">Loading details...</span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="selected-student-header-actions">
-                      <button
-                        className="secondary-button"
-                        onClick={() => loadStudentDetails(selectedStudentId)}
-                        disabled={isStudentDetailLoading}
-                        type="button"
-                      >
-                        {isStudentDetailLoading ? "Refreshing..." : "Refresh Student"}
-                      </button>
-
-                      {isStudentDetailLoading && (
-                        <span className="badge neutral">Loading details...</span>
-                      )}
-                    </div>
+                    <StudentSummaryCards summary={summary} compact />
                   </section>
 
-                  <StudentSummaryCards summary={summary} />
+                  <StudentDetailTabs
+                    activeTab={studentDetailTab}
+                    onChange={setStudentDetailTab}
+                  />
 
-                  <div className="two-column instructor-detail-grid">
+                  {studentDetailTab === "overview" && (
+                    <StudentDetailOverview
+                      sessions={sessions}
+                      topicWeaknesses={topicWeaknesses}
+                      closingSessionId={forceCloseSessionId}
+                      onForceCloseLab={handleForceCloseLab}
+                    />
+                  )}
+
+                  {studentDetailTab === "sessions" && (
+                    <StudentSessionsTable sessions={sessions} />
+                  )}
+
+                  {studentDetailTab === "weaknesses" && (
                     <StudentTopicWeaknesses topicWeaknesses={topicWeaknesses} />
-                    <StudentScoreTrend scoreTrend={scoreTrend} />
-                  </div>
+                  )}
 
-                  <StudentSessionsTable sessions={sessions} />
+                  {studentDetailTab === "scoreTrend" && (
+                    <StudentScoreTrend scoreTrend={scoreTrend} />
+                  )}
                 </>
               )}
             </section>
@@ -1083,14 +1405,26 @@ function InstructorDashboardPage() {
             />
           )}
 
-          <AnalyticsSummaryCards summary={globalSummary} />
+          <div className="analytics-detail-shell">
+            <AnalyticsSummaryCards summary={globalSummary} />
 
-          <div className="two-column analytics-main-grid">
-            <DifficultyDistributionChart distribution={difficultyDistribution} />
-            <TopicWeaknessList topicWeaknesses={globalTopicWeaknesses} />
+            <AnalyticsDetailTabs
+              activeTab={analyticsDetailTab}
+              onChange={setAnalyticsDetailTab}
+            />
+
+            {analyticsDetailTab === "difficulty" && (
+              <DifficultyDistributionChart distribution={difficultyDistribution} />
+            )}
+
+            {analyticsDetailTab === "weaknesses" && (
+              <TopicWeaknessList topicWeaknesses={globalTopicWeaknesses} />
+            )}
+
+            {analyticsDetailTab === "recentSessions" && (
+              <RecentSessionsTable sessions={recentSessions} />
+            )}
           </div>
-
-          <RecentSessionsTable sessions={recentSessions} />
         </div>
       )}
 
