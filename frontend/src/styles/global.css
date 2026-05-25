@@ -4407,10 +4407,27 @@ button:disabled,
 }
 
 /* Sprint 27 selected student detail polish */
+.instructor-dashboard-v2 {
+  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.instructor-student-detail {
+  min-width: 0;
+  width: 100%;
+}
+
+.instructor-student-detail > .card,
+.instructor-student-detail > .student-detail-tabs {
+  box-sizing: border-box;
+  width: 100%;
+}
+
 .selected-student-header {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   align-items: stretch;
+  padding-block: 18px;
 }
 
 .selected-student-header-main {
@@ -4421,21 +4438,46 @@ button:disabled,
 }
 
 .selected-student-header .student-summary-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .selected-student-header .metric-card {
-  padding: 10px 12px;
+  min-height: 62px;
+  padding: 8px 10px;
+}
+
+.selected-student-header .metric-card span {
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .selected-student-header .metric-card strong {
-  font-size: 20px;
-  line-height: 1.2;
+  font-size: 18px;
+  line-height: 1.15;
 }
 
 .student-detail-tabs {
   margin-top: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.student-detail-tabs .instructor-portal-tab {
+  flex: 1 1 0;
+  text-align: center;
+}
+
+.instructor-student-detail .table-wrapper,
+.instructor-student-detail .analytics-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.instructor-student-detail .score-trend-chart {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 @media (max-width: 1200px) {

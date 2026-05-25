@@ -536,10 +536,6 @@ function StudentSummaryCards({ summary, compact = false }) {
     {
       title: "Pass Rate",
       value: formatPercent(summary?.pass_rate)
-    },
-    {
-      title: "Last Activity",
-      value: formatDateTime(summary?.last_activity_at)
     }
   ];
 
