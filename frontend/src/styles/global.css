@@ -4596,3 +4596,93 @@ button:disabled,
     margin-top: 10px;
   }
 }
+
+/* Sprint 27 analytics detail tab polish */
+.analytics-detail-shell {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.analytics-detail-shell > .card,
+.analytics-detail-shell > .analytics-detail-tabs {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.analytics-summary-card {
+  display: grid;
+  gap: 14px;
+}
+
+.analytics-summary-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analytics-summary-metric {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  min-height: 78px;
+  padding: 10px 12px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.analytics-summary-metric strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-color);
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.analytics-summary-metric p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.analytics-detail-tabs {
+  display: flex;
+  max-width: none;
+  width: 100%;
+}
+
+.analytics-detail-tabs .instructor-portal-tab {
+  flex: 1 1 0;
+  justify-content: center;
+  text-align: center;
+}
+
+.analytics-detail-shell .analytics-card {
+  width: 100%;
+}
+
+.analytics-detail-shell .analytics-table-wrapper {
+  overflow-x: visible;
+}
+
+.analytics-detail-shell .analytics-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+.analytics-detail-shell .analytics-table th,
+.analytics-detail-shell .analytics-table td {
+  white-space: normal;
+}
+
+@media (max-width: 900px) {
+  .analytics-summary-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .analytics-summary-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}

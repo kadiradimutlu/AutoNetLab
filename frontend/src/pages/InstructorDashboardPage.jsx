@@ -215,6 +215,21 @@ const STUDENT_DETAIL_TABS = [
   }
 ];
 
+const ANALYTICS_DETAIL_TABS = [
+  {
+    id: "difficulty",
+    label: "Difficulty Distribution"
+  },
+  {
+    id: "weaknesses",
+    label: "Topic Weakness Analytics"
+  },
+  {
+    id: "recentSessions",
+    label: "Recent Sessions"
+  }
+];
+
 function getReadinessStatusLabel(readiness, isLoading, errorMessage) {
   if (isLoading) {
     return "Checking";
@@ -321,6 +336,25 @@ function StudentDetailTabs({ activeTab, onChange }) {
   return (
     <div className="instructor-portal-tabs student-detail-tabs" role="tablist" aria-label="Selected student detail sections">
       {STUDENT_DETAIL_TABS.map((tab) => (
+        <button
+          aria-selected={activeTab === tab.id}
+          className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AnalyticsDetailTabs({ activeTab, onChange }) {
+  return (
+    <div className="instructor-portal-tabs analytics-detail-tabs" role="tablist" aria-label="Instructor analytics sections">
+      {ANALYTICS_DETAIL_TABS.map((tab) => (
         <button
           aria-selected={activeTab === tab.id}
           className={`instructor-portal-tab ${activeTab === tab.id ? "active" : ""}`}
@@ -867,6 +901,7 @@ function InstructorDashboardPage() {
   const [forceCloseErrorMessage, setForceCloseErrorMessage] = useState("");
   const [forceCloseErrorDetails, setForceCloseErrorDetails] = useState("");
   const [studentDetailTab, setStudentDetailTab] = useState("overview");
+  const [analyticsDetailTab, setAnalyticsDetailTab] = useState("difficulty");
 
 
   async function loadGlobalAnalytics() {
@@ -1370,14 +1405,26 @@ function InstructorDashboardPage() {
             />
           )}
 
-          <AnalyticsSummaryCards summary={globalSummary} />
+          <div className="analytics-detail-shell">
+            <AnalyticsSummaryCards summary={globalSummary} />
 
-          <div className="two-column analytics-main-grid">
-            <DifficultyDistributionChart distribution={difficultyDistribution} />
-            <TopicWeaknessList topicWeaknesses={globalTopicWeaknesses} />
+            <AnalyticsDetailTabs
+              activeTab={analyticsDetailTab}
+              onChange={setAnalyticsDetailTab}
+            />
+
+            {analyticsDetailTab === "difficulty" && (
+              <DifficultyDistributionChart distribution={difficultyDistribution} />
+            )}
+
+            {analyticsDetailTab === "weaknesses" && (
+              <TopicWeaknessList topicWeaknesses={globalTopicWeaknesses} />
+            )}
+
+            {analyticsDetailTab === "recentSessions" && (
+              <RecentSessionsTable sessions={recentSessions} />
+            )}
           </div>
-
-          <RecentSessionsTable sessions={recentSessions} />
         </div>
       )}
 
