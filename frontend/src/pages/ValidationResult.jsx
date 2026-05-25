@@ -84,7 +84,6 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
       const result = await validateLab(labSession.session_id);
       setValidationResult(result);
       setActiveTab("summary");
-      setInfoMessage("Validation completed. You can return to the workspace, fix issues in Web CLI, and validate again.");
       await refreshLabSession();
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Validation failed. Please try again."));
@@ -205,39 +204,26 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
           />
         )}
 
-        {!isLabInactive && (
-          <MessageBox
-            type="info"
-            title="Continue after validation"
-            message="After validation, the running containers stay active. Return to the workspace to fix issues and validate again, or finish the lab when you are done."
-          />
-        )}
-
         {isLabInactive && (
           <MessageBox
             type="info"
             title="Lab is finished"
-            message="This lab is no longer running. Validation history remains available, but Web CLI is closed."
+            message={
+              infoMessage ||
+              "This lab is no longer running. Validation history remains available, but Web CLI is closed."
+            }
           />
         )}
 
-        {hasValidationResult && (
+        {!isLabInactive && hasValidationResult && (
           <MessageBox
             type={resultPassed ? "success" : "info"}
             title={resultPassed ? "All checks passed" : "Continue troubleshooting"}
             message={
               resultPassed
-                ? "All checks passed. You can finish the lab or return to the workspace to review your configuration."
-                : "Some checks still need work. Return to the workspace, update the live configuration in Web CLI, and run validation again."
+                ? "Great job. You can finish the lab now, or return to the workspace to review the configuration."
+                : "Some checks still need work. Return to the workspace, update the live configuration in Web CLI, and run validation again. The lab remains active until you finish it."
             }
-          />
-        )}
-
-        {infoMessage && (
-          <MessageBox
-            type="success"
-            title="Lab updated"
-            message={infoMessage}
           />
         )}
 

@@ -3,6 +3,7 @@ import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
 import DeviceCliCard from "../components/DeviceCliCard";
+import ScenarioOverview from "../components/ScenarioOverview";
 import {
   deployLab,
   destroyLab,
@@ -14,9 +15,11 @@ import {
   getLabHints,
   getValidationHistory
 } from "../services/apiService";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   formatDifficulty,
   formatStatus,
+  formatStudentName,
   getDifficultyClass
 } from "../utils/formatters";
 
@@ -167,6 +170,7 @@ function formatAttemptDateTime(value) {
 }
 
 function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
+  const { t } = useLanguage();
   const [cliAccessList, setCliAccessList] = useState([]);
   const [cliAccessMode, setCliAccessMode] = useState("local_docker_exec_demo");
   const [cliAccessWarning, setCliAccessWarning] = useState("");
@@ -179,7 +183,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const [lifecycleMessage, setLifecycleMessage] = useState("");
   const [lifecycleError, setLifecycleError] = useState("");
   const [lifecycleDetails, setLifecycleDetails] = useState("");
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("topology");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("sessionDetail");
   const [hints, setHints] = useState([]);
   const [isLoadingHints, setIsLoadingHints] = useState(false);
   const [hintsWarning, setHintsWarning] = useState("");
@@ -335,17 +339,6 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
   function handleWorkspaceTabChange(tabId) {
     setActiveWorkspaceTab(tabId);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      workspaceTabsRef.current?.scrollIntoView({
-        block: "start",
-        behavior: "auto"
-      });
-    });
   }
 
   async function refreshLabSession() {
@@ -620,6 +613,16 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       <section className="card workspace-tabs-card">
         <div className="workspace-tab-list" role="tablist" ref={workspaceTabsRef} aria-label="Workspace sections">
           <button
+            className={activeWorkspaceTab === "sessionDetail" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeWorkspaceTab === "sessionDetail"}
+            onClick={() => handleWorkspaceTabChange("sessionDetail")}
+          >
+            Session Detail
+          </button>
+
+          <button
             className={activeWorkspaceTab === "topology" ? "active" : ""}
             type="button"
             role="tab"
@@ -640,32 +643,101 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           </button>
 
           <button
-            className={activeWorkspaceTab === "hints" ? "active" : ""}
+            className={activeWorkspaceTab === "history" ? "active" : ""}
             type="button"
             role="tab"
-            aria-selected={activeWorkspaceTab === "hints"}
-            onClick={() => handleWorkspaceTabChange("hints")}
+            aria-selected={activeWorkspaceTab === "history"}
+            onClick={() => handleWorkspaceTabChange("history")}
           >
-            Hints
-            {hints.length > 0 && (
-              <span className="tab-count">{hints.length}</span>
-            )}
-          </button>
-
-          <button
-            className={activeWorkspaceTab === "attempts" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={activeWorkspaceTab === "attempts"}
-            onClick={() => handleWorkspaceTabChange("attempts")}
-          >
-            Attempts
+            History
             {attempts.length > 0 && (
               <span className="tab-count">{attempts.length}</span>
             )}
           </button>
         </div>
       </section>
+
+      {activeWorkspaceTab === "sessionDetail" && (
+        <section className="card workspace-session-detail-card">
+          <h3>Session Detail</h3>
+
+          <ScenarioOverview labSession={labSession} t={t} />
+
+          {isLoadingHints && (
+            <MessageBox
+              type="info"
+              title="Loading guidance"
+              message="Loading troubleshooting guidance for this lab."
+            />
+          )}
+
+          {hintsWarning && (
+            <>
+              <MessageBox
+                type="error"
+                title="Guidance could not be loaded"
+                message={hintsWarning}
+              />
+
+              {hintsDetails && (
+                <details className="technical-detail-box">
+                  <summary>Show diagnostics</summary>
+                  <p>{hintsDetails}</p>
+                </details>
+              )}
+            </>
+          )}
+
+          {!isLoadingHints && !hintsWarning && hints.length > 0 && (
+            <>
+              <h4>Additional Guidance</h4>
+
+              <div className="result-list">
+                {hints.map((hint, index) => (
+                  <article className="list-item" key={hint.id || `${hint.topic}-${index}`}>
+                    <div className="result-title-row">
+                      <div>
+                        <strong>{hint.topic || "General Troubleshooting"}</strong>
+                        <p className="muted">
+                          {hint.device ? `Device: ${hint.device}` : "Scenario-level guidance"}
+                        </p>
+                      </div>
+
+                      <span className="badge neutral">{hint.level || "general"}</span>
+                    </div>
+
+                    <p>{hint.message}</p>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="workspace-session-detail-grid">
+            <div className="info-row">
+              <span>Session ID</span>
+              <strong>{labSession.session_id}</strong>
+            </div>
+
+            <div className="info-row">
+              <span>Student</span>
+              <strong>{formatStudentName(labSession.student_id)}</strong>
+            </div>
+
+            <div className="info-row">
+              <span>Difficulty</span>
+              <span className={`badge ${difficultyClass}`}>
+                {formatDifficulty(labSession.difficulty, t)}
+              </span>
+            </div>
+
+            <div className="info-row">
+              <span>Status</span>
+              <strong>{formatStatus(labSession.status, t)}</strong>
+            </div>
+          </div>
+        </section>
+      )}
 
       {activeWorkspaceTab === "topology" && (
       <TopologyCard
@@ -758,93 +830,25 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         )}
       </section>
       )}
-      {activeWorkspaceTab === "hints" && (
-        <section className="card workspace-hints-card">
+
+      {activeWorkspaceTab === "history" && (
+        <section className="card workspace-history-card">
           <div className="section-title-row">
             <div>
-              <h3>Hints</h3>
+              <h3>Validation History</h3>
               <p className="muted">
-                Use these student-safe hints to guide your troubleshooting process without revealing exact solution commands.
+                Review previous validation runs and track progress while improving the live configuration.
               </p>
             </div>
 
-            <span className="badge neutral">{hints.length} hints</span>
-          </div>
-
-          {isLoadingHints && (
-            <MessageBox
-              type="info"
-              title="Loading hints"
-              message="Loading troubleshooting guidance for this lab."
-            />
-          )}
-
-          {hintsWarning && (
-            <>
-              <MessageBox
-                type="error"
-                title="Hints could not be loaded"
-                message={hintsWarning}
-              />
-
-              {hintsDetails && (
-                <details className="technical-detail-box">
-                  <summary>Show diagnostics</summary>
-                  <p>{hintsDetails}</p>
-                </details>
-              )}
-            </>
-          )}
-
-          {!isLoadingHints && !hintsWarning && hints.length === 0 && (
-            <MessageBox
-              type="info"
-              title="No hints available"
-              message="No student-safe hints were returned for this lab yet."
-            />
-          )}
-
-          {!isLoadingHints && !hintsWarning && hints.length > 0 && (
-            <div className="result-list">
-              {hints.map((hint, index) => (
-                <article className="list-item" key={hint.id || `${hint.topic}-${index}`}>
-                  <div className="result-title-row">
-                    <div>
-                      <strong>{hint.topic || "General Troubleshooting"}</strong>
-                      <p className="muted">
-                        {hint.device ? `Device: ${hint.device}` : "Scenario-level guidance"}
-                      </p>
-                    </div>
-
-                    <span className="badge neutral">{hint.level || "general"}</span>
-                  </div>
-
-                  <p>{hint.message}</p>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeWorkspaceTab === "attempts" && (
-        <section className="card workspace-attempts-card">
-          <div className="section-title-row">
-            <div>
-              <h3>Validation Attempts</h3>
-              <p className="muted">
-                Track each validation run for this lab. Use the results to continue improving the live configuration.
-              </p>
-            </div>
-
-            <span className="badge neutral">{attempts.length} attempts</span>
+            <span className="badge neutral">{attempts.length} records</span>
           </div>
 
           {isLoadingAttempts && (
             <MessageBox
               type="info"
-              title="Loading attempts"
-              message="Loading validation attempt history for this lab."
+              title="Loading history"
+              message="Loading validation history for this lab."
             />
           )}
 

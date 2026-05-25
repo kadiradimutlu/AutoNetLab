@@ -4346,3 +4346,31 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 26 workspace tab polish */
+.workspace-tabs-card {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  background: #ffffff;
+}
+
+.workspace-session-detail-card .scenario-overview-card,
+.workspace-session-detail-card .scenario-overview {
+  margin-top: 16px;
+}
+
+.workspace-session-detail-grid {
+  margin-top: 20px;
+}
+
+.workspace-session-detail-grid .info-row {
+  margin-top: 0;
+}
+
+@media (max-width: 900px) {
+  .workspace-tabs-card {
+    top: 8px;
+  }
+}
+
