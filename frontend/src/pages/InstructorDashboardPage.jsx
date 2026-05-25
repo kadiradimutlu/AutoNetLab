@@ -624,11 +624,7 @@ function StudentDetailOverview({
   );
 }
 
-function StudentSessionsTable({
-  sessions,
-  closingSessionId,
-  onForceCloseLab
-}) {
+function StudentSessionsTable({ sessions }) {
   return (
     <section className="card">
       <div className="section-title-row">
@@ -659,7 +655,6 @@ function StudentSessionsTable({
                 <th>Result</th>
                 <th>Created</th>
                 <th>Last Activity</th>
-                <th>Actions</th>
               </tr>
             </thead>
 
@@ -685,20 +680,6 @@ function StudentSessionsTable({
                   </td>
                   <td>{formatDateTime(session.created_at)}</td>
                   <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
-                  <td>
-                    {isForceClosableLabStatus(session.status) ? (
-                      <button
-                        className="secondary-button"
-                        disabled={closingSessionId === session.session_id}
-                        onClick={() => onForceCloseLab(session)}
-                        type="button"
-                      >
-                        {closingSessionId === session.session_id ? "Closing..." : "Force Close Lab"}
-                      </button>
-                    ) : (
-                      <span className="muted">-</span>
-                    )}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1345,11 +1326,7 @@ function InstructorDashboardPage() {
                   )}
 
                   {studentDetailTab === "sessions" && (
-                    <StudentSessionsTable
-                      sessions={sessions}
-                      closingSessionId={forceCloseSessionId}
-                      onForceCloseLab={handleForceCloseLab}
-                    />
+                    <StudentSessionsTable sessions={sessions} />
                   )}
 
                   {studentDetailTab === "weaknesses" && (

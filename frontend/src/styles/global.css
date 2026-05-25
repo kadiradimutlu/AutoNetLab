@@ -4447,10 +4447,19 @@ button:disabled,
 }
 
 .selected-student-header-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+
+.selected-student-header-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  justify-content: flex-end;
+  justify-self: end;
+  align-items: center;
+  gap: 8px;
+  padding-right: 6px;
 }
 
 .selected-student-header .student-summary-grid {
