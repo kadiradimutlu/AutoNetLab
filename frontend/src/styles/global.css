@@ -4407,13 +4407,28 @@ button:disabled,
 }
 
 /* Sprint 27 selected student detail polish */
+.instructor-portal-hero,
+.instructor-portal-shell {
+  box-sizing: border-box;
+  width: min(100%, 1220px);
+  margin-inline: auto;
+}
+
 .instructor-dashboard-v2 {
-  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
   align-items: start;
+  width: 100%;
+}
+
+.instructor-student-list-card,
+.instructor-student-detail {
+  min-width: 0;
 }
 
 .instructor-student-detail {
-  min-width: 0;
+  display: grid;
+  gap: 16px;
   width: 100%;
 }
 
@@ -4421,13 +4436,14 @@ button:disabled,
 .instructor-student-detail > .student-detail-tabs {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
 }
 
 .selected-student-header {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
-  padding-block: 18px;
+  padding-block: 16px;
 }
 
 .selected-student-header-main {
@@ -4443,22 +4459,23 @@ button:disabled,
 }
 
 .selected-student-header .metric-card {
-  min-height: 62px;
-  padding: 8px 10px;
+  min-height: 56px;
+  padding: 7px 10px;
 }
 
 .selected-student-header .metric-card span {
   font-size: 12px;
-  line-height: 1.2;
+  line-height: 1.15;
   white-space: nowrap;
 }
 
 .selected-student-header .metric-card strong {
-  font-size: 18px;
-  line-height: 1.15;
+  font-size: 17px;
+  line-height: 1.1;
 }
 
 .student-detail-tabs {
+  display: flex;
   margin-top: 0;
   max-width: none;
   width: 100%;
@@ -4466,6 +4483,7 @@ button:disabled,
 
 .student-detail-tabs .instructor-portal-tab {
   flex: 1 1 0;
+  justify-content: center;
   text-align: center;
 }
 
@@ -4481,8 +4499,23 @@ button:disabled,
 }
 
 @media (max-width: 1200px) {
+  .instructor-portal-hero,
+  .instructor-portal-shell {
+    width: 100%;
+  }
+
+  .instructor-dashboard-v2 {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
   .selected-student-header .student-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .instructor-dashboard-v2 {
+    grid-template-columns: 1fr;
   }
 }
 
