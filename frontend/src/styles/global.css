@@ -4537,3 +4537,62 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 27 final student detail alignment fixes */
+.selected-student-header {
+  position: relative;
+  padding-right: 20px;
+}
+
+.selected-student-header-main {
+  display: block;
+  padding-right: 190px;
+}
+
+.selected-student-header-actions {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-right: 0;
+}
+
+.instructor-student-detail .table-wrapper,
+.instructor-student-detail .analytics-table-wrapper {
+  overflow-x: visible;
+}
+
+.instructor-student-detail .analytics-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+.instructor-student-detail .analytics-table th,
+.instructor-student-detail .analytics-table td {
+  white-space: normal;
+}
+
+.instructor-student-detail .analytics-table th:last-child,
+.instructor-student-detail .analytics-table td:last-child {
+  min-width: 150px;
+}
+
+.instructor-student-detail .score-trend-chart {
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .selected-student-header-main {
+    padding-right: 0;
+  }
+
+  .selected-student-header-actions {
+    position: static;
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+}
