@@ -4686,3 +4686,8 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 27 portal tab layout stability */
+html {
+  scrollbar-gutter: stable;
+}
