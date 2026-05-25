@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
@@ -193,6 +193,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const [attemptsWarning, setAttemptsWarning] = useState("");
   const [attemptsDetails, setAttemptsDetails] = useState("");
   const workspaceTabsRef = useRef(null);
+  const shouldPinWorkspaceTabsRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -337,7 +338,37 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
     };
   }, [labSession?.session_id, labSession?.status]);
 
+  useLayoutEffect(() => {
+    if (!shouldPinWorkspaceTabsRef.current) {
+      return undefined;
+    }
+
+    function pinWorkspaceTabs() {
+      const element = workspaceTabsRef.current;
+
+      if (!element || typeof window === "undefined") {
+        return;
+      }
+
+      const targetTop = element.getBoundingClientRect().top + window.scrollY;
+
+      window.scrollTo({
+        top: Math.max(targetTop, 0),
+        behavior: "auto"
+      });
+    }
+
+    pinWorkspaceTabs();
+
+    const frameId = window.requestAnimationFrame(pinWorkspaceTabs);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [activeWorkspaceTab]);
+
   function handleWorkspaceTabChange(tabId) {
+    shouldPinWorkspaceTabsRef.current = true;
     setActiveWorkspaceTab(tabId);
   }
 
@@ -662,56 +693,6 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           <h3>Session Detail</h3>
 
           <ScenarioOverview labSession={labSession} t={t} />
-
-          {isLoadingHints && (
-            <MessageBox
-              type="info"
-              title="Loading guidance"
-              message="Loading troubleshooting guidance for this lab."
-            />
-          )}
-
-          {hintsWarning && (
-            <>
-              <MessageBox
-                type="error"
-                title="Guidance could not be loaded"
-                message={hintsWarning}
-              />
-
-              {hintsDetails && (
-                <details className="technical-detail-box">
-                  <summary>Show diagnostics</summary>
-                  <p>{hintsDetails}</p>
-                </details>
-              )}
-            </>
-          )}
-
-          {!isLoadingHints && !hintsWarning && hints.length > 0 && (
-            <>
-              <h4>Additional Guidance</h4>
-
-              <div className="result-list">
-                {hints.map((hint, index) => (
-                  <article className="list-item" key={hint.id || `${hint.topic}-${index}`}>
-                    <div className="result-title-row">
-                      <div>
-                        <strong>{hint.topic || "General Troubleshooting"}</strong>
-                        <p className="muted">
-                          {hint.device ? `Device: ${hint.device}` : "Scenario-level guidance"}
-                        </p>
-                      </div>
-
-                      <span className="badge neutral">{hint.level || "general"}</span>
-                    </div>
-
-                    <p>{hint.message}</p>
-                  </article>
-                ))}
-              </div>
-            </>
-          )}
 
           <div className="workspace-session-detail-grid">
             <div className="info-row">

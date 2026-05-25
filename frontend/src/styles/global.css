@@ -4374,3 +4374,16 @@ button:disabled,
   }
 }
 
+/* Sprint 26 workspace tab pin fix */
+.workspace-tabs-card {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 80 !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.workspace-tab-list {
+  scroll-margin-top: 0;
+}
+
