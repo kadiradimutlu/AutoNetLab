@@ -4804,7 +4804,7 @@ html {
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
-  min-height: 244px;
+  min-height: 252px;
   padding: 12px;
 }
 
@@ -4855,6 +4855,29 @@ html {
   white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div:nth-child(4) {
+  grid-template-columns: 1fr;
+  align-items: start;
+  min-height: 52px;
+  padding-block: 7px;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div:nth-child(4) span {
+  margin-bottom: 4px;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div:nth-child(4) strong {
+  display: block;
+  overflow: visible;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .network-diagram-canvas.linear .topology-linear-link {
