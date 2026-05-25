@@ -9,6 +9,7 @@ import RuntimeReadinessCard from "../components/RuntimeReadinessCard";
 import DatabaseReadinessCard from "../components/DatabaseReadinessCard";
 import {
   getDifficultyDistribution,
+  finishLab,
   getErrorDetails,
   getErrorMessage,
   getInstructorSummary,
@@ -144,6 +145,12 @@ function getValidationResultBadgeClass(passed) {
 
 function getSessionLastActivityAt(session) {
   return session?.completed_at || session?.updated_at || session?.created_at;
+}
+
+function isForceClosableLabStatus(status) {
+  return ["created", "deployed", "active", "validated"].includes(
+    String(status || "").toLowerCase()
+  );
 }
 
 function getSeverityClass(severity) {
@@ -504,7 +511,11 @@ function StudentSummaryCards({ summary }) {
   );
 }
 
-function StudentSessionsTable({ sessions }) {
+function StudentSessionsTable({
+  sessions,
+  closingSessionId,
+  onForceCloseLab
+}) {
   return (
     <section className="card">
       <div className="section-title-row">
@@ -535,6 +546,7 @@ function StudentSessionsTable({ sessions }) {
                 <th>Result</th>
                 <th>Created</th>
                 <th>Last Activity</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
@@ -560,6 +572,20 @@ function StudentSessionsTable({ sessions }) {
                   </td>
                   <td>{formatDateTime(session.created_at)}</td>
                   <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
+                  <td>
+                    {isForceClosableLabStatus(session.status) ? (
+                      <button
+                        className="secondary-button"
+                        disabled={closingSessionId === session.session_id}
+                        onClick={() => onForceCloseLab(session)}
+                        type="button"
+                      >
+                        {closingSessionId === session.session_id ? "Closing..." : "Force Close Lab"}
+                      </button>
+                    ) : (
+                      <span className="muted">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -742,6 +768,10 @@ function InstructorDashboardPage() {
   const [isGlobalAnalyticsLoading, setIsGlobalAnalyticsLoading] = useState(false);
   const [globalErrorMessage, setGlobalErrorMessage] = useState("");
   const [globalErrorDetails, setGlobalErrorDetails] = useState("");
+  const [forceCloseSessionId, setForceCloseSessionId] = useState("");
+  const [forceCloseMessage, setForceCloseMessage] = useState("");
+  const [forceCloseErrorMessage, setForceCloseErrorMessage] = useState("");
+  const [forceCloseErrorDetails, setForceCloseErrorDetails] = useState("");
 
 
   async function loadGlobalAnalytics() {
@@ -935,6 +965,55 @@ function InstructorDashboardPage() {
     }
   }
 
+  async function handleForceCloseLab(session) {
+    const sessionId = session?.session_id;
+
+    if (!sessionId) {
+      return;
+    }
+
+    const confirmed = typeof window === "undefined"
+      ? true
+      : window.confirm(
+        `Force close lab ${sessionId}? This will stop the runtime while preserving validation history.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setForceCloseSessionId(sessionId);
+    setForceCloseMessage("");
+    setForceCloseErrorMessage("");
+    setForceCloseErrorDetails("");
+
+    try {
+      const response = await finishLab(sessionId);
+
+      setForceCloseMessage(
+        response?.message ||
+          `Lab ${sessionId} was force closed. Validation history is preserved.`
+      );
+
+      await Promise.all([
+        loadGlobalAnalytics(),
+        loadStudents(),
+        selectedStudentId ? loadStudentDetails(selectedStudentId) : Promise.resolve()
+      ]);
+    } catch (error) {
+      setForceCloseErrorMessage(
+        getErrorMessage(
+          error,
+          "Lab could not be force closed."
+        )
+      );
+      setForceCloseErrorDetails(getErrorDetails(error));
+      console.error("Instructor force close failed.", error);
+    } finally {
+      setForceCloseSessionId("");
+    }
+  }
+
   useEffect(() => {
     loadGlobalAnalytics();
     loadRuntimeReadiness();
@@ -1062,6 +1141,31 @@ function InstructorDashboardPage() {
             </>
           )}
 
+          {forceCloseMessage && (
+            <MessageBox
+              type="info"
+              title="Lab force close completed"
+              message={forceCloseMessage}
+            />
+          )}
+
+          {forceCloseErrorMessage && (
+            <>
+              <MessageBox
+                type="error"
+                title="Lab could not be force closed"
+                message={forceCloseErrorMessage}
+              />
+
+              {forceCloseErrorDetails && (
+                <div className="technical-detail-box">
+                  <strong>Diagnostics</strong>
+                  <p>{forceCloseErrorDetails}</p>
+                </div>
+              )}
+            </>
+          )}
+
           <div className="instructor-dashboard-v2">
             <StudentListPanel
               students={students}
@@ -1114,7 +1218,11 @@ function InstructorDashboardPage() {
                     <StudentScoreTrend scoreTrend={scoreTrend} />
                   </div>
 
-                  <StudentSessionsTable sessions={sessions} />
+                  <StudentSessionsTable
+                    sessions={sessions}
+                    closingSessionId={forceCloseSessionId}
+                    onForceCloseLab={handleForceCloseLab}
+                  />
                 </>
               )}
             </section>
