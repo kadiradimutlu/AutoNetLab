@@ -3,7 +3,8 @@ import {
   createLab,
   getDifficulties,
   getErrorDetails,
-  getErrorMessage
+  getErrorMessage,
+  getLab
 } from "../services/apiService";
 import MessageBox from "../components/MessageBox";
 import { useLanguage } from "../hooks/useLanguage";
@@ -64,6 +65,8 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
   const [difficulty, setDifficulty] = useState("easy");
   const [difficulties, setDifficulties] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [isOpeningActiveLab, setIsOpeningActiveLab] = useState(false);
+  const [activeLabConflict, setActiveLabConflict] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
 
@@ -93,6 +96,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
     setIsCreating(true);
     setErrorMessage("");
     setErrorDetails("");
+    setActiveLabConflict(null);
 
     try {
       const newLab = await createLab({
@@ -103,11 +107,46 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
       onLabCreated(newLab);
     } catch (error) {
+      const isActiveLabConflict =
+        error?.errorCode === "ACTIVE_LAB_ALREADY_EXISTS" ||
+        Boolean(error?.activeSessionId);
+
+      if (isActiveLabConflict) {
+        setActiveLabConflict({
+          sessionId: error.activeSessionId || "",
+          message:
+            error.friendlyMessage ||
+            "You already have an active lab. Finish or close it before creating a new one."
+        });
+      }
+
       setErrorMessage(getErrorMessage(error, "Lab could not be created. Please try again."));
       setErrorDetails(getErrorDetails(error));
       console.error(error);
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function handleOpenActiveLab() {
+    if (!activeLabConflict?.sessionId) {
+      onNavigate("myLabs");
+      return;
+    }
+
+    setIsOpeningActiveLab(true);
+    setErrorMessage("");
+    setErrorDetails("");
+
+    try {
+      const activeLab = await getLab(activeLabConflict.sessionId);
+      onLabCreated(activeLab);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Active lab could not be opened."));
+      setErrorDetails(getErrorDetails(error));
+      console.error(error);
+    } finally {
+      setIsOpeningActiveLab(false);
     }
   }
 
@@ -134,9 +173,34 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           <>
             <MessageBox
               type="error"
-              title="Lab creation failed"
-              message={errorMessage}
+              title={activeLabConflict ? "Active lab already exists" : "Lab creation failed"}
+              message={
+                activeLabConflict
+                  ? "You already have an active lab. Open the active lab or finish it from My Labs before creating a new one."
+                  : errorMessage
+              }
             />
+
+            {activeLabConflict && (
+              <div className="actions">
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={handleOpenActiveLab}
+                  disabled={isOpeningActiveLab}
+                >
+                  {isOpeningActiveLab ? "Opening..." : "Open Active Lab"}
+                </button>
+
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => onNavigate("myLabs")}
+                >
+                  View My Labs
+                </button>
+              </div>
+            )}
 
             {errorDetails && (
               <details className="technical-detail-box">
