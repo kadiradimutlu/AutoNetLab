@@ -4694,13 +4694,31 @@ html {
 
 /* Sprint 28 student lab console polish */
 .lab-console-workspace {
+  grid-column: 1 / -1;
   display: grid;
+  grid-template-columns: 1fr;
   gap: 16px;
+  width: 100%;
+  min-width: 0;
 }
 
-.lab-console-workspace > .card {
+.lab-console-workspace > .topology-card-workspace,
+.lab-console-workspace > .lab-workspace-terminal-card {
+  grid-area: auto !important;
+  position: relative;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+}
+
+.lab-console-workspace > .topology-card-workspace {
+  order: 1;
+  z-index: 1;
+}
+
+.lab-console-workspace > .lab-workspace-terminal-card {
+  order: 2;
+  z-index: 1;
 }
 
 .network-diagram-canvas.linear {
@@ -4708,26 +4726,30 @@ html {
 }
 
 .topology-linear-diagram {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(96px, 132px)
+    minmax(220px, 1fr)
+    minmax(96px, 132px)
+    minmax(220px, 1fr);
+  align-items: center;
   gap: 12px;
   width: 100%;
 }
 
 .topology-linear-node {
-  flex: 1 1 0;
   min-width: 0;
 }
 
 .topology-linear-link {
-  flex: 0 0 132px;
   align-self: center;
-  min-width: 112px;
+  min-width: 96px;
 }
 
 .topology-linear-link .network-link-line {
   width: 100%;
-  min-width: 100px;
+  min-width: 86px;
 }
 
 .topology-linear-link .network-link-label {
@@ -4735,9 +4757,18 @@ html {
   text-align: center;
 }
 
+@media (min-width: 1280px) {
+  .lab-workspace-page > .workspace-action-card,
+  .lab-workspace-page > .workspace-tabs-card,
+  .lab-workspace-page > .lab-console-workspace,
+  .lab-workspace-page > .workspace-session-detail-card,
+  .lab-workspace-page > .workspace-history-card {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 980px) {
   .topology-linear-diagram {
-    display: grid;
     grid-template-columns: 1fr;
   }
 
