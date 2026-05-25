@@ -350,7 +350,8 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         return;
       }
 
-      const targetTop = element.getBoundingClientRect().top + window.scrollY;
+      const tabContainer = element.closest(".workspace-tabs-card") || element;
+      const targetTop = tabContainer.getBoundingClientRect().top + window.scrollY;
 
       window.scrollTo({
         top: Math.max(targetTop, 0),
@@ -360,10 +361,21 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
     pinWorkspaceTabs();
 
-    const frameId = window.requestAnimationFrame(pinWorkspaceTabs);
+    let frameTwoId = 0;
+    const frameOneId = window.requestAnimationFrame(() => {
+      pinWorkspaceTabs();
+      frameTwoId = window.requestAnimationFrame(pinWorkspaceTabs);
+    });
+    const timeoutId = window.setTimeout(pinWorkspaceTabs, 80);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      window.cancelAnimationFrame(frameOneId);
+
+      if (frameTwoId) {
+        window.cancelAnimationFrame(frameTwoId);
+      }
+
+      window.clearTimeout(timeoutId);
     };
   }, [activeWorkspaceTab]);
 

@@ -4387,3 +4387,9 @@ button:disabled,
   scroll-margin-top: 0;
 }
 
+/* Sprint 26 short workspace panel scroll runway */
+.workspace-session-detail-card,
+.workspace-history-card {
+  min-height: 100vh;
+}
+
