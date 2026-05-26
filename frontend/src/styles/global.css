@@ -4952,3 +4952,92 @@ html {
 .workspace-tab-panel-hidden {
   display: none !important;
 }
+
+/* Sprint 29 My Labs history layout polish */
+.my-labs-page {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.my-labs-page > .section-title-row {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.my-labs-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  margin: 6px 0 2px;
+}
+
+.my-labs-summary-grid .stat-card {
+  box-sizing: border-box;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.my-labs-summary-grid .stat-card span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.my-labs-summary-grid .stat-card strong {
+  display: block;
+  color: #111827;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.my-labs-summary-grid .stat-card small {
+  display: block;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.my-labs-list {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.my-lab-card {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.my-lab-card .actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .my-labs-page > .section-title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-labs-page > .section-title-row .actions {
+    justify-content: flex-start;
+  }
+
+  .my-labs-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* End Sprint 29 My Labs history layout polish */

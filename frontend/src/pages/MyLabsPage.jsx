@@ -100,7 +100,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
     setErrorDetails("");
 
     try {
-      const result = await listLabSessions({ limit: 50 });
+      const result = await listLabSessions({ limit: 200 });
       setSessions(Array.isArray(result?.sessions) ? result.sessions : []);
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Lab history could not be loaded."));
@@ -425,4 +425,3 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 }
 
 export default MyLabsPage;
-
