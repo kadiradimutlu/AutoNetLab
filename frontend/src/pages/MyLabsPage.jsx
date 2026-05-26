@@ -236,14 +236,6 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Visible for {authUser?.display_name || authUser?.username || "the signed-in user"}</small>
         </div>
 
-        <div className={getSummaryStatCardClassName("active", sessions.filter((session) => isActiveLabStatus(session.status)).length)}>
-          <span>Active labs</span>
-          <strong>
-            {sessions.filter((session) => isActiveLabStatus(session.status)).length}
-          </strong>
-          <small>Created, deployed, or validated sessions</small>
-        </div>
-
         <div className="stat-card">
           <span>Validated labs</span>
           <strong>
@@ -252,18 +244,26 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Sessions with scoring data</small>
         </div>
 
+        <div className="stat-card">
+          <span>Passed labs</span>
+          <strong>{sessions.filter((session) => session.passed === true).length}</strong>
+          <small>Successful validation results</small>
+        </div>
+
+        <div className={getSummaryStatCardClassName("active", sessions.filter((session) => isActiveLabStatus(session.status)).length)}>
+          <span>Active labs</span>
+          <strong>
+            {sessions.filter((session) => isActiveLabStatus(session.status)).length}
+          </strong>
+          <small>Created, deployed, or validated sessions</small>
+        </div>
+
         <div className={getSummaryStatCardClassName("cleanup", sessions.filter((session) => isCleanupRequiredStatus(session.status)).length)}>
           <span>Needs cleanup</span>
           <strong>
             {sessions.filter((session) => isCleanupRequiredStatus(session.status)).length}
           </strong>
           <small>Error-state sessions that may need runtime cleanup</small>
-        </div>
-
-        <div className="stat-card">
-          <span>Passed labs</span>
-          <strong>{sessions.filter((session) => session.passed === true).length}</strong>
-          <small>Successful validation results</small>
         </div>
       </section>
 
