@@ -46,10 +46,12 @@ def _failed_runtime_action(session_id: str) -> dict:
 
 
 def test_deploy_runtime_failure_attempts_best_effort_cleanup(monkeypatch):
+    student_id = f"sprint29-runtime-cleanup-student-{uuid4().hex[:8]}"
+
     create_response = client.post(
         "/api/v1/labs",
         json={
-            "student_id": "sprint29-runtime-cleanup-student",
+            "student_id": student_id,
             "difficulty": "hard",
             "topology_template": "basic-two-router",
         },
@@ -296,3 +298,179 @@ def test_sprint29_historical_error_destroy_keeps_error_when_runtime_exists(monke
     refreshed = get_lab_session(session_id)
 
     assert refreshed["status"] == SessionStatus.error
+
+
+def test_sprint29_error_lab_blocks_new_lab_creation_until_cleanup():
+    student_id = f"sprint29-cleanup-required-block-{uuid4().hex[:8]}"
+
+    first_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    session_id = first_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.error)
+
+    second_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert second_response.status_code == 409
+
+    detail = second_response.json()["detail"]
+
+    assert detail["active_session_id"] == session_id
+    assert detail["blocking_session_id"] == session_id
+    assert detail["blocking_status"] == "error"
+    assert detail["cleanup_required"] is True
+    assert "requires runtime cleanup" in detail["message"]
+
+
+def test_sprint29_db_only_error_lab_blocks_new_lab_creation_until_cleanup():
+    student_id = f"sprint29-db-only-cleanup-block-{uuid4().hex[:8]}"
+
+    first_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    session_id = first_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.error)
+    session_service._sessions.pop(session_id, None)
+
+    second_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert second_response.status_code == 409
+
+    detail = second_response.json()["detail"]
+
+    assert detail["active_session_id"] == session_id
+    assert detail["blocking_status"] == "error"
+    assert detail["cleanup_required"] is True
+
+
+def test_sprint29_destroyed_cleanup_required_lab_allows_new_lab(monkeypatch):
+    student_id = f"sprint29-cleanup-destroyed-allows-create-{uuid4().hex[:8]}"
+
+    first_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    session_id = first_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.error)
+
+    def fake_destroy(session_id: str, topology_file: str) -> dict:
+        return _successful_action(
+            session_id=session_id,
+            status=SessionStatus.destroyed,
+            message="Containerlab topology destroyed successfully.",
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.destroy",
+        fake_destroy,
+    )
+
+    destroy_response = client.post(f"/api/v1/labs/{session_id}/destroy")
+
+    assert destroy_response.status_code == 200
+    assert destroy_response.json()["status"] == "destroyed"
+
+    second_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert second_response.status_code == 201
+
+
+def test_sprint29_cleanup_required_lab_takes_priority_over_active_lab():
+    student_id = f"sprint29-cleanup-priority-{uuid4().hex[:8]}"
+
+    cleanup_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert cleanup_response.status_code == 201
+
+    cleanup_session_id = cleanup_response.json()["session_id"]
+
+    update_session_status(cleanup_session_id, SessionStatus.destroyed)
+
+    active_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert active_response.status_code == 201
+
+    active_session_id = active_response.json()["session_id"]
+
+    update_session_status(cleanup_session_id, SessionStatus.error)
+
+    blocked_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert blocked_response.status_code == 409
+
+    detail = blocked_response.json()["detail"]
+
+    assert detail["active_session_id"] == cleanup_session_id
+    assert detail["blocking_session_id"] == cleanup_session_id
+    assert detail["blocking_session_id"] != active_session_id
+    assert detail["blocking_status"] == "error"
+    assert detail["cleanup_required"] is True
+    assert "requires runtime cleanup" in detail["message"]
