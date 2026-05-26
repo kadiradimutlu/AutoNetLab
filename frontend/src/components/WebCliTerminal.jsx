@@ -7,6 +7,13 @@ import {
   getWebCliDeviceReadiness,
   getWebCliUrl
 } from "../services/apiService";
+import {
+  cleanupExpiredTerminalTranscripts,
+  readTerminalTranscript,
+  removeTerminalTranscript,
+  trimTerminalTranscriptLines,
+  writeTerminalTranscript
+} from "../utils/terminalTranscriptStorage";
 
 const READABLE_WEB_CLI_ERRORS = {
   WEB_CLI_AUTH_REQUIRED: "Authentication is required before opening Web CLI.",
@@ -23,6 +30,22 @@ const READABLE_WEB_CLI_ERRORS = {
   WEB_CLI_CONTAINER_NOT_RUNNING: "The selected device container is not running.",
   WEB_CLI_PROCESS_START_FAILED: "The application service could not start the Web CLI runtime process."
 };
+
+const DEFAULT_TERMINAL_LINES = [
+  {
+    kind: "system",
+    text: "Web CLI is ready. Select a device and check readiness before connecting."
+  }
+];
+
+const TERMINAL_TRANSCRIPT_SAVE_DELAY_MS = 750;
+
+function getInitialTerminalLines() {
+  return DEFAULT_TERMINAL_LINES.map((line) => ({
+    ...line,
+    timestamp: new Date().toISOString()
+  }));
+}
 
 function getDeviceId(device, index) {
   return (
@@ -227,12 +250,20 @@ function ReadinessDetails({ readiness }) {
 
 function WebCliTerminal({
   sessionId,
+  studentId = "student",
   devices = [],
   mode = "browser_cli_mvp"
 }) {
   const socketRef = useRef(null);
   const outputEndRef = useRef(null);
   const hasRenderedTerminalOutputRef = useRef(false);
+  const terminalLinesRef = useRef([]);
+  const transcriptIdentityRef = useRef({
+    studentId: "student",
+    sessionId: "",
+    deviceId: ""
+  });
+  const transcriptSaveTimeoutRef = useRef(null);
 
   const normalizedDevices = useMemo(() => {
     return devices
@@ -247,15 +278,82 @@ function WebCliTerminal({
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [command, setCommand] = useState("");
-  const [terminalLines, setTerminalLines] = useState([
-    {
-      kind: "system",
-      text: "Web CLI is ready. Select a device and check readiness before connecting."
-    }
-  ]);
+  const [terminalLines, setTerminalLines] = useState(() => getInitialTerminalLines());
   const [webCliError, setWebCliError] = useState("");
   const [webCliErrorDetails, setWebCliErrorDetails] = useState("");
   const [readiness, setReadiness] = useState(null);
+
+  useEffect(() => {
+    terminalLinesRef.current = terminalLines;
+  }, [terminalLines]);
+
+  useEffect(() => {
+    transcriptIdentityRef.current = {
+      studentId,
+      sessionId,
+      deviceId: selectedDeviceId
+    };
+  }, [studentId, sessionId, selectedDeviceId]);
+
+  useEffect(() => {
+    cleanupExpiredTerminalTranscripts();
+    hasRenderedTerminalOutputRef.current = false;
+
+    if (!sessionId || !selectedDeviceId) {
+      setTerminalLines(getInitialTerminalLines());
+      return;
+    }
+
+    const restoredLines = readTerminalTranscript({
+      studentId,
+      sessionId,
+      deviceId: selectedDeviceId
+    });
+
+    if (restoredLines.length > 0) {
+      setTerminalLines(
+        trimTerminalTranscriptLines([
+          ...restoredLines,
+          {
+            kind: "system",
+            text: `Restored local terminal history for ${selectedDeviceId}.`,
+            timestamp: new Date().toISOString()
+          }
+        ])
+      );
+      return;
+    }
+
+    setTerminalLines(getInitialTerminalLines());
+  }, [studentId, sessionId, selectedDeviceId]);
+
+  useEffect(() => {
+    if (!sessionId || !selectedDeviceId) {
+      return undefined;
+    }
+
+    if (transcriptSaveTimeoutRef.current) {
+      window.clearTimeout(transcriptSaveTimeoutRef.current);
+    }
+
+    transcriptSaveTimeoutRef.current = window.setTimeout(() => {
+      writeTerminalTranscript({
+        studentId,
+        sessionId,
+        deviceId: selectedDeviceId,
+        lines: terminalLines
+      });
+
+      transcriptSaveTimeoutRef.current = null;
+    }, TERMINAL_TRANSCRIPT_SAVE_DELAY_MS);
+
+    return () => {
+      if (transcriptSaveTimeoutRef.current) {
+        window.clearTimeout(transcriptSaveTimeoutRef.current);
+        transcriptSaveTimeoutRef.current = null;
+      }
+    };
+  }, [studentId, sessionId, selectedDeviceId, terminalLines]);
 
   useEffect(() => {
     if (!selectedDeviceId && normalizedDevices.length > 0) {
@@ -293,19 +391,35 @@ function WebCliTerminal({
 
   useEffect(() => {
     return () => {
+      if (transcriptSaveTimeoutRef.current) {
+        window.clearTimeout(transcriptSaveTimeoutRef.current);
+        transcriptSaveTimeoutRef.current = null;
+      }
+
+      const identity = transcriptIdentityRef.current;
+
+      if (identity.sessionId && identity.deviceId) {
+        writeTerminalTranscript({
+          ...identity,
+          lines: terminalLinesRef.current
+        });
+      }
+
       disconnectWebCli();
     };
   }, []);
 
   function appendTerminalLine(kind, text) {
-    setTerminalLines((currentLines) => [
-      ...currentLines,
-      {
-        kind,
-        text,
-        timestamp: new Date().toISOString()
-      }
-    ]);
+    setTerminalLines((currentLines) =>
+      trimTerminalTranscriptLines([
+        ...currentLines,
+        {
+          kind,
+          text,
+          timestamp: new Date().toISOString()
+        }
+      ])
+    );
   }
 
   function disconnectWebCli() {
@@ -315,6 +429,29 @@ function WebCliTerminal({
     }
 
     setConnectionState("disconnected");
+  }
+
+  function clearTerminalHistory() {
+    if (!sessionId || !selectedDeviceId) {
+      return;
+    }
+
+    removeTerminalTranscript({
+      studentId,
+      sessionId,
+      deviceId: selectedDeviceId
+    });
+
+    setTerminalLines(
+      trimTerminalTranscriptLines([
+        ...getInitialTerminalLines(),
+        {
+          kind: "system",
+          text: `Cleared local terminal history for ${selectedDeviceId}.`,
+          timestamp: new Date().toISOString()
+        }
+      ])
+    );
   }
 
   function normalizeReadinessPayload(payload) {
@@ -614,6 +751,16 @@ function WebCliTerminal({
             type="button"
           >
             Disconnect
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={clearTerminalHistory}
+            disabled={!sessionId || !selectedDeviceId}
+            title="Clear stored terminal history for the selected device."
+            type="button"
+          >
+            Clear History
           </button>
         </div>
       </div>

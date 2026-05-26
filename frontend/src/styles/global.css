@@ -4946,3 +4946,9 @@ html {
     min-width: 0;
   }
 }
+
+/* Sprint 28 persistent Lab Console visibility */
+.lab-console-workspace[hidden],
+.workspace-tab-panel-hidden {
+  display: none !important;
+}

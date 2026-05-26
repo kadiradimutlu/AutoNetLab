@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
+import { clearTerminalTranscriptsForSession } from "../utils/terminalTranscriptStorage";
 import DeviceCliCard from "../components/DeviceCliCard";
 import ScenarioOverview from "../components/ScenarioOverview";
 import {
@@ -410,6 +411,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
     try {
       await destroyLab(labSession.session_id);
+      clearTerminalTranscriptsForSession(labSession.session_id);
       await refreshLabSession();
       setLifecycleMessage("Lab runtime reset successfully. Deploy the lab again when you are ready.");
     } catch (error) {
@@ -441,6 +443,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
     try {
       await finishLab(labSession.session_id);
+      clearTerminalTranscriptsForSession(labSession.session_id);
       const refreshedLab = await refreshLabSession();
 
       setLifecycleMessage("Lab finished successfully. Validation history is preserved.");
@@ -687,8 +690,10 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           </div>
         </section>
       )}
-      {activeWorkspaceTab === "labConsole" && (
-        <div className="lab-console-workspace">
+      <div
+        className={`lab-console-workspace ${activeWorkspaceTab === "labConsole" ? "" : "workspace-tab-panel-hidden"}`}
+        hidden={activeWorkspaceTab !== "labConsole"}
+      >
           <TopologyCard
             topology={labSession.topology}
             difficulty={labSession.difficulty}
@@ -751,6 +756,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
             <WebCliTerminal
               sessionId={labSession.session_id}
+              studentId={labSession.student_id}
               devices={cliAccess}
               mode={effectiveCliMode}
             />
@@ -777,8 +783,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           </>
         )}
       </section>
-        </div>
-      )}
+      </div>
 
       {activeWorkspaceTab === "history" && (
         <section className="card workspace-history-card">
