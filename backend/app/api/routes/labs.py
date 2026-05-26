@@ -294,9 +294,63 @@ def destroy_lab(
         topology_file=session["topology_file"],
     )
 
+    if _is_historical_error_cleanup_already_complete(
+        session=session,
+        result=result,
+    ):
+        result = _historical_error_cleanup_completed_response(
+            session_id=session_id,
+            result=result,
+        )
+
     update_session_status(session_id, result["status"])
 
     return ActionResponse(**result)
+
+
+def _is_historical_error_cleanup_already_complete(
+    session: dict,
+    result: dict,
+) -> bool:
+    if result.get("success"):
+        return False
+
+    if result.get("error_code") != "TOPOLOGY_FILE_NOT_FOUND":
+        return False
+
+    if _session_status_value(session.get("status")) != SessionStatus.error.value:
+        return False
+
+    return not containerlab_adapter.runtime_containers_exist(session)
+
+
+def _historical_error_cleanup_completed_response(
+    session_id: str,
+    result: dict,
+) -> dict:
+    return {
+        "success": True,
+        "session_id": session_id,
+        "status": SessionStatus.destroyed,
+        "message": (
+            "Historical error-state lab cleanup is already complete. "
+            "Topology metadata is missing and no runtime containers were found."
+        ),
+        "command": result.get("command"),
+        "return_code": result.get("return_code"),
+        "stdout": result.get("stdout") or "",
+        "stderr": result.get("stderr") or "",
+        "error_code": None,
+        "detail": None,
+        "suggestion": None,
+    }
+
+
+def _session_status_value(value) -> str:
+    if hasattr(value, "value"):
+        return value.value
+
+    return str(value)
 
 
 @router.post("/{session_id}/validate", response_model=StudentValidationResult)
