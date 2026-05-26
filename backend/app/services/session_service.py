@@ -44,12 +44,39 @@ DIFFICULTY_STUDENT_HINTS = {
     ],
 }
 
+ACTIVE_LAB_STATUS_VALUES = {
+    SessionStatus.created.value,
+    SessionStatus.deployed.value,
+    SessionStatus.validated.value,
+}
+
+RUNTIME_ACTIVE_STATUS_VALUES = {
+    SessionStatus.deployed.value,
+    SessionStatus.validated.value,
+}
+
+INACTIVE_LAB_STATUS_VALUES = {
+    SessionStatus.destroyed.value,
+    SessionStatus.finished.value,
+    SessionStatus.error.value,
+}
+
 def create_lab_session(
     request: CreateLabRequest,
     authenticated_student_id: str | None = None,
 ) -> LabSessionResponse:
     session_id = f"lab-{uuid4().hex[:8]}"
     student_id = authenticated_student_id or request.student_id or "demo-student"
+
+    active_session = find_active_lab_for_student(student_id)
+    if active_session is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "You already have an active lab. Finish or close it before creating a new one.",
+                "active_session_id": active_session["session_id"],
+            },
+        )
 
     generated_topology = generate_session_topology(
         session_id=session_id,
@@ -90,7 +117,9 @@ def create_lab_session(
         "cli_access": cli_access,
         "created_at": _utc_now_iso(),
         "completed_at": None,
+        "finished_at": None,
         "validation_result": None,
+        "validation_attempts": [],
         "topic_performance": None,
         "score": None,
         "passed": None,
@@ -182,12 +211,26 @@ def update_session_validation_result(session_id: str, validation_result) -> dict
     else:
         result_payload = dict(validation_result)
 
+    attempt_payload = _build_validation_attempt_payload(
+        session=session,
+        result_payload=result_payload,
+    )
+
+    validation_attempts = list(session.get("validation_attempts") or [])
+    validation_attempts.append(attempt_payload)
+
+    result_payload["attempt_number"] = attempt_payload["attempt_number"]
+    result_payload["created_at"] = attempt_payload["created_at"]
+    result_payload["passed_checks"] = attempt_payload["passed_checks"]
+    result_payload["failed_checks"] = attempt_payload["failed_checks"]
+
     session["status"] = SessionStatus.validated
     session["validation_result"] = result_payload
+    session["validation_attempts"] = validation_attempts
     session["score"] = result_payload.get("score")
     session["passed"] = result_payload.get("passed")
     session["topic_performance"] = build_topic_performance(result_payload)
-    session["completed_at"] = _utc_now_iso()
+    session["completed_at"] = attempt_payload["created_at"]
 
     if not session.get("created_at"):
         session["created_at"] = _utc_now_iso()
@@ -225,6 +268,7 @@ def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
         passed=session.get("passed"),
         created_at=session.get("created_at"),
         completed_at=session.get("completed_at"),
+        finished_at=session.get("finished_at"),
         topology_summary=build_topology_summary(session),
         topology=session["topology"],
         cli_access=session["cli_access"],
@@ -311,6 +355,190 @@ def build_student_hints(difficulty: Difficulty) -> list[str]:
     return BASE_STUDENT_HINTS + DIFFICULTY_STUDENT_HINTS.get(difficulty, [])
 
 
+
+def is_active_lab_status(value) -> bool:
+    return _enum_value(value) in ACTIVE_LAB_STATUS_VALUES
+
+
+def is_runtime_active_status(value) -> bool:
+    return _enum_value(value) in RUNTIME_ACTIVE_STATUS_VALUES
+
+
+def find_active_lab_for_student(student_id: str) -> dict | None:
+    sessions = list_lab_sessions(
+        owner_student_id=student_id,
+        limit=500,
+    )
+
+    for session in sessions:
+        if is_active_lab_status(session.get("status")):
+            return session
+
+    return None
+
+
+def finish_lab_session(session_id: str) -> dict:
+    session = get_lab_session(session_id)
+    finished_at = _utc_now_iso()
+
+    session["status"] = SessionStatus.finished
+    session["finished_at"] = finished_at
+    session["completed_at"] = session.get("completed_at") or finished_at
+
+    _save_session_metadata(session)
+    persist_lab_session_snapshot(session)
+
+    return session
+
+
+def get_validation_history_response(session_id: str) -> dict:
+    session = get_lab_session(session_id)
+
+    return {
+        "success": True,
+        "session_id": session_id,
+        "attempts": list(session.get("validation_attempts") or []),
+        "message": "Validation history retrieved successfully.",
+    }
+
+
+def build_lab_hints_response(session_id: str) -> dict:
+    session = get_lab_session(session_id)
+
+    return {
+        "success": True,
+        "session_id": session_id,
+        "hints": build_structured_student_hints(session),
+        "message": "Student-safe hints retrieved successfully.",
+    }
+
+
+def build_structured_student_hints(session: dict) -> list[dict[str, str | None]]:
+    hints: list[dict[str, str | None]] = []
+    seen: set[tuple[str, str | None, str]] = set()
+
+    for error in session.get("injected_errors", []) or []:
+        topic = str(_item_value(error, "topic") or "General Troubleshooting")
+        device = _item_value(error, "device")
+        device_text = str(device) if device else None
+        message = _topic_hint_message(topic)
+
+        key = (topic, device_text, message)
+        if key in seen:
+            continue
+
+        seen.add(key)
+        hints.append(
+            {
+                "topic": _hint_topic_label(topic),
+                "device": device_text,
+                "level": "general",
+                "message": message,
+            }
+        )
+
+    if hints:
+        return hints
+
+    return [
+        {
+            "topic": "General Troubleshooting",
+            "device": None,
+            "level": "general",
+            "message": hint,
+        }
+        for hint in build_student_hints(session.get("difficulty", Difficulty.easy))
+    ]
+
+
+def _build_validation_attempt_payload(
+    session: dict,
+    result_payload: dict,
+) -> dict:
+    checks = [
+        _student_safe_check_payload(check)
+        for check in result_payload.get("checks", [])
+    ]
+
+    passed_checks = sum(1 for check in checks if check.get("passed") is True)
+    failed_checks = sum(1 for check in checks if check.get("passed") is False)
+    previous_attempts = list(session.get("validation_attempts") or [])
+
+    return {
+        "attempt_number": len(previous_attempts) + 1,
+        "session_id": session["session_id"],
+        "score": int(result_payload.get("score", 0)),
+        "passed": bool(result_payload.get("passed", False)),
+        "passed_checks": passed_checks,
+        "failed_checks": failed_checks,
+        "created_at": _utc_now_iso(),
+        "checks": checks,
+    }
+
+
+def _student_safe_check_payload(check) -> dict:
+    if hasattr(check, "model_dump"):
+        payload = check.model_dump(mode="json")
+    else:
+        payload = dict(check)
+
+    payload.pop("evidence", None)
+
+    return {
+        "check_id": payload.get("check_id", "unknown_check"),
+        "topic": payload.get("topic", "unknown"),
+        "description": payload.get("description", "Validation check."),
+        "status": payload.get("status", "failed"),
+        "passed": bool(payload.get("passed", False)),
+        "points": int(payload.get("points", 0)),
+        "max_points": int(payload.get("max_points", 0)),
+        "message": payload.get("message", "Validation check completed."),
+        "hint": payload.get("hint"),
+    }
+
+
+def _item_value(item, key: str):
+    if hasattr(item, key):
+        return getattr(item, key)
+
+    if isinstance(item, dict):
+        return item.get(key)
+
+    return None
+
+
+def _hint_topic_label(topic: str) -> str:
+    normalized = str(topic).replace("_", " ").replace("-", " ").strip()
+    return normalized.title() if normalized else "General Troubleshooting"
+
+
+def _topic_hint_message(topic: str) -> str:
+    normalized = str(topic).lower()
+
+    if "gateway" in normalized:
+        return "Check whether the default route points to a reachable next-hop."
+
+    if "interface" in normalized:
+        return "Verify that required interfaces are administratively up and have the expected addressing."
+
+    if "route" in normalized or "routing" in normalized:
+        return "Review the routing table and confirm that the destination network has a valid path."
+
+    if "subnet" in normalized or "address" in normalized or "ip" in normalized:
+        return "Compare IP addresses and subnet masks across directly connected interfaces."
+
+    if "vlan" in normalized:
+        return "Check whether connected interfaces are placed in compatible logical segments."
+
+    if "acl" in normalized:
+        return "Review policy rules that could block expected traffic without changing unrelated connectivity."
+
+    if "connect" in normalized:
+        return "Test connectivity hop by hop and identify where traffic stops."
+
+    return "Use show and ping-style troubleshooting to compare expected and observed network behavior."
+
+
 def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
     """
     Builds CLI access / CLI eriÅŸimi information for each Containerlab node.
@@ -371,7 +599,9 @@ def _save_session_metadata(session: dict) -> None:
         ],
         "created_at": session.get("created_at") or _utc_now_iso(),
         "completed_at": session.get("completed_at"),
+        "finished_at": session.get("finished_at"),
         "validation_result": session.get("validation_result"),
+        "validation_attempts": session.get("validation_attempts", []),
         "topic_performance": session.get("topic_performance"),
         "score": session.get("score"),
         "passed": session.get("passed"),
@@ -432,7 +662,9 @@ def _load_session_metadata(session_id: str) -> dict | None:
         "cli_access": cli_access,
         "created_at": payload.get("created_at"),
         "completed_at": payload.get("completed_at"),
+        "finished_at": payload.get("finished_at"),
         "validation_result": payload.get("validation_result"),
+        "validation_attempts": payload.get("validation_attempts", []),
         "topic_performance": payload.get("topic_performance"),
         "score": payload.get("score"),
         "passed": payload.get("passed"),

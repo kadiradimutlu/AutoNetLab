@@ -293,6 +293,96 @@ function TopologyLinkBridge({ links }) {
   );
 }
 
+
+function getTopologyNodeKeys(node) {
+  return [
+    normalizeTopologyKey(node.id),
+    normalizeTopologyKey(node.label)
+  ].filter(Boolean);
+}
+
+function linkMatchesNodePair(link, leftNode, rightNode) {
+  const leftNodeKeys = getTopologyNodeKeys(leftNode);
+  const rightNodeKeys = getTopologyNodeKeys(rightNode);
+  const sourceKey = normalizeTopologyKey(link.sourceNode);
+  const targetKey = normalizeTopologyKey(link.targetNode);
+
+  return (
+    (leftNodeKeys.includes(sourceKey) && rightNodeKeys.includes(targetKey)) ||
+    (leftNodeKeys.includes(targetKey) && rightNodeKeys.includes(sourceKey))
+  );
+}
+
+function findLinkBetweenNodes(links, leftNode, rightNode) {
+  return links.find((link) => linkMatchesNodePair(link, leftNode, rightNode)) || null;
+}
+
+function getInlineLinkTitle(link, leftNode, rightNode) {
+  if (!link) {
+    return `${getSafeText(leftNode?.id)} ${LINK_ARROW} ${getSafeText(rightNode?.id)}`;
+  }
+
+  return `${getSafeText(link.sourceNode)}:${getSafeText(link.sourceInterface)} ${LINK_ARROW} ${getSafeText(link.targetNode)}:${getSafeText(link.targetInterface)}`;
+}
+
+function TopologyInlineLink({ link, leftNode, rightNode }) {
+  const title = getInlineLinkTitle(link, leftNode, rightNode);
+
+  return (
+    <div className={`network-link-bridge topology-linear-link ${link ? "" : "empty"}`} title={title}>
+      <div className="network-link-line" />
+
+      <div className="network-link-label">
+        {link ? (
+          <>
+            <strong>{link.sourceInterface}</strong>
+            <span>{LINK_ARROW}</span>
+            <strong>{link.targetInterface}</strong>
+          </>
+        ) : (
+          <span>No link metadata</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LinearTopologyDiagram({ nodes, links, cliAccess }) {
+  const diagramItems = [];
+
+  nodes.forEach((node, index) => {
+    const nextNode = nodes[index + 1];
+
+    diagramItems.push(
+      <div className="topology-linear-node" key={`node-${node.id}`}>
+        <TopologyNode
+          node={node}
+          cliInfo={findCliAccessForNode(node, cliAccess)}
+        />
+      </div>
+    );
+
+    if (nextNode) {
+      const link = findLinkBetweenNodes(links, node, nextNode);
+
+      diagramItems.push(
+        <TopologyInlineLink
+          key={`link-${node.id}-${nextNode.id}-${index}`}
+          link={link}
+          leftNode={node}
+          rightNode={nextNode}
+        />
+      );
+    }
+  });
+
+  return (
+    <div className="topology-linear-diagram" aria-label="Multi-device linear topology diagram">
+      {diagramItems}
+    </div>
+  );
+}
+
 function RingTopologyDiagram({ nodes, links, cliAccess }) {
   const positionMap = buildRingPositionMap(nodes);
   const ringLinks = links.map((link, index) => {
@@ -427,6 +517,7 @@ function TopologyCard({
   const hasNodes = nodes.length > 0;
   const isSimplePair = nodes.length === 2;
   const isFourNodeRing = nodes.length === 4 && links.length >= 4;
+  const isLinearMultiNode = nodes.length > 2 && !isFourNodeRing;
 
   return (
     <section className={`card topology-card topology-card-polished ${variant === "workspace" ? "topology-card-workspace" : ""}`}>
@@ -489,7 +580,7 @@ function TopologyCard({
             </strong>
           </div>
 
-          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""}`}>
+          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""} ${isLinearMultiNode ? "linear" : ""}`}>
             {isSimplePair ? (
               <>
                 <TopologyNode
@@ -511,13 +602,11 @@ function TopologyCard({
                 cliAccess={cliAccess}
               />
             ) : (
-              nodes.map((node) => (
-                <TopologyNode
-                  node={node}
-                  cliInfo={findCliAccessForNode(node, cliAccess)}
-                  key={node.id}
-                />
-              ))
+              <LinearTopologyDiagram
+                nodes={nodes}
+                links={links}
+                cliAccess={cliAccess}
+              />
             )}
           </div>
 

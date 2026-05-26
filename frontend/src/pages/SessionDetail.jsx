@@ -4,7 +4,7 @@ import CliAccessPanel from "../components/CliAccessPanel";
 import ScenarioOverview from "../components/ScenarioOverview";
 import {
   deployLab,
-  destroyLab,
+  finishLab,
   getCliAccess,
   getErrorDetails,
   getErrorMessage,
@@ -104,7 +104,7 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
   const { t } = useLanguage();
 
   const [isDeploying, setIsDeploying] = useState(false);
-  const [isDestroying, setIsDestroying] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const [operationResult, setOperationResult] = useState(null);
   const [operationError, setOperationError] = useState("");
   const [operationErrorDetails, setOperationErrorDetails] = useState("");
@@ -210,14 +210,14 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
     }
   }
 
-  async function handleDestroyLab() {
-    setIsDestroying(true);
+  async function handleFinishLab() {
+    setIsFinishing(true);
     setOperationResult(null);
     setOperationError("");
     setOperationErrorDetails("");
 
     try {
-      const result = await destroyLab(labSession.session_id);
+      const result = await finishLab(labSession.session_id);
       setOperationResult(result);
 
       try {
@@ -226,11 +226,11 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
         console.error("Session refresh after destroy failed.", refreshError);
       }
     } catch (error) {
-      setOperationError(getErrorMessage(error, "Destroy operation failed."));
+      setOperationError(getErrorMessage(error, "Finish operation failed."));
       setOperationErrorDetails(getErrorDetails(error));
-      console.error("Destroy operation failed.", error);
+      console.error("Finish operation failed.", error);
     } finally {
-      setIsDestroying(false);
+      setIsFinishing(false);
     }
   }
 
@@ -311,17 +311,17 @@ function SessionDetail({ labSession, onLabUpdated, onNavigate }) {
           <button
             className="primary-button"
             onClick={handleDeployLab}
-            disabled={isDeploying || isDestroying}
+            disabled={isDeploying || isFinishing}
           >
             {isDeploying ? "Starting..." : "Start Lab Environment"}
           </button>
 
           <button
             className="primary-button"
-            onClick={handleDestroyLab}
-            disabled={isDeploying || isDestroying}
+            onClick={handleFinishLab}
+            disabled={isDeploying || isFinishing}
           >
-            {isDestroying ? "Stopping..." : "Stop Lab Environment"}
+            {isFinishing ? "Stopping..." : "Stop Lab Environment"}
           </button>
 
           <button className="secondary-button" onClick={() => onNavigate("workspace")}>

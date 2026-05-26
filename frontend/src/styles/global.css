@@ -4346,3 +4346,609 @@ button:disabled,
     grid-template-columns: 1fr;
   }
 }
+
+/* Sprint 26 workspace tab polish */
+.workspace-tabs-card {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  background: #ffffff;
+}
+
+.workspace-session-detail-card .scenario-overview-card,
+.workspace-session-detail-card .scenario-overview {
+  margin-top: 16px;
+}
+
+.workspace-session-detail-grid {
+  margin-top: 20px;
+}
+
+.workspace-session-detail-grid .info-row {
+  margin-top: 0;
+}
+
+@media (max-width: 900px) {
+  .workspace-tabs-card {
+    top: 8px;
+  }
+}
+
+/* Sprint 26 workspace tab pin fix */
+.workspace-tabs-card {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 80 !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.workspace-tab-list {
+  scroll-margin-top: 0;
+}
+
+/* Sprint 26 stable workspace tab ordering */
+.lab-workspace-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.lab-workspace-page > .workspace-action-card {
+  order: 0;
+}
+
+.lab-workspace-page > .workspace-tabs-card {
+  order: 1;
+  margin-bottom: 16px;
+}
+
+.lab-workspace-page > :not(.workspace-tabs-card):not(.workspace-action-card) {
+  order: 2;
+}
+
+/* Sprint 27 selected student detail polish */
+.instructor-portal-hero,
+.instructor-portal-shell {
+  box-sizing: border-box;
+  width: min(100%, 1220px);
+  margin-inline: auto;
+}
+
+.instructor-dashboard-v2 {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+}
+
+.instructor-student-list-card,
+.instructor-student-detail {
+  min-width: 0;
+}
+
+.instructor-student-detail {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.instructor-student-detail > .card,
+.instructor-student-detail > .student-detail-tabs {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.selected-student-header {
+  display: grid;
+  gap: 10px;
+  align-items: stretch;
+  padding-block: 16px;
+}
+
+.selected-student-header-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+
+.selected-student-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  justify-self: end;
+  align-items: center;
+  gap: 8px;
+  padding-right: 6px;
+}
+
+.selected-student-header .student-summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.selected-student-header .metric-card {
+  min-height: 56px;
+  padding: 7px 10px;
+}
+
+.selected-student-header .metric-card span {
+  font-size: 12px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.selected-student-header .metric-card strong {
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.student-detail-tabs {
+  display: flex;
+  margin-top: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.student-detail-tabs .instructor-portal-tab {
+  flex: 1 1 0;
+  justify-content: center;
+  text-align: center;
+}
+
+.instructor-student-detail .table-wrapper,
+.instructor-student-detail .analytics-table-wrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.instructor-student-detail .score-trend-chart {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 1200px) {
+  .instructor-portal-hero,
+  .instructor-portal-shell {
+    width: 100%;
+  }
+
+  .instructor-dashboard-v2 {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .selected-student-header .student-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .instructor-dashboard-v2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .selected-student-header-main {
+    flex-direction: column;
+  }
+
+  .selected-student-header .student-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 27 final student detail alignment fixes */
+.selected-student-header {
+  position: relative;
+  padding-right: 20px;
+}
+
+.selected-student-header-main {
+  display: block;
+  padding-right: 190px;
+}
+
+.selected-student-header-actions {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-right: 0;
+}
+
+.instructor-student-detail .table-wrapper,
+.instructor-student-detail .analytics-table-wrapper {
+  overflow-x: visible;
+}
+
+.instructor-student-detail .analytics-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+.instructor-student-detail .analytics-table th,
+.instructor-student-detail .analytics-table td {
+  white-space: normal;
+}
+
+.instructor-student-detail .analytics-table th:last-child,
+.instructor-student-detail .analytics-table td:last-child {
+  min-width: 150px;
+}
+
+.instructor-student-detail .score-trend-chart {
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .selected-student-header-main {
+    padding-right: 0;
+  }
+
+  .selected-student-header-actions {
+    position: static;
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+}
+
+/* Sprint 27 analytics detail tab polish */
+.analytics-detail-shell {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.analytics-detail-shell > .card,
+.analytics-detail-shell > .analytics-detail-tabs {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.analytics-summary-card {
+  display: grid;
+  gap: 14px;
+}
+
+.analytics-summary-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analytics-summary-metric {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  min-height: 78px;
+  padding: 10px 12px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.analytics-summary-metric strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-color);
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.analytics-summary-metric p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.analytics-detail-tabs {
+  display: flex;
+  max-width: none;
+  width: 100%;
+}
+
+.analytics-detail-tabs .instructor-portal-tab {
+  flex: 1 1 0;
+  justify-content: center;
+  text-align: center;
+}
+
+.analytics-detail-shell .analytics-card {
+  width: 100%;
+}
+
+.analytics-detail-shell .analytics-table-wrapper {
+  overflow-x: visible;
+}
+
+.analytics-detail-shell .analytics-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+.analytics-detail-shell .analytics-table th,
+.analytics-detail-shell .analytics-table td {
+  white-space: normal;
+}
+
+@media (max-width: 900px) {
+  .analytics-summary-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .analytics-summary-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sprint 27 portal tab layout stability */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Sprint 28 student lab console polish */
+.lab-console-workspace {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+.lab-console-workspace > .topology-card-workspace,
+.lab-console-workspace > .lab-workspace-terminal-card {
+  grid-area: auto !important;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.lab-console-workspace > .topology-card-workspace {
+  order: 1;
+  z-index: 1;
+}
+
+.lab-console-workspace > .lab-workspace-terminal-card {
+  order: 2;
+  z-index: 1;
+}
+
+.network-diagram-canvas.linear {
+  display: block;
+}
+
+.topology-linear-diagram {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(96px, 132px)
+    minmax(220px, 1fr)
+    minmax(96px, 132px)
+    minmax(220px, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.topology-linear-node {
+  min-width: 0;
+}
+
+.topology-linear-link {
+  align-self: center;
+  min-width: 96px;
+}
+
+.topology-linear-link .network-link-line {
+  width: 100%;
+  min-width: 86px;
+}
+
+.topology-linear-link .network-link-label {
+  max-width: 132px;
+  text-align: center;
+}
+
+@media (min-width: 1280px) {
+  .lab-workspace-page > .workspace-action-card,
+  .lab-workspace-page > .workspace-tabs-card,
+  .lab-workspace-page > .lab-console-workspace,
+  .lab-workspace-page > .workspace-session-detail-card,
+  .lab-workspace-page > .workspace-history-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
+  .topology-linear-diagram {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-linear-link {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topology-linear-link .network-link-line {
+    min-width: 0;
+  }
+}
+
+/* Sprint 28 medium topology node detail readability */
+.network-diagram-canvas.linear .topology-linear-diagram {
+  grid-template-columns:
+    minmax(280px, 1fr)
+    minmax(86px, 96px)
+    minmax(280px, 1fr)
+    minmax(86px, 96px)
+    minmax(280px, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.network-diagram-canvas.linear .topology-linear-node {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+}
+
+.network-diagram-canvas.linear .network-node-card {
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 252px;
+  padding: 12px;
+}
+
+.network-diagram-canvas.linear .network-device-shell {
+  align-self: center;
+}
+
+.network-diagram-canvas.linear .network-node-content,
+.network-diagram-canvas.linear .network-node-title-row,
+.network-diagram-canvas.linear .network-node-detail-grid,
+.network-diagram-canvas.linear .network-node-detail-grid > div {
+  min-width: 0;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid {
+  grid-template-columns: 1fr !important;
+  gap: 6px;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 9px;
+  overflow: hidden;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid span {
+  display: block;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid strong {
+  display: block;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div:nth-child(4) {
+  grid-template-columns: 1fr;
+  align-items: start;
+  min-height: 52px;
+  padding-block: 7px;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div:nth-child(4) span {
+  margin-bottom: 4px;
+}
+
+.network-diagram-canvas.linear .network-node-detail-grid > div:nth-child(4) strong {
+  display: block;
+  overflow: visible;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.network-diagram-canvas.linear .topology-linear-link {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  min-width: 86px;
+  min-height: 72px;
+  padding-inline: 0;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-line {
+  width: 100%;
+  min-width: 72px;
+  height: 6px;
+  min-height: 6px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-label {
+  box-sizing: border-box;
+  width: 86px;
+  max-width: 86px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-label strong,
+.network-diagram-canvas.linear .topology-linear-link .network-link-label span {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .network-diagram-canvas.linear {
+    overflow-x: auto;
+  }
+
+  .network-diagram-canvas.linear .topology-linear-diagram {
+    min-width: 1040px;
+  }
+}
+
+@media (max-width: 980px) {
+  .network-diagram-canvas.linear {
+    overflow-x: visible;
+  }
+
+  .network-diagram-canvas.linear .topology-linear-diagram {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  .network-diagram-canvas.linear .topology-linear-link {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .network-diagram-canvas.linear .topology-linear-link .network-link-line {
+    min-width: 0;
+  }
+}
+
+/* Sprint 28 persistent Lab Console visibility */
+.lab-console-workspace[hidden],
+.workspace-tab-panel-hidden {
+  display: none !important;
+}

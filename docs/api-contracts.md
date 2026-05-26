@@ -1546,3 +1546,80 @@ Duplicate username400 or 409USERNAME_ALREADY_EXISTS
 Contract freeze note
 
 Sprint 21 does not change Containerlab runtime behavior, hard topology generation, validation logic, recommendation generation, or PostgreSQL table shape. It only makes response contracts and frontend-facing error behavior clearer.
+
+
+---
+
+## Sprint 26 Backend Addendum - Student Learning Loop, Hints, Validation History, and Lab Lifecycle
+
+### Runtime lifecycle rules
+
+`POST /api/v1/labs/{session_id}/validate` validates the current live/container-backed lab state. It does not destroy containers, redeploy topology, or re-run runtime error injection.
+
+Runtime-active statuses:
+
+- `deployed`
+- `validated`
+
+Runtime-inactive statuses:
+
+- `destroyed`
+- `finished`
+- `error`
+
+`created` is an active lab for ownership/quota purposes, but it is not Web CLI ready until deployed.
+
+### One active lab per student
+
+`POST /api/v1/labs` enforces one active lab per student.
+
+Active lab statuses:
+
+- `created`
+- `deployed`
+- `validated`
+
+If a student already has an active lab, the backend returns `409 Conflict` with `ACTIVE_LAB_ALREADY_EXISTS` and `active_session_id`.
+
+### Validation history
+
+`GET /api/v1/labs/{session_id}/validation-history`
+
+Returns student-safe validation attempts. Attempt checks exclude evidence, injected errors, internal commands, expected outputs, and exact solution commands.
+
+### Hints
+
+`GET /api/v1/labs/{session_id}/hints`
+
+Returns student-safe general troubleshooting hints. Hints must not expose exact solution commands, injected error payloads, evidence, validation commands, or expected outputs.
+
+### Finish lab
+
+`POST /api/v1/labs/{session_id}/finish`
+
+Destroys running Containerlab containers, preserves validation history, sets status to `finished`, and sets `finished_at`.
+
+Success message:
+
+`Lab finished successfully. Validation history is preserved.`
+
+
+### Database persistence for validation attempts
+
+Sprint 26 keeps `validation_results` as the latest-result table for backward compatibility and adds `validation_attempts` as append-oriented attempt history.
+
+Each validation attempt stores:
+
+- `session_id`
+- `attempt_number`
+- `status`
+- `passed`
+- `score`
+- `passed_checks`
+- `failed_checks`
+- `checks_json`
+- `recommendations_json`
+- `raw_result_json`
+- `created_at`
+
+This prepares Sprint 27 instructor flows for per-session validation history and active-lab management.

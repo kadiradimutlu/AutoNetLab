@@ -53,6 +53,11 @@ class LabSessionRecord(Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    validation_attempts: Mapped[list["ValidationAttemptRecord"]] = relationship(
+        back_populates="lab_session",
+        cascade="all, delete-orphan",
+        order_by="ValidationAttemptRecord.attempt_number",
+    )
     recommendations: Mapped[list["RecommendationRecord"]] = relationship(
         back_populates="lab_session",
         cascade="all, delete-orphan",
@@ -79,6 +84,30 @@ class ValidationResultRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     lab_session: Mapped[LabSessionRecord] = relationship(back_populates="validation_result")
+
+
+class ValidationAttemptRecord(Base):
+    __tablename__ = "validation_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        String(80),
+        ForeignKey("lab_sessions.session_id"),
+        index=True,
+        nullable=False,
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    passed_checks: Mapped[int] = mapped_column(Integer, nullable=False)
+    failed_checks: Mapped[int] = mapped_column(Integer, nullable=False)
+    checks_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    recommendations_json: Mapped[list] = mapped_column(JSON, nullable=False)
+    raw_result_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+    lab_session: Mapped[LabSessionRecord] = relationship(back_populates="validation_attempts")
 
 
 class RecommendationRecord(Base):

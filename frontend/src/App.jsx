@@ -15,11 +15,16 @@ import {
   isMockApiEnabled,
   logoutUser
 } from "./services/apiService";
+import { clearTerminalTranscriptsForSession } from "./utils/terminalTranscriptStorage";
 
 const ACTIVE_SESSION_STORAGE_KEY = "autonetlab_active_session_id";
 
 function getDefaultPageForRole(role) {
   return role === "instructor" ? "instructor" : "home";
+}
+
+function isInactiveLabStatus(status) {
+  return ["finished", "destroyed", "error"].includes(String(status || "").toLowerCase());
 }
 
 function scrollToPageTop() {
@@ -95,6 +100,14 @@ function App() {
         }
 
         const savedLabSession = await getLab(savedSessionId);
+
+        if (isInactiveLabStatus(savedLabSession.status)) {
+          clearTerminalTranscriptsForSession(savedSessionId);
+          localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+          setLabSession(savedLabSession);
+          return;
+        }
+
         setLabSession(savedLabSession);
         setCurrentPage("workspace");
       } catch (error) {
@@ -144,11 +157,17 @@ function App() {
   function handleLabCreated(newLabSession) {
     setLabSession(newLabSession);
 
-    if (newLabSession?.session_id) {
+    if (newLabSession?.session_id && !isInactiveLabStatus(newLabSession.status)) {
       localStorage.setItem(
         ACTIVE_SESSION_STORAGE_KEY,
         newLabSession.session_id
       );
+    } else {
+      if (newLabSession?.session_id) {
+        clearTerminalTranscriptsForSession(newLabSession.session_id);
+      }
+
+      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
 
     setCurrentPage("workspace");
@@ -158,11 +177,17 @@ function App() {
   function handleLabUpdated(updatedLabSession) {
     setLabSession(updatedLabSession);
 
-    if (updatedLabSession?.session_id) {
+    if (updatedLabSession?.session_id && !isInactiveLabStatus(updatedLabSession.status)) {
       localStorage.setItem(
         ACTIVE_SESSION_STORAGE_KEY,
         updatedLabSession.session_id
       );
+    } else {
+      if (updatedLabSession?.session_id) {
+        clearTerminalTranscriptsForSession(updatedLabSession.session_id);
+      }
+
+      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
   }
 
@@ -175,7 +200,14 @@ function App() {
 
     const fullLabSession = await getLab(sessionId);
     setLabSession(fullLabSession);
-    localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
+
+    if (!isInactiveLabStatus(fullLabSession.status)) {
+      localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
+    } else {
+      clearTerminalTranscriptsForSession(sessionId);
+      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+    }
+
     setCurrentPage(targetPage);
     scrollToPageTop();
 
@@ -260,6 +292,7 @@ function App() {
       {authUser.role === "student" && effectivePage === "result" && (
         <ValidationResult
           labSession={labSession}
+          onLabUpdated={handleLabUpdated}
           onNavigate={handleNavigate}
         />
       )}
