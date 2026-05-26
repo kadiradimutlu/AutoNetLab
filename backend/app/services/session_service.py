@@ -57,6 +57,15 @@ ACTIVE_LAB_STATUS_VALUES = {
     SessionStatus.validated.value,
 }
 
+CLEANUP_REQUIRED_LAB_STATUS_VALUES = {
+    SessionStatus.error.value,
+}
+
+BLOCKING_LAB_STATUS_VALUES = (
+    ACTIVE_LAB_STATUS_VALUES
+    | CLEANUP_REQUIRED_LAB_STATUS_VALUES
+)
+
 RUNTIME_ACTIVE_STATUS_VALUES = {
     SessionStatus.deployed.value,
     SessionStatus.validated.value,
@@ -65,7 +74,6 @@ RUNTIME_ACTIVE_STATUS_VALUES = {
 INACTIVE_LAB_STATUS_VALUES = {
     SessionStatus.destroyed.value,
     SessionStatus.finished.value,
-    SessionStatus.error.value,
 }
 
 def create_lab_session(
@@ -75,14 +83,11 @@ def create_lab_session(
     session_id = f"lab-{uuid4().hex[:8]}"
     student_id = authenticated_student_id or request.student_id or "demo-student"
 
-    active_session = find_active_lab_for_student(student_id)
-    if active_session is not None:
+    blocking_session = find_active_lab_for_student(student_id)
+    if blocking_session is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": "You already have an active lab. Finish or close it before creating a new one.",
-                "active_session_id": active_session["session_id"],
-            },
+            detail=_build_blocking_lab_create_detail(blocking_session),
         )
 
     generated_topology = generate_session_topology(
@@ -631,22 +636,62 @@ def is_runtime_active_status(value) -> bool:
 
 def find_active_lab_for_student(student_id: str) -> dict | None:
     """
-    Checks only runtime-backed active lab metadata.
+    Returns the newest lab session that blocks creating a new lab.
 
-    DB-first history is correct for My Labs, but old DB-only records must not
-    block creating a new lab after their generated runtime metadata is gone.
+    Cleanup-required error sessions are intentionally prioritized over active
+    runtime sessions so students are directed to clean risky runtime state
+    before continuing. DB-first error lookup is intentional so historical or
+    DB-backed cleanup-required sessions cannot be bypassed by direct API calls.
     """
 
-    sessions = _list_runtime_lab_sessions(
+    db_backed_sessions = list_lab_sessions(
         owner_student_id=student_id,
         limit=500,
     )
 
-    for session in sessions:
-        if is_active_lab_status(session.get("status")):
+    for session in db_backed_sessions:
+        if _session_status_value(session.get("status")) in CLEANUP_REQUIRED_LAB_STATUS_VALUES:
+            return session
+
+    runtime_sessions = _list_runtime_lab_sessions(
+        owner_student_id=student_id,
+        limit=500,
+    )
+
+    for session in runtime_sessions:
+        if _session_status_value(session.get("status")) in ACTIVE_LAB_STATUS_VALUES:
             return session
 
     return None
+
+
+def _build_blocking_lab_create_detail(session: dict) -> dict:
+    session_id = str(session.get("session_id"))
+    status_value = _session_status_value(session.get("status"))
+
+    if status_value in CLEANUP_REQUIRED_LAB_STATUS_VALUES:
+        return {
+            "message": "You have a lab that requires runtime cleanup. Clean it up before creating a new lab.",
+            "active_session_id": session_id,
+            "blocking_session_id": session_id,
+            "blocking_status": status_value,
+            "cleanup_required": True,
+        }
+
+    return {
+        "message": "You already have an active lab. Finish or close it before creating a new one.",
+        "active_session_id": session_id,
+        "blocking_session_id": session_id,
+        "blocking_status": status_value,
+        "cleanup_required": False,
+    }
+
+
+def _session_status_value(value) -> str:
+    if hasattr(value, "value"):
+        return value.value
+
+    return str(value)
 
 
 def _list_runtime_lab_sessions(
