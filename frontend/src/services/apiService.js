@@ -892,9 +892,7 @@ function getFriendlyErrorMessage({ status, path, method, data }) {
   }
 
   if (backendMessage) {
-    return backendSuggestion
-      ? `${backendMessage} Suggestion: ${backendSuggestion}`
-      : backendMessage;
+    return backendMessage;
   }
 
   if (backendErrorCode === "INVALID_CREDENTIALS") {
