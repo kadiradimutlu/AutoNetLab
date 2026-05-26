@@ -236,7 +236,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Visible for {authUser?.display_name || authUser?.username || "the signed-in user"}</small>
         </div>
 
-        <div className={getSummaryStatCardClassName("active", activeSessions.length)}>
+        <div className={getSummaryStatCardClassName("active", sessions.filter((session) => isActiveLabStatus(session.status)).length)}>
           <span>Active labs</span>
           <strong>
             {sessions.filter((session) => isActiveLabStatus(session.status)).length}
@@ -252,7 +252,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Sessions with scoring data</small>
         </div>
 
-        <div className={getSummaryStatCardClassName("cleanup", cleanupSessions.length)}>
+        <div className={getSummaryStatCardClassName("cleanup", sessions.filter((session) => isCleanupRequiredStatus(session.status)).length)}>
           <span>Needs cleanup</span>
           <strong>
             {sessions.filter((session) => isCleanupRequiredStatus(session.status)).length}
