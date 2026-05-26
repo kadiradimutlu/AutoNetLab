@@ -1,7 +1,11 @@
+import shutil
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.schemas.enums import SessionStatus
+from app.services import session_service
 from app.services.containerlab_adapter import GENERATED_DIR, containerlab_adapter
 from app.services.session_service import get_lab_session, update_session_status
 
@@ -209,3 +213,86 @@ def test_finish_error_state_lab_cleans_runtime_and_finishes(monkeypatch):
     session = get_lab_session(session_id)
     assert session["status"] == SessionStatus.finished
     assert session["finished_at"] is not None
+
+
+def test_sprint29_historical_error_destroy_without_topology_is_idempotent(monkeypatch):
+    student_id = f"sprint29-historical-error-cleanup-{uuid4().hex[:8]}"
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.error)
+
+    shutil.rmtree(GENERATED_DIR / session_id, ignore_errors=True)
+    session_service._sessions.pop(session_id, None)
+
+    monkeypatch.setattr(
+        containerlab_adapter,
+        "runtime_containers_exist",
+        lambda session: False,
+    )
+
+    response = client.post(f"/api/v1/labs/{session_id}/destroy")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["success"] is True
+    assert payload["status"] == "destroyed"
+    assert payload["error_code"] is None
+    assert "already complete" in payload["message"]
+
+    refreshed = get_lab_session(session_id)
+
+    assert refreshed["status"] == SessionStatus.destroyed
+
+
+def test_sprint29_historical_error_destroy_keeps_error_when_runtime_exists(monkeypatch):
+    student_id = f"sprint29-historical-error-runtime-present-{uuid4().hex[:8]}"
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "easy",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.error)
+
+    shutil.rmtree(GENERATED_DIR / session_id, ignore_errors=True)
+    session_service._sessions.pop(session_id, None)
+
+    monkeypatch.setattr(
+        containerlab_adapter,
+        "runtime_containers_exist",
+        lambda session: True,
+    )
+
+    response = client.post(f"/api/v1/labs/{session_id}/destroy")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["success"] is False
+    assert payload["status"] == "error"
+    assert payload["error_code"] == "TOPOLOGY_FILE_NOT_FOUND"
+
+    refreshed = get_lab_session(session_id)
+
+    assert refreshed["status"] == SessionStatus.error
