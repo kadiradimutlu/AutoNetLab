@@ -260,6 +260,13 @@ def _evaluate_live_container_state(
     device: str,
     error: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
+    status_value = session.get("status")
+    if hasattr(status_value, "value"):
+        status_value = status_value.value
+
+    if status_value is not None and str(status_value).lower() not in {"deployed", "validated"}:
+        return None
+
     session_rule = _session_validation_rule_from_error(error)
 
     if session_rule is not None:
@@ -405,6 +412,10 @@ def _run_container_command(container_name: str, command: str) -> str | None:
             "no such container" in normalized_output
             or "is not running" in normalized_output
             or "container not found" in normalized_output
+            or "error during connect" in normalized_output
+            or "cannot connect to the docker daemon" in normalized_output
+            or "is the docker daemon running" in normalized_output
+            or "docker daemon" in normalized_output
         ):
             return None
 

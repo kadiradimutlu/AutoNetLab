@@ -1,14 +1,19 @@
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload
 
 from app.db.repositories import (
     persist_lab_session_snapshot,
     persist_validation_result_snapshot,
 )
+from app.db.models import LabSessionRecord
+from app.db.session import session_scope
 from app.schemas.enums import Difficulty, SessionStatus
 from app.schemas.lab import (
     CliAccess,
@@ -25,6 +30,8 @@ from app.services.recommendation.features import build_topic_performance
 
 
 _sessions: dict[str, dict] = {}
+logger = logging.getLogger(__name__)
+
 
 BASE_STUDENT_HINTS = [
     "Check IP addressing and subnet masks.",
@@ -140,20 +147,43 @@ def list_lab_sessions(
     owner_student_id: str | None = None,
     limit: int = 100,
 ) -> list[dict]:
-    sessions_by_id: dict[str, dict] = dict(_sessions)
+    """
+    Lists lab sessions DB-first.
+
+    PostgreSQL is the primary history source for My Labs and instructor
+    drilldowns. In-memory sessions and session.json metadata remain runtime
+    compatibility/enrichment sources, but they must not hide older DB-backed
+    history.
+    """
+
+    sessions_by_id: dict[str, dict] = _load_db_lab_sessions_by_id()
+
+    for session_id, memory_session in list(_sessions.items()):
+        if session_id in sessions_by_id:
+            sessions_by_id[session_id] = _merge_session_records(
+                primary=memory_session,
+                fallback=sessions_by_id[session_id],
+            )
+        else:
+            sessions_by_id[session_id] = memory_session
 
     if GENERATED_DIR.exists():
         for metadata_path in GENERATED_DIR.glob("*/session.json"):
             session_id = metadata_path.parent.name
-
-            if session_id in sessions_by_id:
-                continue
-
             loaded_session = _load_session_metadata(session_id)
 
-            if loaded_session is not None:
+            if loaded_session is None:
+                continue
+
+            if session_id in sessions_by_id:
+                sessions_by_id[session_id] = _merge_session_records(
+                    primary=sessions_by_id[session_id],
+                    fallback=loaded_session,
+                )
+            else:
                 sessions_by_id[session_id] = loaded_session
-                _sessions[session_id] = loaded_session
+
+            _sessions.setdefault(session_id, sessions_by_id[session_id])
 
     sessions = list(sessions_by_id.values())
 
@@ -180,6 +210,9 @@ def get_lab_session(session_id: str) -> dict:
     session = _load_session_metadata(session_id)
 
     if session is None:
+        session = _load_db_lab_session_metadata(session_id)
+
+    if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Lab session '{session_id}' not found.",
@@ -187,6 +220,201 @@ def get_lab_session(session_id: str) -> dict:
 
     _sessions[session_id] = session
     return session
+
+
+def _load_db_lab_sessions_by_id() -> dict[str, dict]:
+    try:
+        with session_scope() as db:
+            records = (
+                db.query(LabSessionRecord)
+                .options(
+                    joinedload(LabSessionRecord.validation_result),
+                    joinedload(LabSessionRecord.validation_attempts),
+                )
+                .all()
+            )
+
+            return {
+                str(record.session_id): _db_session_record_to_session(record)
+                for record in records
+            }
+    except SQLAlchemyError:
+        logger.warning(
+            "Database lab session history read failed. Falling back to runtime/session.json sources.",
+            exc_info=True,
+        )
+        return {}
+    except Exception:
+        logger.warning(
+            "Unexpected lab session history read failure. Falling back to runtime/session.json sources.",
+            exc_info=True,
+        )
+        return {}
+
+
+def _load_db_lab_session_metadata(session_id: str) -> dict | None:
+    try:
+        with session_scope() as db:
+            record = (
+                db.query(LabSessionRecord)
+                .options(
+                    joinedload(LabSessionRecord.validation_result),
+                    joinedload(LabSessionRecord.validation_attempts),
+                )
+                .filter(LabSessionRecord.session_id == session_id)
+                .one_or_none()
+            )
+
+            if record is None:
+                return None
+
+            return _db_session_record_to_session(record)
+    except SQLAlchemyError:
+        logger.warning(
+            "Database lab session detail read failed.",
+            extra={"session_id": session_id},
+            exc_info=True,
+        )
+        return None
+    except Exception:
+        logger.warning(
+            "Unexpected lab session detail read failure.",
+            extra={"session_id": session_id},
+            exc_info=True,
+        )
+        return None
+
+
+def _db_session_record_to_session(record: LabSessionRecord) -> dict:
+    topology_payload = record.topology_json or {
+        "name": record.lab_name,
+        "nodes": [],
+        "links": [],
+    }
+    topology = Topology(**topology_payload)
+
+    cli_access_payload = list(record.cli_access_json or [])
+    if cli_access_payload:
+        cli_access = [
+            _normalize_cli_access_item(
+                raw_cli=raw_cli,
+                lab_name=record.lab_name,
+            )
+            for raw_cli in cli_access_payload
+        ]
+    else:
+        cli_access = build_cli_access(
+            lab_name=record.lab_name,
+            topology=topology,
+        )
+
+    validation_result = _db_validation_result_payload(record)
+    validation_attempts = [
+        _db_validation_attempt_payload(attempt)
+        for attempt in list(record.validation_attempts or [])
+    ]
+
+    return {
+        "session_id": record.session_id,
+        "student_id": record.student_id,
+        "difficulty": Difficulty(_enum_value(record.difficulty)),
+        "status": SessionStatus(_enum_value(record.status)),
+        "topology": topology,
+        "topology_file": record.topology_file,
+        "topology_template": record.topology_template,
+        "lab_name": record.lab_name,
+        "injected_errors": [
+            ErrorItem(**error)
+            for error in list(record.injected_errors_json or [])
+        ],
+        "cli_access": cli_access,
+        "created_at": _datetime_to_iso(record.created_at),
+        "completed_at": _datetime_to_iso(record.completed_at),
+        "finished_at": None,
+        "validation_result": validation_result,
+        "validation_attempts": validation_attempts,
+        "topic_performance": record.topic_performance_json,
+        "score": record.score,
+        "passed": record.passed,
+        "runtime_cleanup_history": [],
+    }
+
+
+def _db_validation_result_payload(record: LabSessionRecord) -> dict | None:
+    validation_record = record.validation_result
+
+    if validation_record is None:
+        return None
+
+    payload = dict(validation_record.raw_result_json or {})
+    payload.setdefault("success", True)
+    payload.setdefault("session_id", validation_record.session_id)
+    payload.setdefault("status", validation_record.status)
+    payload.setdefault("passed", validation_record.passed)
+    payload.setdefault("score", validation_record.score)
+    payload.setdefault("checks", validation_record.checks_json or [])
+    payload.setdefault("recommendations", validation_record.recommendations_json or [])
+
+    return payload
+
+
+def _db_validation_attempt_payload(record) -> dict:
+    payload = dict(record.raw_result_json or {})
+    payload.setdefault("attempt_number", record.attempt_number)
+    payload.setdefault("session_id", record.session_id)
+    payload.setdefault("status", record.status)
+    payload.setdefault("passed", record.passed)
+    payload.setdefault("score", record.score)
+    payload.setdefault("passed_checks", record.passed_checks)
+    payload.setdefault("failed_checks", record.failed_checks)
+    payload.setdefault("checks", record.checks_json or [])
+    payload.setdefault("recommendations", record.recommendations_json or [])
+    payload.setdefault("created_at", _datetime_to_iso(record.created_at))
+
+    return payload
+
+
+def _merge_session_records(primary: dict, fallback: dict) -> dict:
+    merged = dict(primary)
+
+    enrichment_keys = (
+        "finished_at",
+        "validation_result",
+        "validation_attempts",
+        "topic_performance",
+        "score",
+        "passed",
+        "runtime_cleanup_history",
+    )
+
+    for key in enrichment_keys:
+        if _is_missing_session_value(merged.get(key)) and not _is_missing_session_value(fallback.get(key)):
+            merged[key] = fallback.get(key)
+
+    if _is_missing_session_value(merged.get("cli_access")) and not _is_missing_session_value(fallback.get("cli_access")):
+        merged["cli_access"] = fallback["cli_access"]
+
+    if _is_missing_session_value(merged.get("injected_errors")) and not _is_missing_session_value(fallback.get("injected_errors")):
+        merged["injected_errors"] = fallback["injected_errors"]
+
+    if _is_missing_session_value(merged.get("topology")) and not _is_missing_session_value(fallback.get("topology")):
+        merged["topology"] = fallback["topology"]
+
+    return merged
+
+
+def _is_missing_session_value(value) -> bool:
+    return value is None or value == [] or value == {}
+
+
+def _datetime_to_iso(value) -> str | None:
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value.isoformat()
+
+    return str(value)
 
 
 def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
@@ -402,7 +630,14 @@ def is_runtime_active_status(value) -> bool:
 
 
 def find_active_lab_for_student(student_id: str) -> dict | None:
-    sessions = list_lab_sessions(
+    """
+    Checks only runtime-backed active lab metadata.
+
+    DB-first history is correct for My Labs, but old DB-only records must not
+    block creating a new lab after their generated runtime metadata is gone.
+    """
+
+    sessions = _list_runtime_lab_sessions(
         owner_student_id=student_id,
         limit=500,
     )
@@ -412,6 +647,54 @@ def find_active_lab_for_student(student_id: str) -> dict | None:
             return session
 
     return None
+
+
+def _list_runtime_lab_sessions(
+    owner_student_id: str | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    sessions_by_id: dict[str, dict] = {}
+
+    for session_id, session in list(_sessions.items()):
+        if _has_runtime_metadata(session):
+            sessions_by_id[session_id] = session
+
+    if GENERATED_DIR.exists():
+        for metadata_path in GENERATED_DIR.glob("*/session.json"):
+            session_id = metadata_path.parent.name
+            loaded_session = _load_session_metadata(session_id)
+
+            if loaded_session is not None:
+                sessions_by_id[session_id] = loaded_session
+                _sessions[session_id] = loaded_session
+
+    sessions = list(sessions_by_id.values())
+
+    if owner_student_id is not None:
+        sessions = [
+            session
+            for session in sessions
+            if str(session.get("student_id")) == owner_student_id
+        ]
+
+    sessions.sort(
+        key=lambda session: str(session.get("created_at") or ""),
+        reverse=True,
+    )
+
+    return sessions[:limit]
+
+
+def _has_runtime_metadata(session: dict) -> bool:
+    session_id = session.get("session_id")
+    if session_id and (GENERATED_DIR / str(session_id) / "session.json").exists():
+        return True
+
+    topology_file = session.get("topology_file")
+    if topology_file and Path(str(topology_file)).exists():
+        return True
+
+    return False
 
 
 def finish_lab_session(session_id: str) -> dict:
