@@ -463,6 +463,176 @@ class ContainerlabAdapter:
             ),
         }
 
+    def destroy_runtime_containers(self, session: dict) -> dict:
+        session_id = str(session.get("session_id"))
+        expected_names = sorted(self._expected_runtime_container_names(session))
+        command = ["docker", "rm", "-f", *expected_names]
+
+        if not expected_names:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=command,
+                error_code="RUNTIME_CONTAINER_NAMES_NOT_FOUND",
+                message="Expected runtime container names could not be determined.",
+                detail="The session does not include cli_access or topology node metadata.",
+                suggestion="Check the lab session metadata before retrying cleanup.",
+            )
+
+        try:
+            docker_ps = subprocess.run(
+                ["docker", "ps", "-a", "--format", "{{.Names}}"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except FileNotFoundError:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=command,
+                error_code="DOCKER_NOT_FOUND",
+                message="Docker command could not be found while cleaning runtime containers.",
+                detail="docker executable was not found in PATH.",
+                suggestion="Install Docker and verify it with: docker version",
+            )
+        except PermissionError as exc:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=command,
+                error_code="DOCKER_PERMISSION_DENIED",
+                message="Permission denied while cleaning runtime containers.",
+                detail=str(exc),
+                suggestion="Check Docker permissions for the backend runtime user.",
+            )
+        except subprocess.TimeoutExpired as exc:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=command,
+                error_code="DOCKER_PS_TIMEOUT",
+                message="Docker container listing timed out during runtime cleanup.",
+                detail="docker ps did not finish within 30 seconds.",
+                suggestion="Check Docker daemon health, then retry cleanup.",
+                stdout=exc.stdout or "",
+                stderr=exc.stderr or "",
+            )
+
+        if docker_ps.returncode != 0:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=command,
+                error_code="DOCKER_PS_FAILED",
+                message="Docker container listing failed during runtime cleanup.",
+                detail=docker_ps.stderr or "docker ps returned a non-zero exit code.",
+                suggestion="Check Docker daemon health, then retry cleanup.",
+                return_code=docker_ps.returncode,
+                stdout=docker_ps.stdout,
+                stderr=docker_ps.stderr,
+            )
+
+        existing_names = {
+            line.strip()
+            for line in docker_ps.stdout.splitlines()
+            if line.strip()
+        }
+        target_names = [
+            name
+            for name in expected_names
+            if name in existing_names
+        ]
+
+        if not target_names:
+            return {
+                "success": True,
+                "session_id": session_id,
+                "status": SessionStatus.destroyed,
+                "message": "No expected runtime containers were found; lab runtime is already clean.",
+                "command": self._format_command(command),
+                "return_code": 0,
+                "stdout": "",
+                "stderr": "",
+                "error_code": None,
+                "detail": None,
+                "suggestion": None,
+            }
+
+        cleanup_command = ["docker", "rm", "-f", *target_names]
+
+        try:
+            completed = subprocess.run(
+                cleanup_command,
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=90,
+                check=False,
+            )
+        except FileNotFoundError:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=cleanup_command,
+                error_code="DOCKER_NOT_FOUND",
+                message="Docker command could not be found while removing runtime containers.",
+                detail="docker executable was not found in PATH.",
+                suggestion="Install Docker and verify it with: docker version",
+            )
+        except PermissionError as exc:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=cleanup_command,
+                error_code="DOCKER_PERMISSION_DENIED",
+                message="Permission denied while removing runtime containers.",
+                detail=str(exc),
+                suggestion="Check Docker permissions for the backend runtime user.",
+            )
+        except subprocess.TimeoutExpired as exc:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=cleanup_command,
+                error_code="DOCKER_RM_TIMEOUT",
+                message="Docker runtime container cleanup timed out.",
+                detail="docker rm -f did not finish within 90 seconds.",
+                suggestion="Check Docker daemon health, then retry cleanup.",
+                stdout=exc.stdout or "",
+                stderr=exc.stderr or "",
+            )
+
+        if completed.returncode != 0:
+            return self._error_response(
+                session_id=session_id,
+                action="destroy",
+                command=cleanup_command,
+                error_code="DOCKER_RM_RUNTIME_CONTAINERS_FAILED",
+                message="Docker runtime container fallback cleanup failed.",
+                detail=completed.stderr or "docker rm -f returned a non-zero exit code.",
+                suggestion="Check Docker/containerlab runtime state, then retry cleanup.",
+                return_code=completed.returncode,
+                stdout=completed.stdout,
+                stderr=completed.stderr,
+            )
+
+        return {
+            "success": True,
+            "session_id": session_id,
+            "status": SessionStatus.destroyed,
+            "message": "Runtime containers were removed using fallback Docker cleanup because topology metadata was missing.",
+            "command": self._format_command(cleanup_command),
+            "return_code": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+            "error_code": None,
+            "detail": None,
+            "suggestion": None,
+        }
+
     def runtime_containers_exist(self, session: dict) -> bool:
         expected_names = self._expected_runtime_container_names(session)
 

@@ -294,7 +294,12 @@ def destroy_lab(
         topology_file=session["topology_file"],
     )
 
-    if _is_historical_error_cleanup_already_complete(
+    if _should_fallback_destroy_runtime_containers(
+        session=session,
+        result=result,
+    ):
+        result = containerlab_adapter.destroy_runtime_containers(session)
+    elif _is_historical_error_cleanup_already_complete(
         session=session,
         result=result,
     ):
@@ -308,14 +313,28 @@ def destroy_lab(
     return ActionResponse(**result)
 
 
+def _should_fallback_destroy_runtime_containers(
+    session: dict,
+    result: dict,
+) -> bool:
+    if not _is_topology_file_missing_destroy_result(result):
+        return False
+
+    return containerlab_adapter.runtime_containers_exist(session)
+
+
+def _is_topology_file_missing_destroy_result(result: dict) -> bool:
+    return (
+        not bool(result.get("success"))
+        and result.get("error_code") == "TOPOLOGY_FILE_NOT_FOUND"
+    )
+
+
 def _is_historical_error_cleanup_already_complete(
     session: dict,
     result: dict,
 ) -> bool:
-    if result.get("success"):
-        return False
-
-    if result.get("error_code") != "TOPOLOGY_FILE_NOT_FOUND":
+    if not _is_topology_file_missing_destroy_result(result):
         return False
 
     if _session_status_value(session.get("status")) != SessionStatus.error.value:
