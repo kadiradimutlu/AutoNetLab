@@ -66,6 +66,20 @@ function getPassBadgeClass(value) {
   return "neutral";
 }
 
+function getSummaryStatCardClassName(kind, count) {
+  const numericCount = Number(count) || 0;
+
+  if (kind === "active" && numericCount > 0) {
+    return "stat-card stat-card-active-attention";
+  }
+
+  if (kind === "cleanup" && numericCount > 0) {
+    return "stat-card stat-card-cleanup-attention";
+  }
+
+  return "stat-card";
+}
+
 function hasSavedValidationResult(session) {
   return (
     session?.score !== null &&
@@ -222,7 +236,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Visible for {authUser?.display_name || authUser?.username || "the signed-in user"}</small>
         </div>
 
-        <div className="stat-card">
+        <div className={getSummaryStatCardClassName("active", activeSessions.length)}>
           <span>Active labs</span>
           <strong>
             {sessions.filter((session) => isActiveLabStatus(session.status)).length}
@@ -238,7 +252,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <small>Sessions with scoring data</small>
         </div>
 
-        <div className="stat-card">
+        <div className={getSummaryStatCardClassName("cleanup", cleanupSessions.length)}>
           <span>Needs cleanup</span>
           <strong>
             {sessions.filter((session) => isCleanupRequiredStatus(session.status)).length}

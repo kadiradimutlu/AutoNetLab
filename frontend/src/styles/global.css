@@ -5041,3 +5041,25 @@ html {
   }
 }
 /* End Sprint 29 My Labs history layout polish */
+
+/* Sprint 29 My Labs conditional stat emphasis */
+.my-labs-summary-grid .stat-card-active-attention {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.09);
+}
+
+.my-labs-summary-grid .stat-card-active-attention strong {
+  color: #2563eb;
+}
+
+.my-labs-summary-grid .stat-card-cleanup-attention {
+  border-color: #fecaca;
+  background: linear-gradient(180deg, #fff1f2 0%, #ffffff 100%);
+  box-shadow: 0 14px 30px rgba(185, 28, 28, 0.09);
+}
+
+.my-labs-summary-grid .stat-card-cleanup-attention strong {
+  color: #b91c1c;
+}
+/* End Sprint 29 My Labs conditional stat emphasis */
