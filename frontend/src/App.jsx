@@ -24,7 +24,7 @@ function getDefaultPageForRole(role) {
 }
 
 function isInactiveLabStatus(status) {
-  return ["finished", "destroyed", "error"].includes(String(status || "").toLowerCase());
+  return ["finished", "destroyed"].includes(String(status || "").toLowerCase());
 }
 
 function scrollToPageTop() {

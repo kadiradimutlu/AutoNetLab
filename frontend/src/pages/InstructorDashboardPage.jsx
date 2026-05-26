@@ -9,6 +9,7 @@ import RuntimeReadinessCard from "../components/RuntimeReadinessCard";
 import DatabaseReadinessCard from "../components/DatabaseReadinessCard";
 import {
   getDifficultyDistribution,
+  destroyLab,
   finishLab,
   getErrorDetails,
   getErrorMessage,
@@ -147,8 +148,12 @@ function getSessionLastActivityAt(session) {
   return session?.completed_at || session?.updated_at || session?.created_at;
 }
 
+function isErrorLabStatus(status) {
+  return String(status || "").toLowerCase() === "error";
+}
+
 function isForceClosableLabStatus(status) {
-  return ["created", "deployed", "active", "validated"].includes(
+  return ["created", "deployed", "active", "validated", "error"].includes(
     String(status || "").toLowerCase()
   );
 }
@@ -592,6 +597,9 @@ function StudentDetailOverview({
   onForceCloseLab
 }) {
   const activeSessions = getForceClosableSessions(sessions);
+  const cleanupRequiredCount = activeSessions.filter((session) =>
+    isErrorLabStatus(session.status)
+  ).length;
   const priorityWeaknesses = Array.isArray(topicWeaknesses)
     ? topicWeaknesses.slice(0, 3)
     : [];
@@ -606,19 +614,26 @@ function StudentDetailOverview({
           </p>
         </div>
 
-        <span className={`badge ${activeSessions.length > 0 ? "medium" : "neutral"}`}>
-          {activeSessions.length > 0 ? `${activeSessions.length} active lab${activeSessions.length === 1 ? "" : "s"}` : "No active labs"}
+        <span className={`badge ${cleanupRequiredCount > 0 ? "fail" : activeSessions.length > 0 ? "medium" : "neutral"}`}>
+          {cleanupRequiredCount > 0
+            ? `${cleanupRequiredCount} cleanup required`
+            : activeSessions.length > 0
+              ? `${activeSessions.length} active lab${activeSessions.length === 1 ? "" : "s"}`
+              : "No active labs"}
         </span>
       </div>
 
       <div className="portal-workflow-list">
         <div>
-          <strong>Active Labs</strong>
+          <strong>Open Labs and Cleanup</strong>
 
           {activeSessions.length === 0 ? (
-            <p>No active lab is currently open for this student.</p>
+            <p>No active or cleanup-required lab is currently open for this student.</p>
           ) : (
-            activeSessions.map((session) => (
+            activeSessions.map((session) => {
+              const isErrorSession = isErrorLabStatus(session.status);
+
+              return (
               <div className="result-title-row" key={session.session_id}>
                 <div>
                   <strong>{session.session_id}</strong>
@@ -628,15 +643,18 @@ function StudentDetailOverview({
                 </div>
 
                 <button
-                  className="secondary-button"
+                  className={isErrorSession ? "danger-button" : "secondary-button"}
                   disabled={closingSessionId === session.session_id}
                   onClick={() => onForceCloseLab(session)}
                   type="button"
                 >
-                  {closingSessionId === session.session_id ? "Closing..." : "Force Close Lab"}
+                  {closingSessionId === session.session_id
+                    ? isErrorSession ? "Cleaning..." : "Closing..."
+                    : isErrorSession ? "Cleanup Runtime" : "Force Close Lab"}
                 </button>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -1102,10 +1120,13 @@ function InstructorDashboardPage() {
       return;
     }
 
+    const isErrorSession = isErrorLabStatus(session.status);
     const confirmed = typeof window === "undefined"
       ? true
       : window.confirm(
-        `Force close lab ${sessionId}? This will stop the runtime while preserving validation history.`
+        isErrorSession
+          ? `Cleanup errored lab ${sessionId}? Any remaining containers will be removed while preserving session history.`
+          : `Force close lab ${sessionId}? This will stop the runtime while preserving validation history.`
       );
 
     if (!confirmed) {
@@ -1118,11 +1139,15 @@ function InstructorDashboardPage() {
     setForceCloseErrorDetails("");
 
     try {
-      const response = await finishLab(sessionId);
+      const response = isErrorSession
+        ? await destroyLab(sessionId)
+        : await finishLab(sessionId);
 
       setForceCloseMessage(
         response?.message ||
-          `Lab ${sessionId} was force closed. Validation history is preserved.`
+          (isErrorSession
+            ? `Lab ${sessionId} runtime cleanup completed. Session history is preserved.`
+            : `Lab ${sessionId} was force closed. Validation history is preserved.`)
       );
 
       await Promise.all([
@@ -1134,7 +1159,9 @@ function InstructorDashboardPage() {
       setForceCloseErrorMessage(
         getErrorMessage(
           error,
-          "Lab could not be force closed."
+          isErrorSession
+            ? "Lab runtime cleanup could not be completed."
+            : "Lab could not be force closed."
         )
       );
       setForceCloseErrorDetails(getErrorDetails(error));
