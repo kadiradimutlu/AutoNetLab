@@ -29,6 +29,23 @@ def _successful_action(session_id: str, status: SessionStatus, message: str) -> 
     }
 
 
+
+
+def _topology_missing_action(session_id: str) -> dict:
+    return {
+        "success": False,
+        "session_id": session_id,
+        "status": SessionStatus.error,
+        "message": "Topology YAML file could not be found.",
+        "command": "containerlab destroy -t missing/lab.clab.yml",
+        "return_code": None,
+        "stdout": "",
+        "stderr": "",
+        "error_code": "TOPOLOGY_FILE_NOT_FOUND",
+        "detail": "Topology file not found: missing/lab.clab.yml",
+        "suggestion": "Create the lab session again or check whether the topology file exists.",
+    }
+
 def _failed_runtime_action(session_id: str) -> dict:
     return {
         "success": False,
@@ -259,7 +276,7 @@ def test_sprint29_historical_error_destroy_without_topology_is_idempotent(monkey
     assert refreshed["status"] == SessionStatus.destroyed
 
 
-def test_sprint29_historical_error_destroy_keeps_error_when_runtime_exists(monkeypatch):
+def test_sprint29_historical_error_destroy_keeps_error_when_runtime_cleanup_fails(monkeypatch):
     student_id = f"sprint29-historical-error-runtime-present-{uuid4().hex[:8]}"
 
     create_response = client.post(
@@ -284,6 +301,23 @@ def test_sprint29_historical_error_destroy_keeps_error_when_runtime_exists(monke
         "runtime_containers_exist",
         lambda session: True,
     )
+    monkeypatch.setattr(
+        containerlab_adapter,
+        "destroy_runtime_containers",
+        lambda session: {
+            "success": False,
+            "session_id": session["session_id"],
+            "status": SessionStatus.error,
+            "message": "Docker runtime container fallback cleanup failed.",
+            "command": "docker rm -f simulated-runtime-container",
+            "return_code": 1,
+            "stdout": "",
+            "stderr": "simulated docker rm failure",
+            "error_code": "DOCKER_RM_RUNTIME_CONTAINERS_FAILED",
+            "detail": "simulated docker rm failure",
+            "suggestion": "Check Docker/containerlab runtime state, then retry cleanup.",
+        },
+    )
 
     response = client.post(f"/api/v1/labs/{session_id}/destroy")
 
@@ -293,7 +327,7 @@ def test_sprint29_historical_error_destroy_keeps_error_when_runtime_exists(monke
 
     assert payload["success"] is False
     assert payload["status"] == "error"
-    assert payload["error_code"] == "TOPOLOGY_FILE_NOT_FOUND"
+    assert payload["error_code"] == "DOCKER_RM_RUNTIME_CONTAINERS_FAILED"
 
     refreshed = get_lab_session(session_id)
 
@@ -474,3 +508,134 @@ def test_sprint29_cleanup_required_lab_takes_priority_over_active_lab():
     assert detail["blocking_status"] == "error"
     assert detail["cleanup_required"] is True
     assert "requires runtime cleanup" in detail["message"]
+
+
+def test_sprint29_missing_topology_destroy_falls_back_to_runtime_container_cleanup(monkeypatch):
+    student_id = f"sprint29-missing-topology-runtime-fallback-{uuid4().hex[:8]}"
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.deployed)
+
+    fallback_calls = []
+
+    def fake_destroy(session_id: str, topology_file: str) -> dict:
+        return _topology_missing_action(session_id)
+
+    def fake_runtime_exists(session: dict) -> bool:
+        return True
+
+    def fake_destroy_runtime_containers(session: dict) -> dict:
+        fallback_calls.append(session["session_id"])
+
+        return _successful_action(
+            session_id=session["session_id"],
+            status=SessionStatus.destroyed,
+            message="Runtime containers were removed using fallback Docker cleanup because topology metadata was missing.",
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.destroy",
+        fake_destroy,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.runtime_containers_exist",
+        fake_runtime_exists,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.destroy_runtime_containers",
+        fake_destroy_runtime_containers,
+    )
+
+    response = client.post(f"/api/v1/labs/{session_id}/destroy")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["success"] is True
+    assert payload["status"] == "destroyed"
+    assert payload["error_code"] is None
+    assert fallback_calls == [session_id]
+
+    refreshed = get_lab_session(session_id)
+
+    assert refreshed["status"] == SessionStatus.destroyed
+
+
+def test_sprint29_missing_topology_destroy_fallback_failure_keeps_error(monkeypatch):
+    student_id = f"sprint29-missing-topology-runtime-fallback-fail-{uuid4().hex[:8]}"
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": student_id,
+            "difficulty": "hard",
+            "topology_template": "basic-two-router",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    update_session_status(session_id, SessionStatus.deployed)
+
+    def fake_destroy(session_id: str, topology_file: str) -> dict:
+        return _topology_missing_action(session_id)
+
+    def fake_runtime_exists(session: dict) -> bool:
+        return True
+
+    def fake_destroy_runtime_containers(session: dict) -> dict:
+        return {
+            "success": False,
+            "session_id": session["session_id"],
+            "status": SessionStatus.error,
+            "message": "Docker runtime container fallback cleanup failed.",
+            "command": "docker rm -f failed",
+            "return_code": 1,
+            "stdout": "",
+            "stderr": "simulated docker rm failure",
+            "error_code": "DOCKER_RM_RUNTIME_CONTAINERS_FAILED",
+            "detail": "simulated docker rm failure",
+            "suggestion": "Check Docker/containerlab runtime state, then retry cleanup.",
+        }
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.destroy",
+        fake_destroy,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.runtime_containers_exist",
+        fake_runtime_exists,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.destroy_runtime_containers",
+        fake_destroy_runtime_containers,
+    )
+
+    response = client.post(f"/api/v1/labs/{session_id}/destroy")
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["success"] is False
+    assert payload["status"] == "error"
+    assert payload["error_code"] == "DOCKER_RM_RUNTIME_CONTAINERS_FAILED"
+
+    refreshed = get_lab_session(session_id)
+
+    assert refreshed["status"] == SessionStatus.error
