@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
+import { clearTerminalTranscriptsForSession } from "../utils/terminalTranscriptStorage";
 import DeviceCliCard from "../components/DeviceCliCard";
 import ScenarioOverview from "../components/ScenarioOverview";
 import {
@@ -378,7 +379,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       await deployLab(labSession.session_id);
       const refreshedLab = await refreshLabSession();
 
-      setLifecycleMessage("Lab deployed successfully. Open the Web CLI tab to connect to devices.");
+      setLifecycleMessage("Lab deployed successfully. Open the Lab Console tab to review topology and connect to devices.");
       setCliAccessList([]);
       setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
     } catch (error) {
@@ -410,6 +411,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
     try {
       await destroyLab(labSession.session_id);
+      clearTerminalTranscriptsForSession(labSession.session_id);
       await refreshLabSession();
       setLifecycleMessage("Lab runtime reset successfully. Deploy the lab again when you are ready.");
     } catch (error) {
@@ -441,6 +443,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
     try {
       await finishLab(labSession.session_id);
+      clearTerminalTranscriptsForSession(labSession.session_id);
       const refreshedLab = await refreshLabSession();
 
       setLifecycleMessage("Lab finished successfully. Validation history is preserved.");
@@ -582,7 +585,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         <div>
           <h3>Lab Workspace</h3>
           <p className="muted">
-            Review the topology, deploy the lab, open the Web CLI,
+            Review the topology, deploy the lab, use the Web CLI,
             and validate your solution from this workspace.
           </p>
         </div>
@@ -632,23 +635,13 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           </button>
 
           <button
-            className={activeWorkspaceTab === "topology" ? "active" : ""}
+            className={activeWorkspaceTab === "labConsole" ? "active" : ""}
             type="button"
             role="tab"
-            aria-selected={activeWorkspaceTab === "topology"}
-            onClick={() => handleWorkspaceTabChange("topology")}
+            aria-selected={activeWorkspaceTab === "labConsole"}
+            onClick={() => handleWorkspaceTabChange("labConsole")}
           >
-            Topology
-          </button>
-
-          <button
-            className={activeWorkspaceTab === "webCli" ? "active" : ""}
-            type="button"
-            role="tab"
-            aria-selected={activeWorkspaceTab === "webCli"}
-            onClick={() => handleWorkspaceTabChange("webCli")}
-          >
-            Web CLI
+            Lab Console
           </button>
 
           <button
@@ -697,18 +690,19 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           </div>
         </section>
       )}
+      <div
+        className={`lab-console-workspace ${activeWorkspaceTab === "labConsole" ? "" : "workspace-tab-panel-hidden"}`}
+        hidden={activeWorkspaceTab !== "labConsole"}
+      >
+          <TopologyCard
+            topology={labSession.topology}
+            difficulty={labSession.difficulty}
+            status={labSession.status}
+            cliAccess={cliAccess}
+            variant="workspace"
+            actions={null}
+          />
 
-      {activeWorkspaceTab === "topology" && (
-      <TopologyCard
-        topology={labSession.topology}
-        difficulty={labSession.difficulty}
-        status={labSession.status}
-        cliAccess={cliAccess}
-        variant="workspace"
-        actions={null}
-      />
-      )}
-{activeWorkspaceTab === "webCli" && (
       <section className="card lab-workspace-terminal-card">
         <div className="section-title-row">
           <div>
@@ -762,6 +756,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
             <WebCliTerminal
               sessionId={labSession.session_id}
+              studentId={labSession.student_id}
               devices={cliAccess}
               mode={effectiveCliMode}
             />
@@ -788,7 +783,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           </>
         )}
       </section>
-      )}
+      </div>
 
       {activeWorkspaceTab === "history" && (
         <section className="card workspace-history-card">

@@ -15,6 +15,7 @@ import {
   isMockApiEnabled,
   logoutUser
 } from "./services/apiService";
+import { clearTerminalTranscriptsForSession } from "./utils/terminalTranscriptStorage";
 
 const ACTIVE_SESSION_STORAGE_KEY = "autonetlab_active_session_id";
 
@@ -101,6 +102,7 @@ function App() {
         const savedLabSession = await getLab(savedSessionId);
 
         if (isInactiveLabStatus(savedLabSession.status)) {
+          clearTerminalTranscriptsForSession(savedSessionId);
           localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
           setLabSession(savedLabSession);
           return;
@@ -161,6 +163,10 @@ function App() {
         newLabSession.session_id
       );
     } else {
+      if (newLabSession?.session_id) {
+        clearTerminalTranscriptsForSession(newLabSession.session_id);
+      }
+
       localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
 
@@ -177,6 +183,10 @@ function App() {
         updatedLabSession.session_id
       );
     } else {
+      if (updatedLabSession?.session_id) {
+        clearTerminalTranscriptsForSession(updatedLabSession.session_id);
+      }
+
       localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
   }
@@ -194,6 +204,7 @@ function App() {
     if (!isInactiveLabStatus(fullLabSession.status)) {
       localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
     } else {
+      clearTerminalTranscriptsForSession(sessionId);
       localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
 
