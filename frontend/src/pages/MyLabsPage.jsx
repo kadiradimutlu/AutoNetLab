@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
+  destroyLab,
   finishLab,
   getErrorDetails,
   getErrorMessage,
   listLabSessions
 } from "../services/apiService";
+import { clearTerminalTranscriptsForSession } from "../utils/terminalTranscriptStorage";
 import {
   formatDifficulty,
   formatStatus,
@@ -13,9 +15,14 @@ import {
 } from "../utils/formatters";
 
 const ACTIVE_LAB_STATUSES = ["created", "deployed", "validated", "active"];
+const CLEANUP_REQUIRED_STATUSES = ["error"];
 
 function isActiveLabStatus(status) {
   return ACTIVE_LAB_STATUSES.includes(String(status || "").toLowerCase());
+}
+
+function isCleanupRequiredStatus(status) {
+  return CLEANUP_REQUIRED_STATUSES.includes(String(status || "").toLowerCase());
 }
 
 function formatDateTime(value) {
@@ -59,6 +66,20 @@ function getPassBadgeClass(value) {
   return "neutral";
 }
 
+function getSummaryStatCardClassName(kind, count) {
+  const numericCount = Number(count) || 0;
+
+  if (kind === "active" && numericCount > 0) {
+    return "stat-card stat-card-active-attention";
+  }
+
+  if (kind === "cleanup" && numericCount > 0) {
+    return "stat-card stat-card-cleanup-attention";
+  }
+
+  return "stat-card";
+}
+
 function hasSavedValidationResult(session) {
   return (
     session?.score !== null &&
@@ -82,6 +103,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [closingSessionId, setClosingSessionId] = useState("");
+  const [cleanupSessionId, setCleanupSessionId] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
@@ -92,7 +114,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
     setErrorDetails("");
 
     try {
-      const result = await listLabSessions({ limit: 50 });
+      const result = await listLabSessions({ limit: 200 });
       setSessions(Array.isArray(result?.sessions) ? result.sessions : []);
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Lab history could not be loaded."));
@@ -154,6 +176,38 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
     }
   }
 
+  async function handleCleanupErroredLab(session) {
+    if (!session?.session_id) {
+      return;
+    }
+
+    const shouldCleanup = window.confirm(
+      "Cleanup this errored lab runtime? Any remaining containers will be removed. Validation history and saved results will be preserved."
+    );
+
+    if (!shouldCleanup) {
+      return;
+    }
+
+    setCleanupSessionId(session.session_id);
+    setInfoMessage("");
+    setErrorMessage("");
+    setErrorDetails("");
+
+    try {
+      await destroyLab(session.session_id);
+      clearTerminalTranscriptsForSession(session.session_id);
+      setInfoMessage("Lab runtime cleanup completed. The session history is preserved.");
+      await loadLabs();
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error, "Lab runtime cleanup could not be completed."));
+      setErrorDetails(getErrorDetails(error));
+      console.error("Lab runtime cleanup failed.", error);
+    } finally {
+      setCleanupSessionId("");
+    }
+  }
+
   return (
     <section className="my-labs-page">
       <div className="section-title-row">
@@ -183,14 +237,6 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         </div>
 
         <div className="stat-card">
-          <span>Active labs</span>
-          <strong>
-            {sessions.filter((session) => isActiveLabStatus(session.status)).length}
-          </strong>
-          <small>Created, deployed, or validated sessions</small>
-        </div>
-
-        <div className="stat-card">
           <span>Validated labs</span>
           <strong>
             {sessions.filter((session) => hasSavedValidationResult(session)).length}
@@ -202,6 +248,22 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           <span>Passed labs</span>
           <strong>{sessions.filter((session) => session.passed === true).length}</strong>
           <small>Successful validation results</small>
+        </div>
+
+        <div className={getSummaryStatCardClassName("active", sessions.filter((session) => isActiveLabStatus(session.status)).length)}>
+          <span>Active labs</span>
+          <strong>
+            {sessions.filter((session) => isActiveLabStatus(session.status)).length}
+          </strong>
+          <small>Created, deployed, or validated sessions</small>
+        </div>
+
+        <div className={getSummaryStatCardClassName("cleanup", sessions.filter((session) => isCleanupRequiredStatus(session.status)).length)}>
+          <span>Needs cleanup</span>
+          <strong>
+            {sessions.filter((session) => isCleanupRequiredStatus(session.status)).length}
+          </strong>
+          <small>Error-state sessions that may need runtime cleanup</small>
         </div>
       </section>
 
@@ -253,8 +315,11 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
             const passBadgeClass = getPassBadgeClass(session.passed);
             const isSelected = selectedSessionId === session.session_id;
             const isClosing = closingSessionId === session.session_id;
+            const isCleaning = cleanupSessionId === session.session_id;
             const isActive = isActiveLabStatus(session.status);
+            const needsCleanup = isCleanupRequiredStatus(session.status);
             const hasResults = hasSavedValidationResult(session);
+            const isBusy = isSelected || isClosing || isCleaning;
 
             return (
               <article className="card my-lab-card" key={session.session_id}>
@@ -313,12 +378,20 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                   />
                 )}
 
+                {needsCleanup && (
+                  <MessageBox
+                    type="error"
+                    title="Runtime cleanup required"
+                    message="This lab entered an error state. Cleanup Runtime removes any remaining containers while preserving the session history."
+                  />
+                )}
+
                 <div className="actions">
                   <button
                     className="primary-button"
                     type="button"
                     onClick={() => handleOpenLab(session, "workspace")}
-                    disabled={isSelected || isClosing}
+                    disabled={isBusy}
                   >
                     {isSelected ? "Opening..." : "Open Workspace"}
                   </button>
@@ -328,7 +401,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                       className="secondary-button"
                       type="button"
                       onClick={() => handleOpenLab(session, "result")}
-                      disabled={isSelected || isClosing}
+                      disabled={isBusy}
                     >
                       {isSelected ? "Opening..." : "View Results"}
                     </button>
@@ -339,9 +412,20 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                       className="danger-button"
                       type="button"
                       onClick={() => handleCloseActiveLab(session)}
-                      disabled={isSelected || isClosing}
+                      disabled={isBusy}
                     >
                       {isClosing ? "Closing..." : "Close Active Lab"}
+                    </button>
+                  )}
+
+                  {needsCleanup && (
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => handleCleanupErroredLab(session)}
+                      disabled={isBusy}
+                    >
+                      {isCleaning ? "Cleaning..." : "Cleanup Runtime"}
                     </button>
                   )}
                 </div>
@@ -355,4 +439,3 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 }
 
 export default MyLabsPage;
-

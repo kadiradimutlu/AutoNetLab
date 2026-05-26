@@ -173,11 +173,12 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           <>
             <MessageBox
               type="error"
-              title={activeLabConflict ? "Active lab already exists" : "Lab creation failed"}
+              title={activeLabConflict ? "Lab creation blocked" : "Lab creation failed"}
               message={
-                activeLabConflict
-                  ? "You already have an active lab. Open the active lab or finish it from My Labs before creating a new one."
-                  : errorMessage
+                errorMessage ||
+                (activeLabConflict
+                  ? "You already have an active or cleanup-required lab. Open My Labs and resolve it before creating a new one."
+                  : "The lab could not be created.")
               }
             />
 
@@ -298,4 +299,3 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 }
 
 export default CreateLab;
-

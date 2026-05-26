@@ -117,12 +117,11 @@ function isRuntimeActiveStatus(status) {
 }
 
 function isRuntimeFinishedStatus(status) {
-  const normalizedStatus = String(status || "").toLowerCase();
+  return String(status || "").toLowerCase().includes("finished");
+}
 
-  return (
-    normalizedStatus.includes("finished") ||
-    normalizedStatus.includes("error")
-  );
+function isRuntimeErrorStatus(status) {
+  return String(status || "").toLowerCase().includes("error");
 }
 
 function isRuntimeDestroyedStatus(status) {
@@ -423,6 +422,41 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
     }
   }
 
+  async function handleCleanupErroredLab() {
+    if (!labSession?.session_id) {
+      return;
+    }
+
+    const shouldCleanup = window.confirm(
+      "Cleanup this errored lab runtime? Any remaining containers will be removed. Validation history and saved results will be preserved."
+    );
+
+    if (!shouldCleanup) {
+      return;
+    }
+
+    setIsResettingLab(true);
+    setLifecycleMessage("");
+    setLifecycleError("");
+    setLifecycleDetails("");
+
+    try {
+      await destroyLab(labSession.session_id);
+      clearTerminalTranscriptsForSession(labSession.session_id);
+      const refreshedLab = await refreshLabSession();
+
+      setLifecycleMessage("Lab runtime cleanup completed. Create a new lab when you are ready.");
+      setCliAccessList([]);
+      setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
+    } catch (error) {
+      setLifecycleError(getErrorMessage(error, "Lab runtime cleanup could not be completed."));
+      setLifecycleDetails(getErrorDetails(error));
+      console.error("Lab runtime cleanup failed.", error);
+    } finally {
+      setIsResettingLab(false);
+    }
+  }
+
   async function handleStopLabEnvironment() {
     if (!labSession?.session_id) {
       return;
@@ -511,10 +545,11 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const isLabRunning = isRuntimeActiveStatus(normalizedStatus);
   const isLabStopped = isRuntimeDestroyedStatus(normalizedStatus);
   const isLabFinished = isRuntimeFinishedStatus(normalizedStatus);
+  const isLabError = isRuntimeErrorStatus(normalizedStatus);
 
   const workspaceActions = (
     <div className="workspace-topology-actions">
-      {!isLabRunning && !isLabStopped && !isLabFinished && (
+      {!isLabRunning && !isLabStopped && !isLabFinished && !isLabError && (
         <button
           className="primary-button"
           onClick={handleStartLabEnvironment}
@@ -568,13 +603,26 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         </button>
       )}
 
+      {isLabError && (
+        <button
+          className="danger-button"
+          onClick={handleCleanupErroredLab}
+          disabled={isStartingLab || isStoppingLab || isResettingLab}
+          type="button"
+        >
+          {isResettingLab ? "Cleaning..." : "Cleanup Runtime"}
+        </button>
+      )}
+
       <button className="secondary-button" onClick={() => onNavigate("myLabs")} type="button">
         My Labs
       </button>
 
-      <button className="primary-button" onClick={() => onNavigate("result")} type="button">
-        Validate Solution
-      </button>
+      {!isLabError && (
+        <button className="primary-button" onClick={() => onNavigate("result")} type="button">
+          Validate Solution
+        </button>
+      )}
     </div>
   );
   const difficultyClass = getDifficultyClass(labSession.difficulty);
@@ -591,6 +639,16 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         </div>
 
         {workspaceActions}
+
+        {isLabError && (
+          <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
+            <MessageBox
+              type="error"
+              title="Runtime cleanup required"
+              message="This lab entered an error state. Use Cleanup Runtime to remove any remaining containers before starting a new lab."
+            />
+          </div>
+        )}
 
         {(lifecycleMessage || lifecycleError) && (
           <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
@@ -717,12 +775,14 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
         {!isLabRunning && (
           <MessageBox
-            type="info"
-            title="Web CLI is not active"
+            type={isLabError ? "error" : "info"}
+            title={isLabError ? "Runtime cleanup required" : "Web CLI is not active"}
             message={
-              isLabFinished
-                ? "This lab is finished. Running containers are closed, but validation history remains available."
-                : "Deploy the lab before opening Web CLI."
+              isLabError
+                ? "This lab entered an error state. Web CLI is disabled until runtime cleanup is completed."
+                : isLabFinished
+                  ? "This lab is finished. Running containers are closed, but validation history remains available."
+                  : "Deploy the lab before opening Web CLI."
             }
           />
         )}

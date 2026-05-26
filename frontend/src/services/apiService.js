@@ -873,10 +873,26 @@ function getFriendlyErrorMessage({ status, path, method, data }) {
     detailObject.code ||
     "";
 
+  const backendDetail = formatBackendDetail(data?.detail);
+  const cleanupRequired = Boolean(
+    data?.cleanup_required === true ||
+      detailObject.cleanup_required === true ||
+      data?.requires_cleanup === true ||
+      detailObject.requires_cleanup === true ||
+      backendDetail.toLowerCase().includes("runtime cleanup") ||
+      backendMessage.toLowerCase().includes("runtime cleanup")
+  );
+
+  if (cleanupRequired) {
+    return (
+      backendDetail ||
+      backendMessage ||
+      "You have a lab that requires runtime cleanup. Clean it up before creating a new lab."
+    );
+  }
+
   if (backendMessage) {
-    return backendSuggestion
-      ? `${backendMessage} Suggestion: ${backendSuggestion}`
-      : backendMessage;
+    return backendMessage;
   }
 
   if (backendErrorCode === "INVALID_CREDENTIALS") {
@@ -2100,5 +2116,3 @@ export const deployLab = deploySession;
 export const destroyLab = destroySession;
 export const finishLab = finishSession;
 export const validateLab = validateSession;
-
-
