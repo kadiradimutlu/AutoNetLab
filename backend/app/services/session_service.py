@@ -123,6 +123,7 @@ def create_lab_session(
         "topic_performance": None,
         "score": None,
         "passed": None,
+        "runtime_cleanup_history": [],
     }
 
     _sessions[session_id] = session
@@ -193,6 +194,42 @@ def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
     session["status"] = new_status
     _save_session_metadata(session)
     persist_lab_session_snapshot(session)
+    return session
+
+
+def record_runtime_cleanup_result(
+    session_id: str,
+    trigger: str,
+    cleanup_result: dict,
+) -> dict:
+    """
+    Stores internal runtime cleanup evidence without changing the public
+    student-safe lab response contract.
+    """
+
+    session = get_lab_session(session_id)
+
+    cleanup_history = list(session.get("runtime_cleanup_history") or [])
+    cleanup_history.append(
+        {
+            "trigger": trigger,
+            "success": bool(cleanup_result.get("success")),
+            "status": _enum_value(cleanup_result.get("status")),
+            "message": cleanup_result.get("message"),
+            "command": cleanup_result.get("command"),
+            "return_code": cleanup_result.get("return_code"),
+            "error_code": cleanup_result.get("error_code"),
+            "stdout": cleanup_result.get("stdout"),
+            "stderr": cleanup_result.get("stderr"),
+            "created_at": _utc_now_iso(),
+        }
+    )
+
+    session["runtime_cleanup_history"] = cleanup_history[-20:]
+
+    _save_session_metadata(session)
+    persist_lab_session_snapshot(session)
+
     return session
 
 
@@ -605,6 +642,7 @@ def _save_session_metadata(session: dict) -> None:
         "topic_performance": session.get("topic_performance"),
         "score": session.get("score"),
         "passed": session.get("passed"),
+        "runtime_cleanup_history": session.get("runtime_cleanup_history", []),
     }
 
     metadata_path.write_text(
@@ -668,6 +706,7 @@ def _load_session_metadata(session_id: str) -> dict | None:
         "topic_performance": payload.get("topic_performance"),
         "score": payload.get("score"),
         "passed": payload.get("passed"),
+        "runtime_cleanup_history": payload.get("runtime_cleanup_history", []),
     }
 
     return session

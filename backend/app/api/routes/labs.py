@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, status
 
 from app.core.auth import get_current_user, get_optional_current_user, require_instructor
@@ -26,6 +28,7 @@ from app.services.session_service import (
     get_validation_history_response,
     get_lab_session,
     list_lab_sessions,
+    record_runtime_cleanup_result,
     to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
@@ -40,6 +43,7 @@ from app.services.web_cli_service import (
 )
 
 router = APIRouter(prefix="/labs", tags=["Lab Sessions"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -220,6 +224,10 @@ def deploy_lab(
         runtime_result = apply_runtime_error_injection(session)
 
         if not runtime_result["success"]:
+            runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
+                session=session,
+                failure_result=runtime_result,
+            )
             update_session_status(session_id, runtime_result["status"])
             return ActionResponse(**runtime_result)
 
@@ -378,6 +386,82 @@ def get_lab_recommendations(
     return RecommendationResponse(
         **build_recommendations_for_session(session)
     )
+
+
+def _attempt_runtime_cleanup_after_deploy_failure(
+    session: dict,
+    failure_result: dict,
+) -> dict:
+    """
+    Best-effort cleanup for the edge case where Containerlab deploy succeeds
+    but runtime setup/error injection fails afterwards.
+
+    The API still reports the lifecycle operation as failed, but the backend
+    attempts to remove any already-started Containerlab runtime so error-state
+    labs do not leave orphan Docker containers behind.
+    """
+
+    session_id = str(session["session_id"])
+    cleanup_result = containerlab_adapter.destroy(
+        session_id=session_id,
+        topology_file=session["topology_file"],
+    )
+
+    record_runtime_cleanup_result(
+        session_id=session_id,
+        trigger="runtime_setup_failed_after_deploy",
+        cleanup_result=cleanup_result,
+    )
+
+    cleaned = bool(cleanup_result.get("success"))
+    cleanup_summary = (
+        "Runtime cleanup after failed deploy: completed successfully."
+        if cleaned
+        else (
+            "Runtime cleanup after failed deploy: attempted but failed "
+            f"({cleanup_result.get('error_code') or 'UNKNOWN_CLEANUP_ERROR'})."
+        )
+    )
+
+    logger_method = logger.warning if cleaned else logger.error
+    logger_method(
+        "Runtime setup failed after Containerlab deploy; cleanup result recorded.",
+        extra={
+            "session_id": session_id,
+            "cleanup_success": cleaned,
+            "cleanup_error_code": cleanup_result.get("error_code"),
+            "cleanup_return_code": cleanup_result.get("return_code"),
+        },
+    )
+
+    response = dict(failure_result)
+    response["status"] = SessionStatus.error
+    response["message"] = (
+        "Containerlab deployed, but runtime setup failed. Runtime cleanup was completed."
+        if cleaned
+        else (
+            "Containerlab deployed, but runtime setup failed. "
+            "Runtime cleanup was attempted but did not complete."
+        )
+    )
+    response["stderr"] = "\n\n".join(
+        value
+        for value in [
+            str(response.get("stderr") or "").strip(),
+            cleanup_summary,
+        ]
+        if value
+    )
+    response["suggestion"] = (
+        "Create a new lab session and retry deployment. If the problem persists, check backend runtime logs."
+        if cleaned
+        else (
+            "Use Destroy/Finish to retry cleanup, then check Docker and Containerlab state "
+            "if resources remain."
+        )
+    )
+
+    return response
 
 
 def _get_authorized_lab_session(
