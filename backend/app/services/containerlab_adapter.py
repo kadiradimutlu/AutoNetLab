@@ -156,6 +156,24 @@ class ContainerlabAdapter:
             )
 
         if completed.returncode != 0:
+            if action == "destroy" and self._is_destroy_already_clean(
+                stdout=completed.stdout,
+                stderr=completed.stderr,
+            ):
+                return {
+                    "success": True,
+                    "session_id": session_id,
+                    "status": SessionStatus.destroyed,
+                    "message": "Containerlab topology was already destroyed; no runtime containers were found.",
+                    "command": self._format_command(command),
+                    "return_code": completed.returncode,
+                    "stdout": completed.stdout,
+                    "stderr": completed.stderr,
+                    "error_code": None,
+                    "detail": None,
+                    "suggestion": None,
+                }
+
             failure = self._classify_failure(
                 action=action,
                 stderr=completed.stderr,
@@ -444,6 +462,23 @@ class ContainerlabAdapter:
                 "Check stdout/stderr details, Docker status, WSL integration, and topology YAML."
             ),
         }
+
+    @staticmethod
+    def _is_destroy_already_clean(stdout: str | None, stderr: str | None) -> bool:
+        combined_output = f"{stdout or ''}\n{stderr or ''}".lower()
+
+        already_clean_markers = (
+            "no containers found",
+            "no container found",
+            "no runtime containers",
+            "already destroyed",
+            "already removed",
+            "does not exist",
+            "not found",
+            "not running",
+        )
+
+        return any(marker in combined_output for marker in already_clean_markers)
 
     def _error_response(
         self,
