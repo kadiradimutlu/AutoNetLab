@@ -463,6 +463,69 @@ class ContainerlabAdapter:
             ),
         }
 
+    def runtime_containers_exist(self, session: dict) -> bool:
+        expected_names = self._expected_runtime_container_names(session)
+
+        if not expected_names:
+            return False
+
+        try:
+            completed = subprocess.run(
+                ["docker", "ps", "-a", "--format", "{{.Names}}"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired):
+            return False
+
+        if completed.returncode != 0:
+            return False
+
+        existing_names = {
+            line.strip()
+            for line in completed.stdout.splitlines()
+            if line.strip()
+        }
+
+        return any(name in existing_names for name in expected_names)
+
+    @staticmethod
+    def _expected_runtime_container_names(session: dict) -> set[str]:
+        expected_names: set[str] = set()
+
+        for cli_entry in session.get("cli_access", []) or []:
+            if isinstance(cli_entry, dict):
+                container_name = cli_entry.get("container_name")
+            else:
+                container_name = getattr(cli_entry, "container_name", None)
+
+            if container_name:
+                expected_names.add(str(container_name))
+
+        lab_name = session.get("lab_name")
+        topology = session.get("topology")
+        nodes = None
+
+        if isinstance(topology, dict):
+            nodes = topology.get("nodes")
+        elif topology is not None:
+            nodes = getattr(topology, "nodes", None)
+
+        if lab_name and nodes:
+            for node in nodes:
+                if isinstance(node, dict):
+                    node_id = node.get("id")
+                else:
+                    node_id = getattr(node, "id", None)
+
+                if node_id:
+                    expected_names.add(f"clab-{lab_name}-{node_id}")
+
+        return expected_names
+
     @staticmethod
     def _is_destroy_already_clean(stdout: str | None, stderr: str | None) -> bool:
         combined_output = f"{stdout or ''}\n{stderr or ''}".lower()
