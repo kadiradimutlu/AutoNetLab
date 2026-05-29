@@ -63,23 +63,22 @@ def generate_basic_topology(template_name: str = "basic-two-router") -> Topology
 def generate_session_topology(
     session_id: str,
     difficulty: Difficulty,
-    topology_template: str = "basic-two-router",
-    scenario_id: str | None = None,
+    topology_template: str = "srl-basic-link",
+    scenario_id: str | None = SR_BASIC_LINK_SCENARIO_ID,
 ) -> dict[str, Any]:
     """
     Creates a session-specific Containerlab topology file.
 
-    Legacy mode:
-    - If scenario_id is omitted, difficulty-based Alpine/Linux templates are used.
-
-    Network realism mode:
-    - If scenario_id is provided, the scenario catalog selects a professional topology.
-    - Sprint 30 introduces the first Nokia SR Linux scenario.
+    Sprint 32B direction:
+    - New student-facing lab creation is scenario-first.
+    - If scenario_id is omitted by an older caller, SR Linux basic link is used.
+    - Legacy difficulty templates remain only as compatibility code during cleanup.
     """
 
     _validate_session_id(session_id)
 
-    scenario = get_scenario(scenario_id)
+    effective_scenario_id = scenario_id or SR_BASIC_LINK_SCENARIO_ID
+    scenario = get_scenario(effective_scenario_id)
 
     if scenario is not None:
         if scenario["id"] == SR_BASIC_LINK_SCENARIO_ID:

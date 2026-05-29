@@ -99,7 +99,8 @@ def test_get_lab_debug_response_includes_injected_errors():
     assert data["success"] is True
     assert data["session_id"] == session_id
     assert "injected_errors" in data
-    assert len(data["injected_errors"]) == 3
+    assert len(data["injected_errors"]) == 1
+    assert data["injected_errors"][0]["device"] == "client1"
     assert "hints" in data
 
 
@@ -403,6 +404,7 @@ def test_sprint8_validation_checks_include_advanced_fields():
         "interface_status",
         "default_gateway",
         "static_routing",
+            "routing",
         "vlan_like",
         "acl_like",
         "connectivity",
@@ -433,7 +435,7 @@ def test_sprint8_validation_checks_include_advanced_fields():
     for check in internal_checks:
         assert "evidence" in check
         assert isinstance(check["evidence"], dict)
-        assert check["evidence"]["validation_mode"] == "config_marker_check"
+        assert check["evidence"]["validation_mode"] == "srlinux_live_state_check"
 
 
 def test_sprint8_cli_access_response_includes_mode_info():
@@ -765,7 +767,7 @@ def test_sprint11_web_cli_blocks_student_from_other_students_session():
     session_id = create_response.json()["session_id"]
 
     with client.websocket_connect(
-        f"/api/v1/labs/{session_id}/cli/ws/r1?token=demo-student-token"
+        f"/api/v1/labs/{session_id}/cli/ws/srl1?token=demo-student-token"
     ) as websocket:
         payload = websocket.receive_json()
 
@@ -790,7 +792,7 @@ def test_sprint11_web_cli_requires_deployed_lab_before_runtime_shell():
     session_id = create_response.json()["session_id"]
 
     with client.websocket_connect(
-        f"/api/v1/labs/{session_id}/cli/ws/r1?token=demo-student-token"
+        f"/api/v1/labs/{session_id}/cli/ws/srl1?token=demo-student-token"
     ) as websocket:
         payload = websocket.receive_json()
 
@@ -847,12 +849,12 @@ def test_sprint11_web_cli_context_allows_own_deployed_student_session():
 
     context = build_web_cli_context(
         session_id=session_id,
-        device_id="r1",
+        device_id="srl1",
         token="demo-student-token",
     )
 
     assert context.session_id == session_id
-    assert context.device_id == "r1"
+    assert context.device_id == "srl1"
     assert context.container_name.startswith("clab-")
     assert context.username == "student"
     assert context.role == "student"
@@ -966,7 +968,7 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
     )
 
     response = client.get(
-        f"/api/v1/labs/{session_id}/cli/readiness/r1",
+        f"/api/v1/labs/{session_id}/cli/readiness/srl1",
         headers=STUDENT_AUTH_HEADERS,
     )
 
@@ -979,7 +981,7 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
     assert data["ready"] is True
     assert data["error_code"] is None
     assert len(data["devices"]) == 1
-    assert data["devices"][0]["device_id"] == "r1"
+    assert data["devices"][0]["device_id"] == "srl1"
     assert data["devices"][0]["container_running"] is True
     assert data["devices"][0]["ready"] is True
 
@@ -1157,7 +1159,7 @@ def test_sprint17_instructor_analytics_service_falls_back_to_session_json(monkey
     assert recent["recent_sessions"][0]["session_id"] == "lab-file-fallback"
     assert recent["recent_sessions"][0]["status"] == "created"
 
-def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
+def test_sprint19_hard_topology_returns_srlinux_scenario_and_cli_access():
     response = client.post(
         "/api/v1/labs",
         json={
@@ -1172,6 +1174,7 @@ def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
     data = response.json()
     assert data["success"] is True
     assert data["difficulty"] == "hard"
+    assert data["scenario"]["id"] == "srl-basic-link"
     assert "injected_errors" not in data
     assert "expected_fix" not in data
     assert "solution" not in data
@@ -1184,7 +1187,7 @@ def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
         for node in topology["nodes"]
     ]
 
-    assert node_ids == ["r1", "r2", "r3", "r4"]
+    assert node_ids == ["srl1", "client1"]
 
     link_pairs = {
         (
@@ -1195,18 +1198,17 @@ def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
     }
 
     assert link_pairs == {
-        ("r1", "r2"),
-        ("r2", "r3"),
-        ("r3", "r4"),
-        ("r1", "r4"),
+        ("srl1", "client1"),
     }
 
-    cli_device_ids = {
-        device["device_id"]
+    cli_by_device = {
+        device["device_id"]: device
         for device in data["cli_access"]
     }
 
-    assert cli_device_ids == {"r1", "r2", "r3", "r4"}
+    assert set(cli_by_device) == {"srl1", "client1"}
+    assert "sr_cli" in cli_by_device["srl1"]["command"]
+    assert cli_by_device["client1"]["command"].endswith(" sh")
 
     for device in data["cli_access"]:
         assert device["container_name"].endswith(f"-{device['device_id']}")
@@ -1235,8 +1237,8 @@ def test_sprint19_hard_error_injection_covers_at_least_three_topology_devices():
     assert len(error_devices) >= 3
 
 
-def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
-    import json
+def test_sprint19_hard_validation_and_metadata_follow_srlinux_scenario():
+    from app.services.session_service import get_lab_session
 
     create_response = client.post(
         "/api/v1/labs",
@@ -1259,30 +1261,41 @@ def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
     assert validation_payload["status"] == "validated"
     assert len(validation_payload["checks"]) == 5
 
+    check_ids = {
+        check["check_id"]
+        for check in validation_payload["checks"]
+    }
+
+    assert check_ids == {
+        "srl_check_1_router_gateway_address",
+        "srl_check_2_router_network_instance",
+        "srl_check_3_client_address",
+        "srl_check_4_client_default_gateway",
+        "srl_check_5_gateway_connectivity",
+    }
+
     for check in validation_payload["checks"]:
         assert "evidence" not in check
 
-    session_dir = GENERATED_DIR / session_id
-    metadata_path = session_dir / "errors" / "injected_errors.json"
-    assert metadata_path.exists()
+    session = get_lab_session(session_id)
+    assert session["topology_template"] == "srl-basic-link"
 
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert metadata["topology_devices"] == ["r1", "r2", "r3", "r4"]
+    topology_file = GENERATED_DIR / session_id / "lab.clab.yml"
+    assert topology_file.exists()
+    assert "nokia_srlinux" in topology_file.read_text(encoding="utf-8")
 
-    injected_devices = {
-        error["device"]
-        for error in metadata["injected_errors"]
-    }
+    injected_errors = session["injected_errors"]
+    assert len(injected_errors) == 1
 
-    assert injected_devices.issubset({"r1", "r2", "r3", "r4"})
-    assert len(injected_devices) >= 3
+    fault = (
+        injected_errors[0].model_dump()
+        if hasattr(injected_errors[0], "model_dump")
+        else injected_errors[0]
+    )
 
-    config_files = {
-        path.name
-        for path in (session_dir / "configs").glob("*.conf")
-    }
+    assert fault["device"] == "client1"
+    assert fault["code"] == "SRLINUX_WRONG_CLIENT_GATEWAY"
 
-    assert config_files == {"r1.conf", "r2.conf", "r3.conf", "r4.conf"}
 
 def _sprint20_register_student(username: str, password: str = "student123"):
     response = client.post(
@@ -1571,9 +1584,9 @@ def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
     assert created_lab["score"] is None
     assert created_lab["passed"] is None
     assert created_lab["topology_summary"]["name"]
-    assert created_lab["topology_summary"]["node_count"] == 4
-    assert created_lab["topology_summary"]["link_count"] == 4
-    assert set(created_lab["topology_summary"]["devices"]) == {"r1", "r2", "r3", "r4"}
+    assert created_lab["topology_summary"]["node_count"] == 2
+    assert created_lab["topology_summary"]["link_count"] == 1
+    assert set(created_lab["topology_summary"]["devices"]) == {"srl1", "client1"}
 
     list_response = client.get(
         "/api/v1/labs?limit=10",
@@ -1602,8 +1615,8 @@ def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
     assert listed_lab["completed_at"] is None
     assert listed_lab["score"] is None
     assert listed_lab["passed"] is None
-    assert listed_lab["topology_summary"]["node_count"] == 4
-    assert listed_lab["topology_summary"]["link_count"] == 4
+    assert listed_lab["topology_summary"]["node_count"] == 2
+    assert listed_lab["topology_summary"]["link_count"] == 1
 
     instructor_get_response = client.get(
         f"/api/v1/labs/{session_id}",

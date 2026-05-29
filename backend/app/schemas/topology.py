@@ -20,6 +20,6 @@ class TopologyLink(BaseModel):
 
 
 class Topology(BaseModel):
-    name: str = Field(..., examples=["basic-two-router"])
+    name: str = Field(..., examples=["srl-basic-link"])
     nodes: list[TopologyNode]
     links: list[TopologyLink]
