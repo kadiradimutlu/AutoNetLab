@@ -153,7 +153,11 @@ def _generate_srl_basic_link_topology(
                     "endpoints": [
                         "srl1:e1-1",
                         "client1:eth1",
-                    ]
+                    ],
+                    "ipv4": [
+                        "10.10.10.1/24",
+                        "10.10.10.10/24",
+                    ],
                 }
             ],
         },

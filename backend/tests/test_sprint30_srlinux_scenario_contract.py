@@ -81,6 +81,10 @@ def test_generate_srlinux_basic_link_topology_file():
             "srl1:e1-1",
             "client1:eth1",
         ]
+        assert payload["topology"]["links"][0]["ipv4"] == [
+            "10.10.10.1/24",
+            "10.10.10.10/24",
+        ]
     finally:
         if generated_dir.exists():
             shutil.rmtree(generated_dir)
@@ -172,4 +176,127 @@ def test_create_lab_with_srlinux_scenario_returns_student_safe_contract():
     finally:
         if generated_dir.exists():
             shutil.rmtree(generated_dir)
+
+
+def test_srlinux_runtime_setup_applies_client_ip_and_gateway(monkeypatch):
+    from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
+
+    session = {
+        "session_id": "lab-runtime-setup-test",
+        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "cli_access": [
+            {
+                "device_id": "srl1",
+                "name": "srl1",
+                "container_name": "clab-autonetlab-lab-runtime-setup-test-srl1",
+            },
+            {
+                "device_id": "client1",
+                "name": "client1",
+                "container_name": "clab-autonetlab-lab-runtime-setup-test-client1",
+            },
+        ],
+    }
+
+    executed_commands = []
+
+    class FakeCompletedProcess:
+        def __init__(self, stdout: str = "", returncode: int = 0):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(command, **kwargs):
+        command_text = " ".join(command)
+        executed_commands.append(command_text)
+
+        if "ip -4 addr show dev eth1" in command_text:
+            return FakeCompletedProcess(stdout="inet 10.10.10.10/24 scope global eth1\n")
+
+        if "ip route" in command_text:
+            return FakeCompletedProcess(stdout="default via 10.10.10.1 dev eth1\n")
+
+        if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
+            return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
+
+        if "ping -c 2 -W 2 10.10.10.1" in command_text:
+            return FakeCompletedProcess(stdout="2 packets transmitted, 2 received, 0% packet loss\n")
+
+        return FakeCompletedProcess(stdout="ok\n")
+
+    monkeypatch.setattr(
+        "app.services.srlinux_runtime_setup.subprocess.run",
+        fake_run,
+    )
+
+    result = apply_srlinux_runtime_setup(session)
+
+    assert result["success"] is True
+    assert result["status"].value == "deployed"
+    assert result["message"] == "SR Linux runtime setup applied successfully."
+
+    joined_commands = "\n".join(executed_commands)
+
+    assert "ip addr add 10.10.10.10/24 dev eth1" in joined_commands
+    assert "ip route replace default via 10.10.10.1 dev eth1" in joined_commands
+    assert "ping -c 2 -W 2 10.10.10.1" in joined_commands
+
+
+def test_srlinux_runtime_setup_fails_when_gateway_ping_fails(monkeypatch):
+    from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
+
+    session = {
+        "session_id": "lab-runtime-setup-fail-test",
+        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "cli_access": [
+            {
+                "device_id": "srl1",
+                "name": "srl1",
+                "container_name": "clab-autonetlab-lab-runtime-setup-fail-test-srl1",
+            },
+            {
+                "device_id": "client1",
+                "name": "client1",
+                "container_name": "clab-autonetlab-lab-runtime-setup-fail-test-client1",
+            },
+        ],
+    }
+
+    class FakeCompletedProcess:
+        def __init__(self, stdout: str = "", returncode: int = 0):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(command, **kwargs):
+        command_text = " ".join(command)
+
+        if "ip -4 addr show dev eth1" in command_text:
+            return FakeCompletedProcess(stdout="inet 10.10.10.10/24 scope global eth1\n")
+
+        if "ip route" in command_text:
+            return FakeCompletedProcess(stdout="default via 10.10.10.1 dev eth1\n")
+
+        if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
+            return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
+
+        if "ping -c 2 -W 2 10.10.10.1" in command_text:
+            return FakeCompletedProcess(
+                stdout="2 packets transmitted, 0 received, 100% packet loss\n",
+                returncode=1,
+            )
+
+        return FakeCompletedProcess(stdout="ok\n")
+
+    monkeypatch.setattr(
+        "app.services.srlinux_runtime_setup.subprocess.run",
+        fake_run,
+    )
+
+    result = apply_srlinux_runtime_setup(session)
+
+    assert result["success"] is False
+    assert result["status"].value == "error"
+    assert result["error_code"] == "SRLINUX_RUNTIME_VERIFICATION_FAILED"
+    assert "ping" in result["detail"]
 

@@ -1,0 +1,285 @@
+import subprocess
+from typing import Any
+
+from app.schemas.enums import SessionStatus
+from app.services.scenario_catalog import SR_BASIC_LINK_SCENARIO_ID
+
+
+def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
+    """
+    Applies runtime setup for Sprint 30 SR Linux scenarios.
+
+    Containerlab link-level ipv4 metadata configures the SR Linux side of the
+    link, but the Linux client side still needs explicit IP/default-gateway
+    setup after deploy.
+    """
+
+    session_id = str(session["session_id"])
+    scenario_id = _scenario_id(session)
+
+    if scenario_id != SR_BASIC_LINK_SCENARIO_ID:
+        return _success_response(
+            session_id=session_id,
+            command_results=[],
+            message="No SR Linux runtime setup was required for this scenario.",
+        )
+
+    client_container = _container_name_for_device(session, "client1")
+    srl_container = _container_name_for_device(session, "srl1")
+
+    if not client_container or not srl_container:
+        return _error_response(
+            session_id=session_id,
+            command_results=[],
+            error_code="SRLINUX_RUNTIME_METADATA_MISSING",
+            detail="Could not resolve required container names for srl1/client1.",
+        )
+
+    command_results: list[dict[str, Any]] = []
+
+    client_setup_commands = [
+        "ip addr flush dev eth1 || true",
+        "ip addr add 10.10.10.10/24 dev eth1",
+        "ip link set eth1 up",
+        "ip route replace default via 10.10.10.1 dev eth1",
+    ]
+
+    for command in client_setup_commands:
+        result = _run_docker_exec(
+            container_name=client_container,
+            command=["sh", "-lc", command],
+            stage="client_runtime_setup",
+            device="client1",
+            display_command=command,
+        )
+        command_results.append(result)
+
+        if not result["success"]:
+            return _error_response(
+                session_id=session_id,
+                command_results=command_results,
+                error_code="SRLINUX_CLIENT_RUNTIME_SETUP_FAILED",
+                detail=f"Client runtime setup command failed: {command}",
+            )
+
+    verification_commands = [
+        (
+            "client1",
+            client_container,
+            ["sh", "-lc", "ip -4 addr show dev eth1"],
+            "verify client1 eth1 IPv4 address",
+            "10.10.10.10/24",
+        ),
+        (
+            "client1",
+            client_container,
+            ["sh", "-lc", "ip route"],
+            "verify client1 default route",
+            "default via 10.10.10.1",
+        ),
+        (
+            "srl1",
+            srl_container,
+            ["sr_cli", "-ec", "info from state interface ethernet-1/1 subinterface 0 ipv4"],
+            "verify srl1 gateway address",
+            "10.10.10.1/24",
+        ),
+        (
+            "client1",
+            client_container,
+            ["sh", "-lc", "ping -c 2 -W 2 10.10.10.1"],
+            "verify client1 can ping srl1 gateway",
+            "0% packet loss",
+        ),
+    ]
+
+    for device, container_name, command, display_command, expected_output in verification_commands:
+        result = _run_docker_exec(
+            container_name=container_name,
+            command=command,
+            stage="srlinux_runtime_verification",
+            device=device,
+            display_command=display_command,
+        )
+        command_results.append(result)
+
+        if not result["success"] or expected_output not in result.get("stdout", ""):
+            return _error_response(
+                session_id=session_id,
+                command_results=command_results,
+                error_code="SRLINUX_RUNTIME_VERIFICATION_FAILED",
+                detail=(
+                    f"Runtime verification failed for {device}: "
+                    f"expected output '{expected_output}' while running '{display_command}'."
+                ),
+            )
+
+    return _success_response(
+        session_id=session_id,
+        command_results=command_results,
+        message="SR Linux runtime setup applied successfully.",
+    )
+
+
+def _run_docker_exec(
+    *,
+    container_name: str,
+    command: list[str],
+    stage: str,
+    device: str,
+    display_command: str,
+) -> dict[str, Any]:
+    docker_command = ["docker", "exec", container_name, *command]
+
+    try:
+        completed = subprocess.run(
+            docker_command,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        return {
+            "stage": stage,
+            "device": device,
+            "command": display_command,
+            "success": False,
+            "return_code": None,
+            "stdout": "",
+            "stderr": str(exc),
+        }
+    except PermissionError as exc:
+        return {
+            "stage": stage,
+            "device": device,
+            "command": display_command,
+            "success": False,
+            "return_code": None,
+            "stdout": "",
+            "stderr": str(exc),
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "stage": stage,
+            "device": device,
+            "command": display_command,
+            "success": False,
+            "return_code": None,
+            "stdout": exc.stdout or "",
+            "stderr": exc.stderr or "Command timed out.",
+        }
+
+    return {
+        "stage": stage,
+        "device": device,
+        "command": display_command,
+        "success": completed.returncode == 0,
+        "return_code": completed.returncode,
+        "stdout": completed.stdout or "",
+        "stderr": completed.stderr or "",
+    }
+
+
+def _success_response(
+    *,
+    session_id: str,
+    command_results: list[dict[str, Any]],
+    message: str,
+) -> dict[str, Any]:
+    return {
+        "success": True,
+        "session_id": session_id,
+        "status": SessionStatus.deployed,
+        "message": message,
+        "command": "docker exec SR Linux runtime setup commands",
+        "return_code": 0,
+        "stdout": _format_command_results(command_results, stream="stdout"),
+        "stderr": _format_command_results(command_results, stream="stderr"),
+        "error_code": None,
+        "detail": None,
+        "suggestion": None,
+    }
+
+
+def _error_response(
+    *,
+    session_id: str,
+    command_results: list[dict[str, Any]],
+    error_code: str,
+    detail: str,
+) -> dict[str, Any]:
+    return {
+        "success": False,
+        "session_id": session_id,
+        "status": SessionStatus.error,
+        "message": "Containerlab deployed, but SR Linux runtime setup failed.",
+        "command": "docker exec SR Linux runtime setup commands",
+        "return_code": 1,
+        "stdout": _format_command_results(command_results, stream="stdout"),
+        "stderr": _format_command_results(command_results, stream="stderr"),
+        "error_code": error_code,
+        "detail": detail,
+        "suggestion": (
+            "Inspect SR Linux and client containers, then retry deployment. "
+            "If resources remain, destroy the lab before creating a new session."
+        ),
+    }
+
+
+def _format_command_results(command_results: list[dict[str, Any]], stream: str) -> str:
+    lines: list[str] = []
+
+    for item in command_results:
+        value = str(item.get(stream) or "").strip()
+
+        if not value:
+            continue
+
+        lines.append(
+            "[{stage}] {device} {command}\n{value}".format(
+                stage=item.get("stage"),
+                device=item.get("device"),
+                command=item.get("command"),
+                value=value,
+            )
+        )
+
+    return "\n\n".join(lines)
+
+
+def _container_name_for_device(session: dict[str, Any], device: str) -> str | None:
+    for entry in session.get("cli_access", []) or []:
+        entry_device_id = _entry_value(entry, "device_id")
+        entry_name = _entry_value(entry, "name")
+
+        if entry_device_id == device or entry_name == device:
+            container_name = _entry_value(entry, "container_name")
+            if container_name:
+                return str(container_name)
+
+    lab_name = session.get("lab_name")
+    if lab_name:
+        return f"clab-{lab_name}-{device}"
+
+    session_id = session.get("session_id")
+    if session_id:
+        return f"clab-autonetlab-{session_id}-{device}"
+
+    return None
+
+
+def _scenario_id(session: dict[str, Any]) -> str | None:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict):
+        return scenario.get("id")
+
+    return None
+
+
+def _entry_value(entry: Any, key: str) -> Any:
+    if isinstance(entry, dict):
+        return entry.get(key)
+
+    return getattr(entry, key, None)
