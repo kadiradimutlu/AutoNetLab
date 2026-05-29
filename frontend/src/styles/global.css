@@ -1,3 +1,4 @@
+
 * {
   box-sizing: border-box;
 }
@@ -5063,3 +5064,284 @@ html {
   color: #b91c1c;
 }
 /* End Sprint 29 My Labs conditional stat emphasis */
+
+
+
+/* Sprint 31 SR Linux scenario selection and network realism polish */
+.lab-choice-section {
+  display: grid;
+  gap: 12px;
+}
+
+.lab-type-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.scenario-card-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.lab-type-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.lab-type-card:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+}
+
+.lab-type-card.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.16);
+}
+
+.lab-type-card.muted-card {
+  cursor: default;
+  background: #f8fafc;
+  border-style: dashed;
+  color: #64748b;
+}
+
+.lab-type-card.muted-card:hover {
+  transform: none;
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
+.lab-type-card strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.lab-type-card p,
+.lab-type-card small {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.55;
+}
+
+.scenario-card-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.scenario-card-meta-grid div {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 9px;
+  min-width: 0;
+}
+
+.scenario-card-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.scenario-card-meta-grid strong {
+  display: block;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.scenario-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 16px 0 18px;
+}
+
+.scenario-detail-card {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 14px;
+  min-width: 0;
+}
+
+.scenario-detail-card-wide {
+  grid-column: 1 / -1;
+}
+
+.scenario-detail-card h4 {
+  margin: 0 0 10px;
+}
+
+.scenario-detail-card p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.scenario-table-scroll {
+  overflow-x: auto;
+}
+
+.scenario-data-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.scenario-data-table th,
+.scenario-data-table td {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.scenario-data-table th {
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.scenario-data-table td {
+  background: #ffffff;
+  color: #334155;
+}
+
+.scenario-device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.scenario-device-card {
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.scenario-device-card strong,
+.scenario-device-card span,
+.scenario-device-card p {
+  display: block;
+}
+
+.scenario-device-card p {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.scenario-device-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.scenario-device-meta span {
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.scenario-requirement-list,
+.scenario-note-list,
+.scenario-task-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #334155;
+  line-height: 1.65;
+}
+
+.scenario-requirement-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.scenario-requirement-list li {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.scenario-requirement-list strong,
+.scenario-requirement-list span {
+  display: block;
+}
+
+.scenario-requirement-list strong {
+  margin-bottom: 4px;
+}
+
+.scenario-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+  color: #64748b;
+}
+
+.network-node-card.topology-node-srlinux {
+  border-color: #bfdbfe;
+}
+
+.network-node-card.topology-node-linux {
+  border-color: #bbf7d0;
+}
+
+.network-node-card.topology-node-srlinux .network-device-icon {
+  background: linear-gradient(180deg, #1d4ed8 0%, #0f172a 100%);
+}
+
+.network-node-card.topology-node-linux .network-device-icon {
+  background: linear-gradient(180deg, #16a34a 0%, #166534 100%);
+}
+
+.network-node-card.topology-node-srlinux .network-node-title-row p,
+.network-node-card.topology-node-linux .network-node-title-row p {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1150px) {
+  .lab-type-grid,
+  .scenario-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .scenario-card-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-type-card {
+    min-height: 0;
+  }
+}

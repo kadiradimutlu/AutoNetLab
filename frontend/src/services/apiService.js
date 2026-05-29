@@ -1,3 +1,4 @@
+
 import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
@@ -357,6 +358,87 @@ const MOCK_DATABASE_READINESS = {
   error: null
 };
 
+
+const MOCK_SCENARIOS = {
+  success: true,
+  scenarios: [
+    {
+      id: "srl-basic-link",
+      title: "SR Linux Basic Link Troubleshooting",
+      summary: "A professional router-client starter scenario using Nokia SR Linux and a Linux client.",
+      topology_template: "srl-basic-link",
+      platform: "containerlab",
+      router_os: "Nokia SR Linux",
+      supported_difficulties: ["easy", "medium", "hard"],
+      objective: "Restore the expected connectivity between client1 and the SR Linux router.",
+      story: "A small routed edge segment is being prepared for network troubleshooting practice. Use the design requirements below as the source of truth while inspecting the live lab.",
+      devices: [
+        {
+          id: "srl1",
+          label: "SR Linux Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          image: "ghcr.io/nokia/srlinux:26.3.2",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "client1",
+          label: "Client 1",
+          role: "client",
+          os: "Linux",
+          image: "ghcr.io/srl-labs/network-multitool:latest",
+          cli_profile: "linux_shell"
+        }
+      ],
+      addressing_table: [
+        {
+          device: "srl1",
+          interface: "ethernet-1/1",
+          ip_address: "10.10.10.1/24",
+          role: "default gateway for client1",
+          connects_to: "client1 eth1"
+        },
+        {
+          device: "client1",
+          interface: "eth1",
+          ip_address: "10.10.10.10/24",
+          default_gateway: "10.10.10.1",
+          connects_to: "srl1 ethernet-1/1"
+        }
+      ],
+      routing_requirements: [
+        {
+          device: "client1",
+          requirement: "client1 must use 10.10.10.1 as its default gateway."
+        },
+        {
+          device: "srl1",
+          requirement: "srl1 ethernet-1/1 must be configured in the 10.10.10.0/24 client subnet."
+        }
+      ],
+      expected_connectivity: [
+        {
+          source: "client1",
+          destination: "10.10.10.1",
+          protocol: "ICMP",
+          expectation: "client1 can ping the SR Linux router gateway."
+        }
+      ],
+      student_tasks: [
+        "Inspect the topology and identify the router and client roles.",
+        "Compare the live device state with the addressing table.",
+        "Verify the client default gateway.",
+        "Restore the expected connectivity and run validation."
+      ],
+      student_notes: [
+        "Injected faults are hidden from the student view.",
+        "Use the scenario design requirements as the expected network state."
+      ]
+    }
+  ],
+  message: "MOCK: Scenario catalog retrieved successfully."
+};
+
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
   "Verify interface status before testing connectivity.",
@@ -672,6 +754,11 @@ function sanitizeStudentSession(session) {
   delete safeSession.solution;
   delete safeSession.answer;
   delete safeSession.debug;
+  delete safeSession.evidence;
+  delete safeSession.observed_state;
+  delete safeSession.expected_state;
+  delete safeSession.validation_command;
+  delete safeSession.injection_commands;
 
   return {
     ...safeSession,
@@ -1149,7 +1236,130 @@ export function getErrorDetails(error) {
   return details.join(" | ");
 }
 
-function createMockLabSession({ student_id, difficulty, topology_template }) {
+
+function getMockScenarioById(scenarioId) {
+  return MOCK_SCENARIOS.scenarios.find((scenario) => scenario.id === scenarioId) || null;
+}
+
+function getCliDisplayName(cli, fallbackDeviceId) {
+  const rawDeviceId = String(
+    cli?.device_id ||
+      cli?.deviceId ||
+      cli?.device ||
+      cli?.name ||
+      fallbackDeviceId ||
+      ""
+  ).trim();
+  const rawCommand = String(
+    cli?.docker_exec_command ||
+      cli?.command ||
+      cli?.exec_command ||
+      cli?.ssh_command ||
+      ""
+  ).toLowerCase();
+  const rawProfile = String(cli?.cli_profile || cli?.profile || cli?.mode || "").toLowerCase();
+  const normalizedDeviceId = rawDeviceId || "device";
+
+  if (
+    normalizedDeviceId.toLowerCase().includes("srl") ||
+    rawCommand.includes("sr_cli") ||
+    rawProfile.includes("sr_cli")
+  ) {
+    return `${normalizedDeviceId} — SR Linux CLI`;
+  }
+
+  if (
+    normalizedDeviceId.toLowerCase().includes("client") ||
+    rawCommand.endsWith(" sh") ||
+    rawCommand.includes(" sh ")
+  ) {
+    return `${normalizedDeviceId} — Linux Shell`;
+  }
+
+  return cli?.device_name || cli?.name || cli?.device || normalizedDeviceId;
+}
+
+function createMockLabSession({
+  student_id,
+  difficulty,
+  topology_template,
+  scenario_id = ""
+}) {
+  const scenario = getMockScenarioById(scenario_id);
+
+  if (scenario) {
+    return sanitizeStudentSession({
+      ...mockLabSession,
+      success: true,
+      session_id: `lab-${Date.now()}`,
+      student_id,
+      difficulty,
+      scenario,
+      scenario_id: scenario.id,
+      status: "created",
+      cli_access_mode: "local_docker_exec_demo",
+      topology_summary: {
+        name: `autonetlab-${scenario.id}`,
+        node_count: 2,
+        link_count: 1,
+        devices: ["srl1", "client1"]
+      },
+      topology: {
+        name: scenario.topology_template,
+        nodes: [
+          {
+            id: "srl1",
+            label: "SR Linux Router 1",
+            kind: "nokia_srlinux",
+            image: "ghcr.io/nokia/srlinux:26.3.2"
+          },
+          {
+            id: "client1",
+            label: "Client 1",
+            kind: "linux",
+            image: "ghcr.io/srl-labs/network-multitool:latest"
+          }
+        ],
+        links: [
+          {
+            source: {
+              node: "srl1",
+              interface: "e1-1"
+            },
+            target: {
+              node: "client1",
+              interface: "eth1"
+            }
+          }
+        ]
+      },
+      cli_access: [
+        {
+          device_id: "srl1",
+          device_name: "srl1 — SR Linux CLI",
+          name: "SR Linux Router 1",
+          container_name: "clab-autonetlab-mock-srl1",
+          access_method: "local_docker_exec_demo",
+          mode: "local_docker_exec_demo",
+          command: "docker exec -it clab-autonetlab-mock-srl1 sr_cli",
+          description: "Open SR Linux CLI access for srl1."
+        },
+        {
+          device_id: "client1",
+          device_name: "client1 — Linux Shell",
+          name: "Client 1",
+          container_name: "clab-autonetlab-mock-client1",
+          access_method: "local_docker_exec_demo",
+          mode: "local_docker_exec_demo",
+          command: "docker exec -it clab-autonetlab-mock-client1 sh",
+          description: "Open Linux shell access for client1."
+        }
+      ],
+      hints: DEFAULT_STUDENT_HINTS,
+      message: "MOCK: SR Linux lab session created successfully."
+    });
+  }
+
   return sanitizeStudentSession({
     ...mockLabSession,
     success: true,
@@ -1320,13 +1530,7 @@ function normalizeCliAccess(cli, index) {
 
   return {
     device_id: deviceId,
-    device_name:
-      safeCli.device_name ||
-      safeCli.name ||
-      safeCli.device ||
-      safeCli.device_id ||
-      safeCli.container_name ||
-      `device-${index + 1}`,
+    device_name: getCliDisplayName(safeCli, deviceId),
     container_name:
       safeCli.container_name ||
       safeCli.container ||
@@ -1392,10 +1596,20 @@ export async function getDifficulties() {
   return request("/meta/difficulties");
 }
 
+export async function getScenarios() {
+  if (USE_MOCK_API) {
+    await wait();
+    return MOCK_SCENARIOS;
+  }
+
+  return request("/meta/scenarios");
+}
+
 export async function createSession({
   student_id = "muhammed",
   difficulty = "easy",
-  topology_template = "basic-two-router"
+  topology_template = "basic-two-router",
+  scenario_id = ""
 } = {}) {
   if (USE_MOCK_API) {
     await wait();
@@ -1403,17 +1617,25 @@ export async function createSession({
     return createMockLabSession({
       student_id,
       difficulty,
-      topology_template
+      topology_template,
+      scenario_id
     });
+  }
+
+  const body = {
+    student_id,
+    difficulty
+  };
+
+  if (scenario_id) {
+    body.scenario_id = scenario_id;
+  } else {
+    body.topology_template = topology_template;
   }
 
   const result = await request("/labs", {
     method: "POST",
-    body: JSON.stringify({
-      student_id,
-      difficulty,
-      topology_template
-    })
+    body: JSON.stringify(body)
   });
 
   return sanitizeStudentSession(result);
@@ -2116,3 +2338,4 @@ export const deployLab = deploySession;
 export const destroyLab = destroySession;
 export const finishLab = finishSession;
 export const validateLab = validateSession;
+
