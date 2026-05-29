@@ -5,7 +5,7 @@
   "difficulty": "hard",
   "status": "created",
   "topology": {
-    "name": "basic-two-router",
+    "name": "srl-basic-link",
     "nodes": [
       {
         "id": "r1",
