@@ -764,7 +764,7 @@ function sanitizeStudentSession(session) {
   return {
     ...safeSession,
     topology: safeSession.topology || {
-      name: "basic-two-router",
+      name: "srl-basic-link",
       nodes: [],
       links: []
     },
@@ -1727,7 +1727,7 @@ export async function getScenarios() {
 export async function createSession({
   student_id = "muhammed",
   difficulty = "easy",
-  topology_template = "basic-two-router",
+  topology_template = "srl-basic-link",
   scenario_id = ""
 } = {}) {
   if (USE_MOCK_API) {
@@ -1951,7 +1951,7 @@ export async function getCliAccess(sessionId) {
     const session = createMockLabSession({
       student_id: "muhammed",
       difficulty: "hard",
-      topology_template: "basic-two-router"
+      topology_template: "srl-basic-link"
     });
 
     return normalizeCliAccessResponse(
@@ -2457,6 +2457,3 @@ export const deployLab = deploySession;
 export const destroyLab = destroySession;
 export const finishLab = finishSession;
 export const validateLab = validateSession;
-
-
-
