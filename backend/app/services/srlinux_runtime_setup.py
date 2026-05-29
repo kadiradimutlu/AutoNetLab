@@ -9,9 +9,10 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
     """
     Applies runtime setup for Sprint 30 SR Linux scenarios.
 
-    Containerlab link-level ipv4 metadata configures the SR Linux side of the
-    link, but the Linux client side still needs explicit IP/default-gateway
-    setup after deploy.
+    Containerlab link-level ipv4 metadata configures the SR Linux interface IP,
+    but SR Linux still needs the routed subinterface to be attached to the
+    default network-instance. The Linux client side also needs explicit
+    IP/default-gateway setup after deploy.
     """
 
     session_id = str(session["session_id"])
@@ -36,6 +37,34 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
         )
 
     command_results: list[dict[str, Any]] = []
+
+    srl_config_script = "\n".join(
+        [
+            "enter candidate",
+            "set network-instance default interface ethernet-1/1.0",
+            "commit now",
+            "quit",
+            "",
+        ]
+    )
+
+    srl_config_result = _run_docker_exec(
+        container_name=srl_container,
+        command=["sr_cli"],
+        stage="srlinux_network_instance_setup",
+        device="srl1",
+        display_command="bind ethernet-1/1.0 to default network-instance",
+        input_text=srl_config_script,
+    )
+    command_results.append(srl_config_result)
+
+    if not srl_config_result["success"]:
+        return _error_response(
+            session_id=session_id,
+            command_results=command_results,
+            error_code="SRLINUX_NETWORK_INSTANCE_SETUP_FAILED",
+            detail="Could not bind ethernet-1/1.0 to SR Linux default network-instance.",
+        )
 
     client_setup_commands = [
         "ip addr flush dev eth1 || true",
@@ -62,6 +91,14 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
                 detail=f"Client runtime setup command failed: {command}",
             )
 
+    ping_retry_command = (
+        "for i in 1 2 3 4 5; do "
+        "ping -c 3 -W 2 10.10.10.1 && exit 0; "
+        "sleep 2; "
+        "done; "
+        "ping -c 3 -W 2 10.10.10.1"
+    )
+
     verification_commands = [
         (
             "client1",
@@ -85,11 +122,18 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
             "10.10.10.1/24",
         ),
         (
+            "srl1",
+            srl_container,
+            ["sr_cli", "-ec", "info network-instance default"],
+            "verify srl1 default network-instance binding",
+            "interface ethernet-1/1.0",
+        ),
+        (
             "client1",
             client_container,
-            ["sh", "-lc", "ping -c 2 -W 2 10.10.10.1"],
+            ["sh", "-lc", ping_retry_command],
             "verify client1 can ping srl1 gateway",
-            "0% packet loss",
+            "bytes from 10.10.10.1",
         ),
     ]
 
@@ -128,15 +172,22 @@ def _run_docker_exec(
     stage: str,
     device: str,
     display_command: str,
+    input_text: str | None = None,
 ) -> dict[str, Any]:
-    docker_command = ["docker", "exec", container_name, *command]
+    docker_command = ["docker", "exec"]
+
+    if input_text is not None:
+        docker_command.append("-i")
+
+    docker_command.extend([container_name, *command])
 
     try:
         completed = subprocess.run(
             docker_command,
+            input=input_text,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=45,
             check=False,
         )
     except FileNotFoundError as exc:

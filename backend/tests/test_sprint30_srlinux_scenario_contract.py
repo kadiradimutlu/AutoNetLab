@@ -178,7 +178,7 @@ def test_create_lab_with_srlinux_scenario_returns_student_safe_contract():
             shutil.rmtree(generated_dir)
 
 
-def test_srlinux_runtime_setup_applies_client_ip_and_gateway(monkeypatch):
+def test_srlinux_runtime_setup_applies_client_ip_gateway_and_network_instance(monkeypatch):
     from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
 
     session = {
@@ -199,6 +199,7 @@ def test_srlinux_runtime_setup_applies_client_ip_and_gateway(monkeypatch):
     }
 
     executed_commands = []
+    sr_cli_input = []
 
     class FakeCompletedProcess:
         def __init__(self, stdout: str = "", returncode: int = 0):
@@ -210,6 +211,9 @@ def test_srlinux_runtime_setup_applies_client_ip_and_gateway(monkeypatch):
         command_text = " ".join(command)
         executed_commands.append(command_text)
 
+        if kwargs.get("input"):
+            sr_cli_input.append(kwargs["input"])
+
         if "ip -4 addr show dev eth1" in command_text:
             return FakeCompletedProcess(stdout="inet 10.10.10.10/24 scope global eth1\n")
 
@@ -219,8 +223,13 @@ def test_srlinux_runtime_setup_applies_client_ip_and_gateway(monkeypatch):
         if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
             return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
 
-        if "ping -c 2 -W 2 10.10.10.1" in command_text:
-            return FakeCompletedProcess(stdout="2 packets transmitted, 2 received, 0% packet loss\n")
+        if "info network-instance default" in command_text:
+            return FakeCompletedProcess(stdout="interface ethernet-1/1.0 {\n}\n")
+
+        if "ping" in command_text and "10.10.10.1" in command_text:
+            return FakeCompletedProcess(
+                stdout="64 bytes from 10.10.10.1: icmp_seq=1 ttl=64 time=8.1 ms\n"
+            )
 
         return FakeCompletedProcess(stdout="ok\n")
 
@@ -236,10 +245,16 @@ def test_srlinux_runtime_setup_applies_client_ip_and_gateway(monkeypatch):
     assert result["message"] == "SR Linux runtime setup applied successfully."
 
     joined_commands = "\n".join(executed_commands)
+    joined_sr_cli_input = "\n".join(sr_cli_input)
+
+    assert "docker exec -i clab-autonetlab-lab-runtime-setup-test-srl1 sr_cli" in joined_commands
+    assert "set network-instance default interface ethernet-1/1.0" in joined_sr_cli_input
+    assert "commit now" in joined_sr_cli_input
 
     assert "ip addr add 10.10.10.10/24 dev eth1" in joined_commands
     assert "ip route replace default via 10.10.10.1 dev eth1" in joined_commands
-    assert "ping -c 2 -W 2 10.10.10.1" in joined_commands
+    assert "ping" in joined_commands
+    assert "10.10.10.1" in joined_commands
 
 
 def test_srlinux_runtime_setup_fails_when_gateway_ping_fails(monkeypatch):
@@ -280,9 +295,12 @@ def test_srlinux_runtime_setup_fails_when_gateway_ping_fails(monkeypatch):
         if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
             return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
 
-        if "ping -c 2 -W 2 10.10.10.1" in command_text:
+        if "info network-instance default" in command_text:
+            return FakeCompletedProcess(stdout="interface ethernet-1/1.0 {\n}\n")
+
+        if "ping" in command_text and "10.10.10.1" in command_text:
             return FakeCompletedProcess(
-                stdout="2 packets transmitted, 0 received, 100% packet loss\n",
+                stdout="3 packets transmitted, 0 received, 100% packet loss\n",
                 returncode=1,
             )
 
