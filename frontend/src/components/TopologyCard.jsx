@@ -1,3 +1,4 @@
+
 const LINK_ARROW = "\u2194";
 const LINK_MARKER = "\u2501";
 const DEVICE_COUNT_SEPARATOR = "\u00b7";
@@ -101,24 +102,81 @@ function findCliAccessForNode(node, cliAccess = []) {
   });
 }
 
+function getNodeCategory(node) {
+  const kind = String(node.kind || "").toLowerCase();
+  const id = String(node.id || "").toLowerCase();
+  const label = String(node.label || "").toLowerCase();
+
+  if (kind.includes("srl") || kind.includes("router") || label.includes("router") || id.startsWith("r")) {
+    return "router";
+  }
+
+  if (kind.includes("linux") || kind.includes("client") || label.includes("client") || id.includes("client")) {
+    return "client";
+  }
+
+  if (kind.includes("switch") || id.startsWith("s")) {
+    return "switch";
+  }
+
+  return "device";
+}
+
 function getDeviceIconLabel(node) {
+  const category = getNodeCategory(node);
   const kind = String(node.kind || "").toLowerCase();
 
-  if (kind.includes("router") || node.id.startsWith("r")) {
+  if (kind.includes("srl")) {
+    return "SR";
+  }
+
+  if (category === "router") {
     return "R";
   }
 
-  if (kind.includes("switch") || node.id.startsWith("s")) {
+  if (category === "switch") {
     return "S";
+  }
+
+  if (category === "client") {
+    return "C";
   }
 
   return "D";
 }
 
 function getReadableKind(kind) {
-  const normalizedKind = String(kind || "network-device").replace(/_/g, " ");
+  const normalizedKind = String(kind || "network-device").toLowerCase();
 
-  return normalizedKind.charAt(0).toUpperCase() + normalizedKind.slice(1);
+  if (normalizedKind.includes("srl")) {
+    return "Nokia SR Linux";
+  }
+
+  if (normalizedKind === "linux") {
+    return "Linux Client";
+  }
+
+  const readableKind = normalizedKind.replace(/_/g, " ");
+
+  return readableKind.charAt(0).toUpperCase() + readableKind.slice(1);
+}
+
+function getNodeCardClass(node) {
+  const category = getNodeCategory(node);
+
+  if (String(node.kind || "").toLowerCase().includes("srl")) {
+    return "topology-node-srlinux";
+  }
+
+  if (category === "client") {
+    return "topology-node-linux";
+  }
+
+  if (category === "router") {
+    return "topology-node-router";
+  }
+
+  return "topology-node-generic";
 }
 
 function normalizeTopologyKey(value) {
@@ -218,7 +276,7 @@ function TopologyNode({ node, cliInfo }) {
   const containerName = cliInfo?.containerName || cliInfo?.container_name || "-";
 
   return (
-    <article className="network-node-card">
+    <article className={`network-node-card ${getNodeCardClass(node)}`}>
       <div className="network-device-shell">
         <div className="network-device-icon">
           <span>{getDeviceIconLabel(node)}</span>
@@ -285,9 +343,9 @@ function TopologyLinkBridge({ links }) {
       <div className="network-link-line" />
 
       <div className="network-link-label">
-        <strong>{primaryLink.sourceInterface}</strong>
+        <strong>{primaryLink.sourceNode} {primaryLink.sourceInterface}</strong>
         <span>{LINK_ARROW}</span>
-        <strong>{primaryLink.targetInterface}</strong>
+        <strong>{primaryLink.targetNode} {primaryLink.targetInterface}</strong>
       </div>
     </div>
   );
@@ -335,9 +393,9 @@ function TopologyInlineLink({ link, leftNode, rightNode }) {
       <div className="network-link-label">
         {link ? (
           <>
-            <strong>{link.sourceInterface}</strong>
+            <strong>{link.sourceNode} {link.sourceInterface}</strong>
             <span>{LINK_ARROW}</span>
-            <strong>{link.targetInterface}</strong>
+            <strong>{link.targetNode} {link.targetInterface}</strong>
           </>
         ) : (
           <span>No link metadata</span>
@@ -461,8 +519,12 @@ function RingTopologyDiagram({ nodes, links, cliAccess }) {
 function TopologyLegend() {
   const items = [
     {
-      marker: "R",
-      label: "Router / Device"
+      marker: "SR",
+      label: "SR Linux Router"
+    },
+    {
+      marker: "C",
+      label: "Linux Client"
     },
     {
       marker: LINK_MARKER,
@@ -661,3 +723,4 @@ function TopologyCard({
 }
 
 export default TopologyCard;
+

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   createLab,
   getDifficulties,
   getErrorDetails,
   getErrorMessage,
-  getLab
+  getLab,
+  getScenarios
 } from "../services/apiService";
 import MessageBox from "../components/MessageBox";
 import { useLanguage } from "../hooks/useLanguage";
@@ -13,26 +14,72 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
-const HIDDEN_TOPOLOGY_TEMPLATE = "basic-two-router";
+const DEFAULT_SCENARIO_ID = "srl-basic-link";
+
+const FALLBACK_SRL_SCENARIO = {
+  id: DEFAULT_SCENARIO_ID,
+  title: "SR Linux Basic Link Troubleshooting",
+  summary: "A professional router-client starter scenario using Nokia SR Linux and a Linux client.",
+  topology_template: "srl-basic-link",
+  router_os: "Nokia SR Linux",
+  devices: [
+    {
+      id: "srl1",
+      label: "SR Linux Router 1",
+      role: "router",
+      os: "Nokia SR Linux",
+      cli_profile: "sr_cli"
+    },
+    {
+      id: "client1",
+      label: "Client 1",
+      role: "client",
+      os: "Linux",
+      cli_profile: "linux_shell"
+    }
+  ],
+  addressing_table: [
+    {
+      device: "srl1",
+      interface: "ethernet-1/1",
+      ip_address: "10.10.10.1/24",
+      role: "default gateway for client1",
+      connects_to: "client1 eth1"
+    },
+    {
+      device: "client1",
+      interface: "eth1",
+      ip_address: "10.10.10.10/24",
+      default_gateway: "10.10.10.1",
+      connects_to: "srl1 ethernet-1/1"
+    }
+  ],
+  student_tasks: [
+    "Inspect the topology and identify the router and client roles.",
+    "Compare the live device state with the addressing table.",
+    "Verify the client default gateway.",
+    "Restore the expected connectivity and run validation."
+  ]
+};
 
 const DIFFICULTY_PREVIEWS = {
   easy: {
-    title: "Guided fundamentals",
-    topology: "2 devices / 1 link",
-    summary: "A focused entry-level troubleshooting scenario for addressing and direct connectivity.",
-    topics: ["IP addressing", "Interface status", "Basic connectivity"]
+    title: "Guided gateway repair",
+    topology: "SR Linux router + Linux client",
+    summary: "A focused starter challenge for addressing, default gateway, and direct connectivity.",
+    topics: ["Default gateway", "IP addressing", "ICMP connectivity"]
   },
   medium: {
-    title: "Multi-topic practice",
-    topology: "2 devices / 1 link",
-    summary: "A broader scenario that combines multiple checks and requires more careful troubleshooting.",
-    topics: ["Addressing", "Routing basics", "Connectivity validation"]
+    title: "Intermediate live troubleshooting",
+    topology: "SR Linux router + Linux client",
+    summary: "A broader SR Linux practice mode with live validation and careful state comparison.",
+    topics: ["Addressing table", "Routing requirements", "Connectivity validation"]
   },
   hard: {
-    title: "Advanced ring challenge",
-    topology: "4 devices / 4 links",
-    summary: "A four-device ring topology designed for deeper routing, interface, and connectivity analysis.",
-    topics: ["Static routing", "Interface status", "End-to-end connectivity", "Multi-device reasoning"]
+    title: "Advanced SR Linux practice",
+    topology: "SR Linux router + Linux client",
+    summary: "A higher challenge level for validating the same professional network realism scenario under stricter expectations.",
+    topics: ["Live device state", "Gateway repair", "End-to-end reasoning"]
   }
 };
 
@@ -57,6 +104,65 @@ function normalizeDifficulties(items) {
   return items;
 }
 
+function normalizeScenarios(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items.filter((scenario) => scenario?.id);
+}
+
+function getPrimaryScenario(scenarios) {
+  return (
+    scenarios.find((scenario) => scenario.id === DEFAULT_SCENARIO_ID) ||
+    scenarios[0] ||
+    FALLBACK_SRL_SCENARIO
+  );
+}
+
+function getScenarioDeviceCount(scenario) {
+  return Array.isArray(scenario?.devices) ? scenario.devices.length : 0;
+}
+
+function getScenarioLinkCount(scenario) {
+  if (Array.isArray(scenario?.links)) {
+    return scenario.links.length;
+  }
+
+  if (Array.isArray(scenario?.addressing_table) && scenario.addressing_table.length >= 2) {
+    return 1;
+  }
+
+  return 1;
+}
+
+function getScenarioCliSummary(scenario) {
+  const profiles = new Set(
+    (scenario?.devices || [])
+      .map((device) => String(device?.cli_profile || device?.os || "").toLowerCase())
+      .filter(Boolean)
+  );
+
+  if (profiles.has("sr_cli") && profiles.has("linux_shell")) {
+    return "SR Linux CLI + Linux Shell";
+  }
+
+  if (profiles.size > 0) {
+    return Array.from(profiles)
+      .map((profile) => profile.replace(/_/g, " "))
+      .join(" + ");
+  }
+
+  return "SR Linux CLI + Linux Shell";
+}
+
+function getScenarioDisplaySummary(scenario) {
+  return (
+    scenario?.summary ||
+    "Professional router-client lab using Nokia SR Linux and a Linux troubleshooting client."
+  );
+}
+
 function CreateLab({ authUser, onLabCreated, onNavigate }) {
   const { t } = useLanguage();
 
@@ -64,6 +170,9 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
   const [difficulty, setDifficulty] = useState("easy");
   const [difficulties, setDifficulties] = useState([]);
+  const [scenarios, setScenarios] = useState([]);
+  const [isLoadingScenarios, setIsLoadingScenarios] = useState(false);
+  const [scenarioLoadMessage, setScenarioLoadMessage] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isOpeningActiveLab, setIsOpeningActiveLab] = useState(false);
   const [activeLabConflict, setActiveLabConflict] = useState(null);
@@ -86,11 +195,58 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
     loadDifficulties();
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadScenarios() {
+      setIsLoadingScenarios(true);
+      setScenarioLoadMessage("");
+
+      try {
+        const data = await getScenarios();
+        const normalizedScenarios = normalizeScenarios(data?.scenarios);
+
+        if (isMounted) {
+          setScenarios(normalizedScenarios);
+
+          if (normalizedScenarios.length === 0) {
+            setScenarioLoadMessage(
+              "Scenario catalog returned no visible scenarios. The default SR Linux scenario will still be used."
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Scenario catalog could not be loaded.", error);
+
+        if (isMounted) {
+          setScenarios([]);
+          setScenarioLoadMessage(
+            "Scenario catalog could not be loaded. The default SR Linux scenario will still be used."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingScenarios(false);
+        }
+      }
+    }
+
+    loadScenarios();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const selectedDifficulty = useMemo(() => {
     return difficulties.find((item) => item.value === difficulty);
   }, [difficulty, difficulties]);
 
   const selectedPreview = DIFFICULTY_PREVIEWS[difficulty] || DIFFICULTY_PREVIEWS.easy;
+
+  const selectedScenario = useMemo(() => {
+    return getPrimaryScenario(scenarios);
+  }, [scenarios]);
 
   async function handleCreateLab() {
     setIsCreating(true);
@@ -102,7 +258,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
       const newLab = await createLab({
         student_id: signedInStudentId,
         difficulty,
-        topology_template: HIDDEN_TOPOLOGY_TEMPLATE
+        scenario_id: selectedScenario?.id || DEFAULT_SCENARIO_ID
       });
 
       onLabCreated(newLab);
@@ -157,7 +313,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           <div>
             <h2>Create Lab</h2>
             <p className="muted">
-              Select a difficulty level to generate a troubleshooting scenario.
+              Select a difficulty level for the SR Linux troubleshooting scenario.
               The lab session will open in your workspace. Start the environment there when you are ready.
             </p>
           </div>
@@ -212,34 +368,97 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           </>
         )}
 
-        <div className="difficulty-card-grid" role="radiogroup" aria-label="Lab difficulty">
-          {difficulties.map((item) => {
-            const preview = DIFFICULTY_PREVIEWS[item.value] || {
-              title: item.label || formatDifficulty(item.value, t),
-              topology: "Topology generated by difficulty",
-              summary: item.description || "Troubleshooting scenario generated by AutoNetLab.",
-              topics: ["Troubleshooting", "Validation"]
-            };
-            const isSelected = difficulty === item.value;
+        <div className="lab-choice-section">
+          <div className="section-title-row compact">
+            <div>
+              <h3>Scenario</h3>
+              <p className="muted">
+                AutoNetLab now uses a single network realism lab powered by Nokia SR Linux and a Linux troubleshooting client.
+              </p>
+            </div>
+          </div>
 
-            return (
-              <button
-                key={item.value}
-                className={`difficulty-select-card ${isSelected ? "selected" : ""}`}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => setDifficulty(item.value)}
-              >
-                <span className={`badge ${getDifficultyClass(item.value)}`}>
-                  {formatDifficulty(item.value, t)}
-                </span>
-                <strong>{preview.title}</strong>
-                <small>{preview.topology}</small>
-                <p>{preview.summary}</p>
-              </button>
-            );
-          })}
+          {scenarioLoadMessage && (
+            <MessageBox
+              type="info"
+              title="Scenario catalog fallback"
+              message={scenarioLoadMessage}
+            />
+          )}
+
+          <div className="scenario-card-grid">
+            <div className="lab-type-card scenario-select-card selected">
+              <span className="badge neutral">
+                {isLoadingScenarios ? "Loading Scenario" : "Network Realism Scenario"}
+              </span>
+
+              <strong>{selectedScenario?.title || FALLBACK_SRL_SCENARIO.title}</strong>
+              <p>{getScenarioDisplaySummary(selectedScenario)}</p>
+
+              <div className="scenario-card-meta-grid">
+                <div>
+                  <span>Router OS</span>
+                  <strong>{selectedScenario?.router_os || "Nokia SR Linux"}</strong>
+                </div>
+
+                <div>
+                  <span>Devices</span>
+                  <strong>{getScenarioDeviceCount(selectedScenario)}</strong>
+                </div>
+
+                <div>
+                  <span>Links</span>
+                  <strong>{getScenarioLinkCount(selectedScenario)}</strong>
+                </div>
+
+                <div>
+                  <span>CLI</span>
+                  <strong>{getScenarioCliSummary(selectedScenario)}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lab-choice-section">
+          <div className="section-title-row compact">
+            <div>
+              <h3>Choose Difficulty</h3>
+              <p className="muted">
+                Difficulty controls the expected challenge level and validation behavior.
+              </p>
+            </div>
+          </div>
+
+          <div className="difficulty-card-grid" role="radiogroup" aria-label="Lab difficulty">
+            {difficulties.map((item) => {
+              const preview = DIFFICULTY_PREVIEWS[item.value] || {
+                title: item.label || formatDifficulty(item.value, t),
+                topology: "SR Linux router + Linux client",
+                summary: item.description || "Troubleshooting scenario generated by AutoNetLab.",
+                topics: ["Troubleshooting", "Validation"]
+              };
+              const isSelected = difficulty === item.value;
+
+              return (
+                <button
+                  key={item.value}
+                  className={`difficulty-select-card ${isSelected ? "selected" : ""}`}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => setDifficulty(item.value)}
+                >
+                  <span className={`badge ${getDifficultyClass(item.value)}`}>
+                    {formatDifficulty(item.value, t)}
+                  </span>
+                  <strong>{preview.title}</strong>
+                  <small>{preview.topology}</small>
+                  <p>{preview.summary}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="actions create-lab-actions">
@@ -267,14 +486,24 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           {formatDifficulty(difficulty, t)}
         </span>
 
-        <h3>{selectedPreview.title}</h3>
-        <p className="muted">
-          {selectedDifficulty?.description || selectedPreview.summary}
-        </p>
+        <h3>{selectedScenario?.title || FALLBACK_SRL_SCENARIO.title}</h3>
+        <p className="muted">{getScenarioDisplaySummary(selectedScenario)}</p>
+
+        <div className="info-row">
+          <span>Lab Type</span>
+          <strong>SR Linux Network Realism</strong>
+        </div>
+
+        <div className="info-row">
+          <span>Router OS</span>
+          <strong>{selectedScenario?.router_os || "Nokia SR Linux"}</strong>
+        </div>
 
         <div className="info-row">
           <span>Topology</span>
-          <strong>{selectedPreview.topology}</strong>
+          <strong>
+            {getScenarioDeviceCount(selectedScenario)} devices / {getScenarioLinkCount(selectedScenario)} link
+          </strong>
         </div>
 
         <div className="info-row">
@@ -284,15 +513,26 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
         <div className="info-row">
           <span>Validation</span>
-          <strong>Score and recommendations</strong>
+          <strong>Live SR Linux validation</strong>
         </div>
 
-        <h4>Practice topics</h4>
+        <h4>Scenario tasks</h4>
         <ul className="list">
-          {selectedPreview.topics.map((topic) => (
+          {(selectedScenario?.student_tasks || FALLBACK_SRL_SCENARIO.student_tasks).map((task) => (
+            <li key={task}>{task}</li>
+          ))}
+        </ul>
+
+        <h4>Difficulty focus</h4>
+        <ul className="list">
+          {(selectedPreview.topics || []).map((topic) => (
             <li key={topic}>{topic}</li>
           ))}
         </ul>
+
+        {selectedDifficulty?.description && (
+          <p className="footer-note">{selectedDifficulty.description}</p>
+        )}
       </section>
     </div>
   );
