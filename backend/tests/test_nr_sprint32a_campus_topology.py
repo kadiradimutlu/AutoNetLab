@@ -89,6 +89,10 @@ def test_nr_sprint32a_generate_campus_topology_file():
         assert set(nodes) == {"client1", "client2", "srl1", "srl2", "srl3", "srl4"}
         assert nodes["srl1"]["kind"] == "nokia_srlinux"
         assert nodes["srl1"]["type"] == "ixr-d2l"
+        assert "startup-delay" not in nodes["srl1"]
+        assert nodes["srl2"]["startup-delay"] == 90
+        assert nodes["srl3"]["startup-delay"] == 180
+        assert nodes["srl4"]["startup-delay"] == 270
         assert nodes["client1"]["kind"] == "linux"
         assert len(links) == 6
         assert links[0]["endpoints"] == ["client1:eth1", "srl1:e1-1"]
@@ -275,7 +279,7 @@ def test_nr_sprint32a_large_topology_uses_extended_deploy_timeout(monkeypatch):
             if call["command"][:2] == ["containerlab", "deploy"]
         ]
         assert len(deploy_calls) == 1
-        assert deploy_calls[0]["timeout"] == 600
+        assert deploy_calls[0]["timeout"] == 1200
     finally:
         if generated_dir.exists():
             shutil.rmtree(generated_dir)

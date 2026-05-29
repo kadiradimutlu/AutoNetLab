@@ -210,11 +210,13 @@ def _generate_campus_core_static_routing_topology(
                     "kind": "nokia_srlinux",
                     "type": "ixr-d2l",
                     "image": SR_LINUX_IMAGE,
+                    "startup-delay": 180,
                 },
                 "srl2": {
                     "kind": "nokia_srlinux",
                     "type": "ixr-d2l",
                     "image": SR_LINUX_IMAGE,
+                    "startup-delay": 90,
                 },
                 "client2": {
                     "kind": "linux",
@@ -224,6 +226,7 @@ def _generate_campus_core_static_routing_topology(
                     "kind": "nokia_srlinux",
                     "type": "ixr-d2l",
                     "image": SR_LINUX_IMAGE,
+                    "startup-delay": 270,
                 },
             },
             "links": [
