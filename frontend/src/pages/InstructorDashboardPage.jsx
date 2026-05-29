@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import AnalyticsEmptyState from "../components/AnalyticsEmptyState";
 import AnalyticsSummaryCards from "../components/AnalyticsSummaryCards";
@@ -53,6 +54,17 @@ function formatPercent(value) {
   }
 
   return `${numericValue.toFixed(1)}%`;
+}
+
+function hasPriorityWeakness(topic) {
+  if (!topic || typeof topic !== "object") {
+    return false;
+  }
+
+  const failCount = Number(topic.fail_count ?? topic.failed_count ?? topic.failures ?? 0);
+  const failureRate = Number(topic.failure_rate ?? topic.fail_rate ?? 0);
+
+  return failCount > 0 || failureRate > 0;
 }
 
 function formatDateTime(value) {
@@ -601,7 +613,7 @@ function StudentDetailOverview({
     isErrorLabStatus(session.status)
   ).length;
   const priorityWeaknesses = Array.isArray(topicWeaknesses)
-    ? topicWeaknesses.slice(0, 3)
+    ? topicWeaknesses.filter(hasPriorityWeakness).slice(0, 3)
     : [];
 
   return (
@@ -662,7 +674,7 @@ function StudentDetailOverview({
           <strong>Priority Weaknesses</strong>
 
           {priorityWeaknesses.length === 0 ? (
-            <p>No topic weakness data is available for this student yet.</p>
+            <p>No priority weaknesses detected.</p>
           ) : (
             priorityWeaknesses.map((topic) => (
               <p key={topic.topic || topic.label}>
@@ -743,6 +755,10 @@ function StudentSessionsTable({ sessions }) {
 }
 
 function StudentTopicWeaknesses({ topicWeaknesses }) {
+  const visibleTopicWeaknesses = Array.isArray(topicWeaknesses)
+    ? topicWeaknesses.filter(hasPriorityWeakness)
+    : [];
+
   return (
     <section className="card">
       <div className="section-title-row">
@@ -753,17 +769,17 @@ function StudentTopicWeaknesses({ topicWeaknesses }) {
           </p>
         </div>
 
-        <span className="badge neutral">{topicWeaknesses.length} topics</span>
+        <span className="badge neutral">{visibleTopicWeaknesses.length} topics</span>
       </div>
 
-      {topicWeaknesses.length === 0 ? (
+      {visibleTopicWeaknesses.length === 0 ? (
         <AnalyticsEmptyState
-          title="No topic weaknesses found."
-          message="Weakness analytics will appear after validation attempts."
+          title="No priority weaknesses detected."
+          message="This student has no topics with failed checks in the current analytics data."
         />
       ) : (
         <div className="topic-weakness-grid">
-          {topicWeaknesses.map((topic) => (
+          {visibleTopicWeaknesses.map((topic) => (
             <div className="topic-weakness-card" key={topic.topic || topic.label}>
               <div className="result-title-row">
                 <strong>{topic.label || topic.topic || "Unknown topic"}</strong>
@@ -1493,3 +1509,5 @@ function InstructorDashboardPage() {
 }
 
 export default InstructorDashboardPage;
+
+

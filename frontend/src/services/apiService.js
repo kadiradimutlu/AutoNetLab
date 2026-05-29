@@ -1,4 +1,5 @@
 
+
 import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
@@ -825,13 +826,83 @@ function normalizeRecommendationList(value) {
   return [value];
 }
 
+const STUDENT_FEEDBACK_BLOCKLIST = [
+  /injected[_\s-]*errors?/i,
+  /expected[_\s-]*fix/i,
+  /\bevidence\b/i,
+  /\bdebug\b/i,
+  /\bsolution\b/i,
+  /\banswer\b/i,
+  /observed[_\s-]*state/i,
+  /expected[_\s-]*state/i,
+  /validation[_\s-]*command/i,
+  /injection[_\s-]*commands?/i,
+  /failed[_\s-]*command[_\s-]*output/i,
+  /expected[_\s-]*outputs?/i,
+  /ip\s+route\s+replace/i
+];
+
+const STUDENT_UNSAFE_FIELDS = [
+  "injected_errors",
+  "expected_fix",
+  "solution",
+  "answer",
+  "debug",
+  "evidence",
+  "observed_state",
+  "expected_state",
+  "failed_command_output",
+  "expected_outputs",
+  "validation_command",
+  "injection_commands"
+];
+
+function sanitizeStudentFeedbackText(
+  value,
+  fallback = "Review the related topic and compare it with the scenario design requirements."
+) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const text = String(value);
+
+  if (STUDENT_FEEDBACK_BLOCKLIST.some((pattern) => pattern.test(text))) {
+    return fallback;
+  }
+
+  return text;
+}
+
+function sanitizeStudentFeedbackList(value) {
+  return normalizeRecommendationList(value)
+    .map((item) => sanitizeStudentFeedbackText(item, ""))
+    .filter(Boolean);
+}
+
+function removeStudentUnsafeFields(payload) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const safePayload = {
+    ...payload
+  };
+
+  STUDENT_UNSAFE_FIELDS.forEach((field) => {
+    delete safePayload[field];
+  });
+
+  return safePayload;
+}
+
 function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
   if (typeof item === "string") {
     return {
       id: `recommendation-${index + 1}`,
       topic: `recommendation_${index + 1}`,
       label: `Recommendation ${index + 1}`,
-      reason: item,
+      reason: sanitizeStudentFeedbackText(item),
       explanation: "This recommendation was generated from the validation result.",
       priority: "medium",
       confidence: null,
@@ -864,21 +935,53 @@ function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
     id: item.id || `${topic}-${index}`,
     topic,
     label: item.label || item.topic_label || item.display_name || String(topic).replace(/_/g, " "),
-    reason: item.reason || item.message || item.description || "This topic was selected based on the validation result.",
-    explanation: item.explanation || item.details || item.text || "Review this topic before attempting a harder lab.",
+    reason: sanitizeStudentFeedbackText(
+      item.reason ||
+        item.message ||
+        item.description ||
+        "This topic was selected based on the validation result."
+    ),
+    explanation: sanitizeStudentFeedbackText(
+      item.explanation ||
+        item.details ||
+        item.text ||
+        "Review this topic before attempting a harder lab."
+    ),
     priority: String(item.priority || item.severity || item.level || "medium").toLowerCase(),
     confidence: normalizeRecommendationConfidence(item.confidence),
     source: normalizeRecommendationSource(item.source || parentSource),
     fallback_used: Boolean(item.fallback_used),
-    next_actions: normalizeRecommendationList(item.next_actions || item.nextActions || item.actions),
+    next_actions: sanitizeStudentFeedbackList(item.next_actions || item.nextActions || item.actions),
     related_failed_checks: normalizeRecommendationList(
       item.related_failed_checks || item.failed_checks || item.relatedChecks
     )
+      .map((check) => {
+        if (typeof check === "string") {
+          return sanitizeStudentFeedbackText(check, "");
+        }
+
+        if (!check || typeof check !== "object") {
+          return check;
+        }
+
+        const safeCheck = removeStudentUnsafeFields(check);
+
+        return {
+          ...safeCheck,
+          message: sanitizeStudentFeedbackText(
+            safeCheck.message || safeCheck.description || safeCheck.reason || "",
+            ""
+          )
+        };
+      })
+      .filter(Boolean)
   };
 }
 
 function normalizeRecommendationPayload(payload, sessionId = "") {
-  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const safePayload = removeStudentUnsafeFields(
+    payload && typeof payload === "object" ? payload : {}
+  );
   const source = normalizeRecommendationSource(safePayload.source);
   const recommendations = normalizeRecommendationList(safePayload.recommendations).map(
     (item, index) => normalizeRecommendationItem(item, index, source)
@@ -893,7 +996,7 @@ function normalizeRecommendationPayload(payload, sessionId = "") {
     source,
     fallback_used: Boolean(safePayload.fallback_used),
     recommendations,
-    message: safePayload.message || ""
+    message: sanitizeStudentFeedbackText(safePayload.message || "", "")
   };
 }
 
@@ -1423,37 +1526,52 @@ function normalizeCheckPassed(check) {
 }
 
 function normalizeValidationCheck(check, index) {
-  const safeCheck = check && typeof check === "object" ? check : {};
+  const safeCheck = removeStudentUnsafeFields(
+    check && typeof check === "object" ? check : {}
+  );
   const passed = normalizeCheckPassed(safeCheck);
 
-  return {
+  const normalizedCheck = {
     ...safeCheck,
     check_id: safeCheck.check_id || safeCheck.id || `check-${index + 1}`,
     topic: safeCheck.topic || safeCheck.category || "General",
-    description:
+    description: sanitizeStudentFeedbackText(
       safeCheck.description ||
-      safeCheck.message ||
-      safeCheck.name ||
-      `Validation check ${index + 1}`,
+        safeCheck.message ||
+        safeCheck.name ||
+        `Validation check ${index + 1}`,
+      `Validation check ${index + 1}`
+    ),
     status: safeCheck.status || (passed ? "passed" : "failed"),
     passed,
     points: safeCheck.points ?? safeCheck.score ?? 0,
     max_points: safeCheck.max_points ?? safeCheck.maxPoints ?? 0,
-    message:
+    message: sanitizeStudentFeedbackText(
       safeCheck.message ||
-      (passed
+        (passed
+          ? "This validation check passed."
+          : "This validation check failed. Review the topic and try again."),
+      passed
         ? "This validation check passed."
-        : "This validation check failed. Review the topic and try again."),
-    hint:
+        : "This validation check failed. Review the topic and try again."
+    ),
+    hint: sanitizeStudentFeedbackText(
       safeCheck.hint ||
-      safeCheck.student_hint ||
-      "Review this topic and re-check the device configuration."
+        safeCheck.student_hint ||
+        "Review this topic and re-check the device configuration.",
+      "Review this topic and compare it with the scenario design requirements."
+    )
   };
+
+  return removeStudentUnsafeFields(normalizedCheck);
 }
 
 function normalizeValidationResult(result, recommendationPayload = null) {
-  const checks = Array.isArray(result?.checks)
-    ? result.checks.map((check, index) => normalizeValidationCheck(check, index))
+  const safeResult = removeStudentUnsafeFields(
+    result && typeof result === "object" ? result : {}
+  );
+  const checks = Array.isArray(safeResult?.checks)
+    ? safeResult.checks.map((check, index) => normalizeValidationCheck(check, index))
     : [];
   const passedChecks = checks.filter((check) => check.passed).length;
   const totalChecks = checks.length;
@@ -1471,28 +1589,29 @@ function normalizeValidationResult(result, recommendationPayload = null) {
 
   const fallbackRecommendationPayload = {
     success: true,
-    session_id: result?.session_id || "",
-    status: result?.status || "",
-    score: result?.score ?? computedScore,
-    passed: result?.passed ?? passedChecks === totalChecks,
-    source: result?.source || "rule_based",
-    fallback_used: Boolean(result?.fallback_used),
-    recommendations: result?.recommendations || result?.recommendation || [],
-    message: result?.message || ""
+    session_id: safeResult?.session_id || "",
+    status: safeResult?.status || "",
+    score: safeResult?.score ?? computedScore,
+    passed: safeResult?.passed ?? passedChecks === totalChecks,
+    source: safeResult?.source || "rule_based",
+    fallback_used: Boolean(safeResult?.fallback_used),
+    recommendations: safeResult?.recommendations || safeResult?.recommendation || [],
+    message: sanitizeStudentFeedbackText(safeResult?.message || "", "")
   };
 
   const normalizedRecommendationPayload = normalizeRecommendationPayload(
     recommendationPayload || fallbackRecommendationPayload,
-    result?.session_id || ""
+    safeResult?.session_id || ""
   );
 
   return {
-    ...result,
-    passed: result?.passed ?? passedChecks === totalChecks,
-    score: result?.score ?? computedScore,
+    ...safeResult,
+    message: sanitizeStudentFeedbackText(safeResult?.message || "", ""),
+    passed: safeResult?.passed ?? passedChecks === totalChecks,
+    score: safeResult?.score ?? computedScore,
     checks,
-    passed_checks: result?.passed_checks ?? passedChecks,
-    total_checks: result?.total_checks ?? totalChecks,
+    passed_checks: safeResult?.passed_checks ?? passedChecks,
+    total_checks: safeResult?.total_checks ?? totalChecks,
     recommendations: normalizedRecommendationPayload.recommendations,
     recommendation_payload: normalizedRecommendationPayload,
     recommendation_source: normalizedRecommendationPayload.source,
@@ -2338,4 +2457,6 @@ export const deployLab = deploySession;
 export const destroyLab = destroySession;
 export const finishLab = finishSession;
 export const validateLab = validateSession;
+
+
 
