@@ -5,6 +5,45 @@ from app.schemas.enums import SessionStatus
 from app.services.scenario_catalog import SR_BASIC_LINK_SCENARIO_ID
 
 
+SRLINUX_CLIENT_EXPECTED_GATEWAY = "10.10.10.1"
+SRLINUX_CLIENT_INJECTED_GATEWAY = "10.10.10.254"
+SRLINUX_WRONG_CLIENT_GATEWAY_CODE = "SRLINUX_WRONG_CLIENT_GATEWAY"
+SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID = "srl_basic_link_client_wrong_default_gateway"
+
+
+def build_srlinux_runtime_faults(
+    *,
+    difficulty: Any,
+    seed: str,
+) -> list[dict[str, Any]]:
+    """
+    Builds deterministic SR Linux runtime faults for Sprint 30E.
+
+    The first SR Linux scenario intentionally starts broken by making client1
+    use a wrong default gateway. Student-facing API responses keep this hidden;
+    validation reads live device state.
+    """
+
+    return [
+        {
+            "code": SRLINUX_WRONG_CLIENT_GATEWAY_CODE,
+            "topic": "default_gateway",
+            "device": "client1",
+            "description": "client1 has an incorrect default gateway for the SR Linux link.",
+            "severity": "medium",
+            "variant_id": SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
+            "interface": "eth1",
+            "validation_command": "ip route",
+            "expected_outputs": [f"default via {SRLINUX_CLIENT_EXPECTED_GATEWAY}"],
+            "injection_commands": [
+                f"ip route replace default via {SRLINUX_CLIENT_INJECTED_GATEWAY} dev eth1"
+            ],
+        }
+    ]
+
+
+
+
 def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
     """
     Applies runtime setup for Sprint 30 SR Linux scenarios.
@@ -157,6 +196,19 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
                     f"expected output '{expected_output}' while running '{display_command}'."
                 ),
             )
+
+    fault_failure = _apply_srlinux_runtime_fault_injection(
+        session=session,
+        command_results=command_results,
+    )
+
+    if fault_failure is not None:
+        return _error_response(
+            session_id=session_id,
+            command_results=command_results,
+            error_code=fault_failure["error_code"],
+            detail=fault_failure["detail"],
+        )
 
     return _success_response(
         session_id=session_id,
@@ -327,6 +379,86 @@ def _scenario_id(session: dict[str, Any]) -> str | None:
         return scenario.get("id")
 
     return None
+
+
+
+def _apply_srlinux_runtime_fault_injection(
+    *,
+    session: dict[str, Any],
+    command_results: list[dict[str, Any]],
+) -> dict[str, str] | None:
+    faults = _srlinux_faults_for_session(session)
+
+    for fault in faults:
+        device = str(fault.get("device") or "")
+        container_name = _container_name_for_device(session, device)
+
+        if not container_name:
+            return {
+                "error_code": "SRLINUX_RUNTIME_FAULT_METADATA_MISSING",
+                "detail": f"Could not resolve container name for SR Linux runtime fault device: {device}.",
+            }
+
+        commands = [
+            str(command)
+            for command in fault.get("injection_commands", [])
+            if str(command).strip()
+        ]
+
+        if not commands:
+            return {
+                "error_code": "SRLINUX_RUNTIME_FAULT_COMMAND_MISSING",
+                "detail": f"No runtime fault injection commands were defined for {fault.get('variant_id') or fault.get('code')}.",
+            }
+
+        for command in commands:
+            result = _run_docker_exec(
+                container_name=container_name,
+                command=["sh", "-lc", command],
+                stage="srlinux_runtime_fault_injection",
+                device=device,
+                display_command=command,
+            )
+            command_results.append(result)
+
+            if not result["success"]:
+                return {
+                    "error_code": "SRLINUX_RUNTIME_FAULT_INJECTION_FAILED",
+                    "detail": (
+                        f"SR Linux runtime fault injection failed for {device}: "
+                        f"{command}"
+                    ),
+                }
+
+    return None
+
+
+def _srlinux_faults_for_session(session: dict[str, Any]) -> list[dict[str, Any]]:
+    faults: list[dict[str, Any]] = []
+
+    for fault in _normalized_errors(session.get("injected_errors")):
+        code = str(fault.get("code") or "")
+        variant_id = str(fault.get("variant_id") or "")
+
+        if (
+            code == SRLINUX_WRONG_CLIENT_GATEWAY_CODE
+            or variant_id == SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID
+        ):
+            faults.append(fault)
+
+    return faults
+
+
+def _normalized_errors(errors: Any) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+
+    for error in errors or []:
+        if hasattr(error, "model_dump"):
+            normalized.append(error.model_dump())
+        elif isinstance(error, dict):
+            normalized.append(error)
+
+    return normalized
 
 
 def _entry_value(entry: Any, key: str) -> Any:

@@ -28,6 +28,7 @@ from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 from app.services.recommendation.features import build_topic_performance
 from app.services.scenario_catalog import get_scenario, is_srlinux_scenario
+from app.services.srlinux_runtime_setup import build_srlinux_runtime_faults
 
 
 _sessions: dict[str, dict] = {}
@@ -109,10 +110,12 @@ def create_lab_session(
     ]
 
     if is_srlinux_scenario(request.scenario_id):
-        # Sprint 30 foundation: do not run legacy Alpine/Linux error injection
-        # against SR Linux nodes. SR Linux golden/broken config injection is added
-        # in the next backend sprint.
-        injected_errors = []
+        # Sprint 30E: SR Linux labs start with scenario-specific runtime faults.
+        # Student-facing responses still hide injected_errors; validation reads live state.
+        injected_errors = build_srlinux_runtime_faults(
+            difficulty=request.difficulty,
+            seed=session_id,
+        )
     else:
         injected_errors = apply_error_injection(
             difficulty=request.difficulty,
