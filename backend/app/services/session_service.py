@@ -27,6 +27,8 @@ from app.schemas.topology import Topology
 from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 from app.services.recommendation.features import build_topic_performance
+from app.services.scenario_catalog import get_scenario, is_srlinux_scenario
+from app.services.srlinux_runtime_setup import build_srlinux_runtime_faults
 
 
 _sessions: dict[str, dict] = {}
@@ -90,10 +92,13 @@ def create_lab_session(
             detail=_build_blocking_lab_create_detail(blocking_session),
         )
 
+    scenario = get_scenario(request.scenario_id)
+
     generated_topology = generate_session_topology(
         session_id=session_id,
         difficulty=request.difficulty,
         topology_template=request.topology_template,
+        scenario_id=request.scenario_id,
     )
 
     topology = generated_topology["topology"]
@@ -104,12 +109,20 @@ def create_lab_session(
         for node in topology.nodes
     ]
 
-    injected_errors = apply_error_injection(
-        difficulty=request.difficulty,
-        seed=session_id,
-        session_dir=session_dir,
-        topology_devices=topology_devices,
-    )
+    if is_srlinux_scenario(request.scenario_id):
+        # Sprint 30E: SR Linux labs start with scenario-specific runtime faults.
+        # Student-facing responses still hide injected_errors; validation reads live state.
+        injected_errors = build_srlinux_runtime_faults(
+            difficulty=request.difficulty,
+            seed=session_id,
+        )
+    else:
+        injected_errors = apply_error_injection(
+            difficulty=request.difficulty,
+            seed=session_id,
+            session_dir=session_dir,
+            topology_devices=topology_devices,
+        )
 
     cli_access = build_cli_access(
         lab_name=generated_topology["lab_name"],
@@ -124,6 +137,7 @@ def create_lab_session(
         "topology": topology,
         "topology_file": generated_topology["topology_file"],
         "topology_template": generated_topology["topology_template"],
+        "scenario": scenario,
         "lab_name": generated_topology["lab_name"],
         "injected_errors": injected_errors,
         "cli_access": cli_access,
@@ -327,6 +341,7 @@ def _db_session_record_to_session(record: LabSessionRecord) -> dict:
         "topology": topology,
         "topology_file": record.topology_file,
         "topology_template": record.topology_template,
+        "scenario": None,
         "lab_name": record.lab_name,
         "injected_errors": [
             ErrorItem(**error)
@@ -390,6 +405,7 @@ def _merge_session_records(primary: dict, fallback: dict) -> dict:
         "score",
         "passed",
         "runtime_cleanup_history",
+        "scenario",
     )
 
     for key in enrichment_keys:
@@ -540,6 +556,7 @@ def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
         completed_at=session.get("completed_at"),
         finished_at=session.get("finished_at"),
         topology_summary=build_topology_summary(session),
+        scenario=session.get("scenario"),
         topology=session["topology"],
         cli_access=session["cli_access"],
         hints=build_student_hints(session["difficulty"]),
@@ -906,21 +923,24 @@ def _topic_hint_message(topic: str) -> str:
 
 def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
     """
-    Builds CLI access / CLI eriÅŸimi information for each Containerlab node.
+    Builds CLI access metadata for each Containerlab node.
 
     Containerlab container naming format:
     clab-<lab_name>-<node_id>
-
-    Example:
-    lab_name = autonetlab-lab-12345678
-    node_id = r1
-    container_name = clab-autonetlab-lab-12345678-r1
     """
 
     cli_items: list[CliAccess] = []
 
     for node in topology.nodes:
         container_name = f"clab-{lab_name}-{node.id}"
+        node_kind = str(getattr(node, "kind", "") or "")
+
+        if node_kind == "nokia_srlinux":
+            command = f"docker exec -it {container_name} sr_cli"
+            description = f"Open the Nokia SR Linux CLI on {node.id}."
+        else:
+            command = f"docker exec -it {container_name} sh"
+            description = f"Open a Linux shell on {node.id}."
 
         cli_items.append(
             CliAccess(
@@ -929,10 +949,8 @@ def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
                 container_name=container_name,
                 access_method="docker_exec",
                 mode="local_docker_exec_demo",
-                command=f"docker exec -it {container_name} sh",
-                description=(
-                    f"Use this command to open a CLI shell on {node.id.upper()}."
-                ),
+                command=command,
+                description=description,
             )
         )
 
@@ -953,6 +971,7 @@ def _save_session_metadata(session: dict) -> None:
         "topology": session["topology"].model_dump(),
         "topology_file": session["topology_file"],
         "topology_template": session["topology_template"],
+        "scenario": session.get("scenario"),
         "lab_name": session["lab_name"],
         "injected_errors": [
             error.model_dump() if hasattr(error, "model_dump") else error
@@ -1020,6 +1039,7 @@ def _load_session_metadata(session_id: str) -> dict | None:
         "topology": topology,
         "topology_file": payload["topology_file"],
         "topology_template": payload["topology_template"],
+        "scenario": payload.get("scenario"),
         "lab_name": lab_name,
         "injected_errors": [
             ErrorItem(**error)

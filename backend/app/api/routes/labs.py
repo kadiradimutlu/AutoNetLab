@@ -20,6 +20,8 @@ from app.schemas.validation import StudentValidationResult, ValidationHistoryRes
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.runtime_error_injection import apply_runtime_error_injection
+from app.services.scenario_catalog import is_srlinux_scenario
+from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
 from app.services.session_service import (
     build_lab_hints_response,
     create_lab_session,
@@ -221,7 +223,12 @@ def deploy_lab(
     )
 
     if result["success"]:
-        runtime_result = apply_runtime_error_injection(session)
+        if _is_srlinux_session(session):
+            runtime_result = apply_srlinux_runtime_setup(session)
+            runtime_success_message = "SR Linux runtime setup applied successfully."
+        else:
+            runtime_result = apply_runtime_error_injection(session)
+            runtime_success_message = "Runtime error injection applied successfully."
 
         if not runtime_result["success"]:
             runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
@@ -233,7 +240,7 @@ def deploy_lab(
 
         result["message"] = (
             result["message"]
-            + " Runtime error injection applied successfully."
+            + f" {runtime_success_message}"
         )
         result["stdout"] = "\n\n".join(
             value
@@ -459,6 +466,16 @@ def get_lab_recommendations(
     return RecommendationResponse(
         **build_recommendations_for_session(session)
     )
+
+
+
+def _is_srlinux_session(session: dict) -> bool:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict):
+        return is_srlinux_scenario(scenario.get("id"))
+
+    return False
 
 
 def _attempt_runtime_cleanup_after_deploy_failure(

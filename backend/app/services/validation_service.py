@@ -7,6 +7,7 @@ from typing import Any
 from app.schemas.enums import SessionStatus
 from app.schemas.validation import ValidationCheck, ValidationResult
 from app.services.validation_rules import get_live_validation_rule
+from app.services.scenario_catalog import SR_BASIC_LINK_SCENARIO_ID, is_srlinux_scenario
 
 
 TOPIC_LABELS = {
@@ -65,6 +66,69 @@ POINTS_BY_SEVERITY = {
 }
 
 
+SRLINUX_PING_RETRY_COMMAND = (
+    "for i in 1 2 3 4 5; do "
+    "ping -c 3 -W 2 10.10.10.1 && exit 0; "
+    "sleep 2; "
+    "done; "
+    "ping -c 3 -W 2 10.10.10.1"
+)
+
+
+SRLINUX_BASIC_LINK_CHECKS: list[dict[str, Any]] = [
+    {
+        "check_id": "srl_check_1_router_gateway_address",
+        "topic": "ip_addressing",
+        "device": "srl1",
+        "description": "Validate that srl1 ethernet-1/1.0 has the expected gateway address.",
+        "command": ["sr_cli", "-ec", "info from state interface ethernet-1/1 subinterface 0 ipv4"],
+        "expected_outputs": ["10.10.10.1/24"],
+        "max_points": 20,
+        "hint": "Check the SR Linux interface IPv4 address and subnet mask.",
+    },
+    {
+        "check_id": "srl_check_2_router_network_instance",
+        "topic": "routing",
+        "device": "srl1",
+        "description": "Validate that srl1 ethernet-1/1.0 is attached to the default network-instance.",
+        "command": ["sr_cli", "-ec", "info network-instance default"],
+        "expected_outputs": ["interface ethernet-1/1.0"],
+        "max_points": 20,
+        "hint": "Check whether the SR Linux subinterface is bound to the default network-instance.",
+    },
+    {
+        "check_id": "srl_check_3_client_address",
+        "topic": "ip_addressing",
+        "device": "client1",
+        "description": "Validate that client1 eth1 has the expected IPv4 address.",
+        "command": ["sh", "-lc", "ip -4 addr show dev eth1"],
+        "expected_outputs": ["10.10.10.10/24"],
+        "max_points": 20,
+        "hint": "Check the client interface IPv4 address and subnet mask.",
+    },
+    {
+        "check_id": "srl_check_4_client_default_gateway",
+        "topic": "default_gateway",
+        "device": "client1",
+        "description": "Validate that client1 uses srl1 as its default gateway.",
+        "command": ["sh", "-lc", "ip route"],
+        "expected_outputs": ["default via 10.10.10.1"],
+        "max_points": 20,
+        "hint": "Check whether the client default route points to 10.10.10.1.",
+    },
+    {
+        "check_id": "srl_check_5_gateway_connectivity",
+        "topic": "connectivity",
+        "device": "client1",
+        "description": "Validate that client1 can ping the SR Linux gateway.",
+        "command": ["sh", "-lc", SRLINUX_PING_RETRY_COMMAND],
+        "expected_outputs": ["bytes from 10.10.10.1"],
+        "max_points": 20,
+        "hint": "Check addressing, network-instance binding, default gateway, and ARP settling.",
+    },
+]
+
+
 def validate_session(session: dict) -> ValidationResult:
     """
     Validation Service v2 / Doğrulama Servisi v2.
@@ -75,6 +139,9 @@ def validate_session(session: dict) -> ValidationResult:
     - Use topic taxonomy / konu sınıflandırması for recommendation and analytics.
     - Prepare evidence / observed state fields without exposing full solution data.
     """
+
+    if _is_srlinux_basic_link_session(session):
+        return _validate_srlinux_basic_link_session(session)
 
     session_dir = _get_session_dir(session)
     injected_errors = _load_injected_errors(
@@ -109,6 +176,196 @@ def validate_session(session: dict) -> ValidationResult:
         checks=checks,
         recommendations=recommendations,
     )
+
+
+
+def _is_srlinux_basic_link_session(session: dict) -> bool:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict) and is_srlinux_scenario(scenario.get("id")):
+        return True
+
+    return str(session.get("topology_template") or "") == SR_BASIC_LINK_SCENARIO_ID
+
+
+def _validate_srlinux_basic_link_session(session: dict) -> ValidationResult:
+    checks = [
+        _build_srlinux_validation_check(
+            index=index,
+            spec=spec,
+            session=session,
+        )
+        for index, spec in enumerate(SRLINUX_BASIC_LINK_CHECKS, start=1)
+    ]
+
+    earned_points = sum(check.points for check in checks)
+    max_points = sum(check.max_points for check in checks)
+
+    score = int((earned_points / max_points) * 100) if max_points else 100
+    overall_passed = score == 100
+    recommendations = _build_recommendations(checks)
+
+    return ValidationResult(
+        session_id=session["session_id"],
+        status=SessionStatus.validated,
+        passed=overall_passed,
+        score=score,
+        checks=checks,
+        recommendations=recommendations,
+    )
+
+
+def _build_srlinux_validation_check(
+    *,
+    index: int,
+    spec: dict[str, Any],
+    session: dict,
+) -> ValidationCheck:
+    device = str(spec["device"])
+    topic = str(spec["topic"])
+    topic_label = _topic_label(topic)
+    expected_outputs = [
+        str(expected)
+        for expected in spec.get("expected_outputs", [])
+        if str(expected).strip()
+    ]
+    max_points = int(spec.get("max_points", 20))
+
+    container_name = _container_name_for_device(
+        session=session,
+        device=device,
+    )
+
+    if not container_name:
+        return ValidationCheck(
+            check_id=str(spec.get("check_id") or f"srl_check_{index}_{topic}"),
+            topic=topic,
+            description=str(spec.get("description") or _build_check_description(topic=topic, device=device)),
+            status="failed",
+            passed=False,
+            points=0,
+            max_points=max_points,
+            message=f"{topic_label} validation failed on {device}: runtime container metadata was not found.",
+            hint=str(spec.get("hint") or TOPIC_HINTS.get(topic, TOPIC_HINTS["unknown"])),
+            evidence={
+                "validation_mode": "srlinux_live_state_check",
+                "device": device,
+                "container_name": None,
+                "command": _command_display(spec["command"]),
+                "expected_state": _expected_state_payload(expected_outputs),
+                "missing_expected_outputs": expected_outputs,
+                "observed_state": "runtime container metadata missing",
+                "observed_output": "",
+            },
+        )
+
+    observed = _run_device_command(
+        container_name=container_name,
+        command=spec["command"],
+        timeout=int(spec.get("timeout", 20)),
+    )
+
+    missing_outputs = [
+        expected
+        for expected in expected_outputs
+        if expected not in observed["output"]
+    ]
+
+    passed = observed["return_code"] == 0 and not missing_outputs
+    points = max_points if passed else 0
+    status = "passed" if passed else "failed"
+
+    if passed:
+        message = f"{topic_label} validation passed on {device}."
+        observed_state = "expected SR Linux scenario live state is present"
+    else:
+        message = f"{topic_label} validation failed on {device}. Expected SR Linux scenario state is missing."
+        observed_state = "expected SR Linux scenario live state is missing"
+
+    return ValidationCheck(
+        check_id=str(spec.get("check_id") or f"srl_check_{index}_{topic}"),
+        topic=topic,
+        description=str(spec.get("description") or _build_check_description(topic=topic, device=device)),
+        status=status,
+        passed=passed,
+        points=points,
+        max_points=max_points,
+        message=message,
+        hint=str(spec.get("hint") or TOPIC_HINTS.get(topic, TOPIC_HINTS["unknown"])),
+        evidence={
+            "validation_mode": "srlinux_live_state_check",
+            "device": device,
+            "container_name": container_name,
+            "command": _command_display(spec["command"]),
+            "expected_state": _expected_state_payload(expected_outputs),
+            "missing_expected_outputs": missing_outputs,
+            "observed_state": observed_state,
+            "return_code": observed["return_code"],
+            "observed_output": observed["output"][:2000],
+        },
+    )
+
+
+def _run_device_command(
+    *,
+    container_name: str,
+    command: list[str],
+    timeout: int,
+) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            ["docker", "exec", container_name, *command],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        return {
+            "return_code": None,
+            "stdout": "",
+            "stderr": str(exc),
+            "output": str(exc),
+        }
+    except PermissionError as exc:
+        return {
+            "return_code": None,
+            "stdout": "",
+            "stderr": str(exc),
+            "output": str(exc),
+        }
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or "Command timed out."
+        output = "\n".join(value for value in [stdout, stderr] if value)
+        return {
+            "return_code": None,
+            "stdout": stdout,
+            "stderr": stderr,
+            "output": output,
+        }
+
+    stdout = completed.stdout or ""
+    stderr = completed.stderr or ""
+    output = "\n".join(value.strip() for value in [stdout, stderr] if value.strip())
+
+    return {
+        "return_code": completed.returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "output": output,
+    }
+
+
+def _command_display(command: list[str]) -> str:
+    return " ".join(str(part) for part in command)
+
+
+def _expected_state_payload(expected_outputs: list[str]) -> str | list[str]:
+    if len(expected_outputs) == 1:
+        return expected_outputs[0]
+
+    return list(expected_outputs)
 
 
 def _build_validation_check(
