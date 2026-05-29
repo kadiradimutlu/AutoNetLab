@@ -18,13 +18,19 @@ CliAccessMode = Literal[
 class CreateLabRequest(BaseModel):
     student_id: str | None = Field(default=None, examples=["kadir"])
     difficulty: Difficulty = Field(default=Difficulty.easy, examples=["easy"])
-    topology_template: str = Field(default="basic-two-router", examples=["basic-two-router"])
-    scenario_id: str | None = Field(
+    topology_template: str | None = Field(
         default=None,
         examples=["srl-basic-link"],
         description=(
-            "Optional professional network scenario identifier. "
-            "When omitted, the legacy difficulty-based lab generator is used."
+            "Deprecated compatibility field. New student-facing lab creation uses scenario_id."
+        ),
+    )
+    scenario_id: str | None = Field(
+        default="srl-basic-link",
+        examples=["srl-basic-link"],
+        description=(
+            "Professional network scenario identifier. "
+            "The current student-facing flow defaults to the SR Linux basic link scenario."
         ),
     )
 

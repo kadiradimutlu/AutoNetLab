@@ -24,10 +24,9 @@ from app.schemas.lab import (
     LabSessionResponse,
 )
 from app.schemas.topology import Topology
-from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 from app.services.recommendation.features import build_topic_performance
-from app.services.scenario_catalog import get_scenario, is_srlinux_scenario
+from app.services.scenario_catalog import SR_BASIC_LINK_SCENARIO_ID, get_scenario
 from app.services.srlinux_runtime_setup import build_srlinux_runtime_faults
 
 
@@ -92,37 +91,30 @@ def create_lab_session(
             detail=_build_blocking_lab_create_detail(blocking_session),
         )
 
-    scenario = get_scenario(request.scenario_id)
+    scenario_id = request.scenario_id or SR_BASIC_LINK_SCENARIO_ID
+    scenario = get_scenario(scenario_id)
+    topology_template = (
+        scenario.get("topology_template")
+        if isinstance(scenario, dict)
+        else None
+    ) or request.topology_template or SR_BASIC_LINK_SCENARIO_ID
 
     generated_topology = generate_session_topology(
         session_id=session_id,
         difficulty=request.difficulty,
-        topology_template=request.topology_template,
-        scenario_id=request.scenario_id,
+        topology_template=topology_template,
+        scenario_id=scenario_id,
     )
 
     topology = generated_topology["topology"]
-    session_dir = Path(generated_topology["topology_file"]).parent
 
-    topology_devices = [
-        node.id
-        for node in topology.nodes
-    ]
-
-    if is_srlinux_scenario(request.scenario_id):
-        # Sprint 30E: SR Linux labs start with scenario-specific runtime faults.
-        # Student-facing responses still hide injected_errors; validation reads live state.
-        injected_errors = build_srlinux_runtime_faults(
-            difficulty=request.difficulty,
-            seed=session_id,
-        )
-    else:
-        injected_errors = apply_error_injection(
-            difficulty=request.difficulty,
-            seed=session_id,
-            session_dir=session_dir,
-            topology_devices=topology_devices,
-        )
+    # Sprint 32B: New lab creation is SR Linux scenario-first.
+    # Legacy Linux/Alpine error injection remains in older helper modules only
+    # while tests and compatibility paths are cleaned up incrementally.
+    injected_errors = build_srlinux_runtime_faults(
+        difficulty=request.difficulty,
+        seed=session_id,
+    )
 
     cli_access = build_cli_access(
         lab_name=generated_topology["lab_name"],
@@ -305,6 +297,8 @@ def _load_db_lab_session_metadata(session_id: str) -> dict | None:
 
 
 def _db_session_record_to_session(record: LabSessionRecord) -> dict:
+    scenario = _scenario_from_topology_template(record.topology_template)
+
     topology_payload = record.topology_json or {
         "name": record.lab_name,
         "nodes": [],
@@ -341,7 +335,7 @@ def _db_session_record_to_session(record: LabSessionRecord) -> dict:
         "topology": topology,
         "topology_file": record.topology_file,
         "topology_template": record.topology_template,
-        "scenario": None,
+        "scenario": scenario,
         "lab_name": record.lab_name,
         "injected_errors": [
             ErrorItem(**error)
@@ -1031,6 +1025,11 @@ def _load_session_metadata(session_id: str) -> dict | None:
             topology=topology,
         )
 
+    scenario = (
+        payload.get("scenario")
+        or _scenario_from_topology_template(payload.get("topology_template"))
+    )
+
     session = {
         "session_id": payload["session_id"],
         "student_id": payload["student_id"],
@@ -1039,7 +1038,7 @@ def _load_session_metadata(session_id: str) -> dict | None:
         "topology": topology,
         "topology_file": payload["topology_file"],
         "topology_template": payload["topology_template"],
-        "scenario": payload.get("scenario"),
+        "scenario": scenario,
         "lab_name": lab_name,
         "injected_errors": [
             ErrorItem(**error)
@@ -1058,6 +1057,13 @@ def _load_session_metadata(session_id: str) -> dict | None:
     }
 
     return session
+
+
+def _scenario_from_topology_template(topology_template: str | None) -> dict | None:
+    if str(topology_template or "") == SR_BASIC_LINK_SCENARIO_ID:
+        return get_scenario(SR_BASIC_LINK_SCENARIO_ID)
+
+    return None
 
 
 def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:

@@ -56,8 +56,8 @@ def _failed_runtime_action(session_id: str) -> dict:
         "return_code": 1,
         "stdout": "",
         "stderr": "forced runtime setup failure",
-        "error_code": "RUNTIME_ERROR_INJECTION_COMMAND_FAILED",
-        "detail": "Runtime injection command failed for r1.",
+        "error_code": "SRLINUX_RUNTIME_SETUP_FAILED",
+        "detail": "SR Linux runtime setup failed for srl1/client1.",
         "suggestion": "Destroy the lab and create a new session.",
     }
 
@@ -97,7 +97,7 @@ def test_deploy_runtime_failure_attempts_best_effort_cleanup(monkeypatch):
         )
 
     monkeypatch.setattr("app.api.routes.labs.containerlab_adapter.deploy", fake_deploy)
-    monkeypatch.setattr("app.api.routes.labs.apply_runtime_error_injection", fake_runtime_error_injection)
+    monkeypatch.setattr("app.api.routes.labs.apply_srlinux_runtime_setup", fake_runtime_error_injection)
     monkeypatch.setattr("app.api.routes.labs.containerlab_adapter.destroy", fake_destroy)
 
     deploy_response = client.post(f"/api/v1/labs/{session_id}/deploy")
@@ -106,7 +106,7 @@ def test_deploy_runtime_failure_attempts_best_effort_cleanup(monkeypatch):
     payload = deploy_response.json()
     assert payload["success"] is False
     assert payload["status"] == "error"
-    assert payload["error_code"] == "RUNTIME_ERROR_INJECTION_COMMAND_FAILED"
+    assert payload["error_code"] == "SRLINUX_RUNTIME_SETUP_FAILED"
     assert "Runtime cleanup" in payload["stderr"]
 
     session = get_lab_session(session_id)
