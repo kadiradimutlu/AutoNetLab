@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 from fastapi import HTTPException
 
-from app.schemas.enums import Difficulty
+from app.schemas.enums import Difficulty, SessionStatus
 from app.services.scenario_catalog import (
     SR_BASIC_LINK_SCENARIO_ID,
     get_scenario,
@@ -317,4 +317,149 @@ def test_srlinux_runtime_setup_fails_when_gateway_ping_fails(monkeypatch):
     assert result["status"].value == "error"
     assert result["error_code"] == "SRLINUX_RUNTIME_VERIFICATION_FAILED"
     assert "ping" in result["detail"]
+
+
+
+def test_srlinux_validation_passes_when_live_state_matches(monkeypatch):
+    from app.services.validation_service import validate_session
+
+    session = {
+        "session_id": "lab-srl-validation-pass",
+        "status": SessionStatus.deployed,
+        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "topology_template": "srl-basic-link",
+        "cli_access": [
+            {
+                "device_id": "srl1",
+                "name": "srl1",
+                "container_name": "clab-autonetlab-lab-srl-validation-pass-srl1",
+            },
+            {
+                "device_id": "client1",
+                "name": "client1",
+                "container_name": "clab-autonetlab-lab-srl-validation-pass-client1",
+            },
+        ],
+        "injected_errors": [],
+    }
+
+    class FakeCompletedProcess:
+        def __init__(self, stdout: str = "", returncode: int = 0):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(command, **kwargs):
+        command_text = " ".join(command)
+
+        if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
+            return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
+
+        if "info network-instance default" in command_text:
+            return FakeCompletedProcess(stdout="interface ethernet-1/1.0 {\n}\n")
+
+        if "ip -4 addr show dev eth1" in command_text:
+            return FakeCompletedProcess(stdout="inet 10.10.10.10/24 scope global eth1\n")
+
+        if "ip route" in command_text:
+            return FakeCompletedProcess(stdout="default via 10.10.10.1 dev eth1\n")
+
+        if "ping" in command_text and "10.10.10.1" in command_text:
+            return FakeCompletedProcess(stdout="64 bytes from 10.10.10.1: icmp_seq=1 ttl=64 time=2.1 ms\n")
+
+        return FakeCompletedProcess(stdout="unexpected command\n", returncode=1)
+
+    monkeypatch.setattr(
+        "app.services.validation_service.subprocess.run",
+        fake_run,
+    )
+
+    result = validate_session(session)
+
+    assert result.status == SessionStatus.validated
+    assert result.passed is True
+    assert result.score == 100
+    assert len(result.checks) == 5
+    assert all(check.passed for check in result.checks)
+    assert all(check.max_points == 20 for check in result.checks)
+    assert result.recommendations == ["All validation checks passed. Good job."]
+
+    evidence_modes = {
+        check.evidence["validation_mode"]
+        for check in result.checks
+    }
+
+    assert evidence_modes == {"srlinux_live_state_check"}
+
+
+def test_srlinux_validation_fails_when_client_default_gateway_is_wrong(monkeypatch):
+    from app.services.validation_service import validate_session
+
+    session = {
+        "session_id": "lab-srl-validation-fail",
+        "status": SessionStatus.deployed,
+        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "topology_template": "srl-basic-link",
+        "cli_access": [
+            {
+                "device_id": "srl1",
+                "name": "srl1",
+                "container_name": "clab-autonetlab-lab-srl-validation-fail-srl1",
+            },
+            {
+                "device_id": "client1",
+                "name": "client1",
+                "container_name": "clab-autonetlab-lab-srl-validation-fail-client1",
+            },
+        ],
+        "injected_errors": [],
+    }
+
+    class FakeCompletedProcess:
+        def __init__(self, stdout: str = "", returncode: int = 0):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(command, **kwargs):
+        command_text = " ".join(command)
+
+        if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
+            return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
+
+        if "info network-instance default" in command_text:
+            return FakeCompletedProcess(stdout="interface ethernet-1/1.0 {\n}\n")
+
+        if "ip -4 addr show dev eth1" in command_text:
+            return FakeCompletedProcess(stdout="inet 10.10.10.10/24 scope global eth1\n")
+
+        if "ip route" in command_text:
+            return FakeCompletedProcess(stdout="default via 172.20.20.1 dev eth0\n")
+
+        if "ping" in command_text and "10.10.10.1" in command_text:
+            return FakeCompletedProcess(stdout="64 bytes from 10.10.10.1: icmp_seq=1 ttl=64 time=2.1 ms\n")
+
+        return FakeCompletedProcess(stdout="unexpected command\n", returncode=1)
+
+    monkeypatch.setattr(
+        "app.services.validation_service.subprocess.run",
+        fake_run,
+    )
+
+    result = validate_session(session)
+
+    assert result.status == SessionStatus.validated
+    assert result.passed is False
+    assert result.score == 80
+
+    failed_checks = [
+        check
+        for check in result.checks
+        if not check.passed
+    ]
+
+    assert len(failed_checks) == 1
+    assert failed_checks[0].check_id == "srl_check_4_client_default_gateway"
+    assert failed_checks[0].topic == "default_gateway"
+    assert "Review and fix topic: Default Gateway" in result.recommendations
 
