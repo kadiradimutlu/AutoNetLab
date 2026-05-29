@@ -621,8 +621,7 @@ def test_srlinux_runtime_setup_injects_wrong_client_gateway_after_baseline(monke
     assert "ip route replace default via 10.10.10.254 dev eth1" in joined_commands
     assert wrong_gateway_applied["value"] is True
 
-
-def test_srlinux_validation_fails_when_wrong_gateway_breaks_connectivity(monkeypatch):
+def test_srlinux_validation_fails_only_default_gateway_when_wrong_gateway_is_on_connected_subnet(monkeypatch):
     from app.services.validation_service import validate_session
 
     session = {
@@ -655,21 +654,36 @@ def test_srlinux_validation_fails_when_wrong_gateway_breaks_connectivity(monkeyp
         command_text = " ".join(command)
 
         if "info from state interface ethernet-1/1 subinterface 0 ipv4" in command_text:
-            return FakeCompletedProcess(stdout="address 10.10.10.1/24 {\n    origin static\n}\n")
+            return FakeCompletedProcess(
+                stdout="""address 10.10.10.1/24 {
+    origin static
+}
+"""
+            )
 
         if "info network-instance default" in command_text:
-            return FakeCompletedProcess(stdout="interface ethernet-1/1.0 {\n}\n")
+            return FakeCompletedProcess(
+                stdout="""interface ethernet-1/1.0 {
+}
+"""
+            )
 
         if "ip -4 addr show dev eth1" in command_text:
-            return FakeCompletedProcess(stdout="inet 10.10.10.10/24 scope global eth1\n")
+            return FakeCompletedProcess(
+                stdout="inet 10.10.10.10/24 scope global eth1\n"
+            )
 
         if "ip route" in command_text:
-            return FakeCompletedProcess(stdout="default via 10.10.10.254 dev eth1\n")
+            return FakeCompletedProcess(
+                stdout=(
+                    "default via 10.10.10.254 dev eth1\n"
+                    "10.10.10.0/24 dev eth1 proto kernel scope link src 10.10.10.10\n"
+                )
+            )
 
         if "ping" in command_text and "10.10.10.1" in command_text:
             return FakeCompletedProcess(
-                stdout="3 packets transmitted, 0 received, 100% packet loss\n",
-                returncode=1,
+                stdout="64 bytes from 10.10.10.1: icmp_seq=1 ttl=64 time=2.1 ms\n"
             )
 
         return FakeCompletedProcess(stdout="unexpected command\n", returncode=1)
@@ -683,7 +697,7 @@ def test_srlinux_validation_fails_when_wrong_gateway_breaks_connectivity(monkeyp
 
     assert result.status == SessionStatus.validated
     assert result.passed is False
-    assert result.score == 60
+    assert result.score == 80
 
     failed_check_ids = {
         check.check_id
@@ -693,9 +707,14 @@ def test_srlinux_validation_fails_when_wrong_gateway_breaks_connectivity(monkeyp
 
     assert failed_check_ids == {
         "srl_check_4_client_default_gateway",
-        "srl_check_5_gateway_connectivity",
     }
 
-    assert "Review and fix topic: Default Gateway" in result.recommendations
-    assert "Review and fix topic: Connectivity" in result.recommendations
+    connectivity_check = next(
+        check
+        for check in result.checks
+        if check.check_id == "srl_check_5_gateway_connectivity"
+    )
 
+    assert connectivity_check.passed is True
+    assert "Review and fix topic: Default Gateway" in result.recommendations
+    assert "Review and fix topic: Connectivity" not in result.recommendations
