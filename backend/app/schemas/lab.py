@@ -19,6 +19,14 @@ class CreateLabRequest(BaseModel):
     student_id: str | None = Field(default=None, examples=["kadir"])
     difficulty: Difficulty = Field(default=Difficulty.easy, examples=["easy"])
     topology_template: str = Field(default="basic-two-router", examples=["basic-two-router"])
+    scenario_id: str | None = Field(
+        default=None,
+        examples=["srl-basic-link"],
+        description=(
+            "Optional professional network scenario identifier. "
+            "When omitted, the legacy difficulty-based lab generator is used."
+        ),
+    )
 
 
 class ErrorItem(BaseModel):
@@ -162,6 +170,13 @@ class LabSessionResponse(BaseModel):
                 "devices": ["r1", "r2"],
             }
         ],
+    )
+    scenario: dict | None = Field(
+        default=None,
+        description=(
+            "Student-safe scenario design data such as objective, addressing table, "
+            "routing requirements, and expected connectivity. It must not include injected errors."
+        ),
     )
     topology: Topology
     cli_access: list[CliAccess]

@@ -10,6 +10,7 @@ from app.db.session import get_database_readiness
 
 from app.schemas.enums import Difficulty
 from app.services.containerlab_adapter import GENERATED_DIR, PROJECT_ROOT, TEMPLATES_DIR
+from app.services.scenario_catalog import list_scenarios
 
 router = APIRouter(prefix="/meta", tags=["Metadata"])
 
@@ -38,6 +39,15 @@ def get_difficulties() -> dict:
                 ),
             },
         ]
+    }
+
+
+@router.get("/scenarios")
+def get_scenarios() -> dict:
+    return {
+        "success": True,
+        "scenarios": list_scenarios(),
+        "message": "Scenario catalog retrieved successfully.",
     }
 
 
