@@ -1,4 +1,5 @@
-﻿import MessageBox from "./MessageBox";
+
+import MessageBox from "./MessageBox";
 import ValidationCheckList from "./ValidationCheckList";
 import { useLanguage } from "../hooks/useLanguage";
 import {
@@ -93,6 +94,11 @@ function ValidationSummary({
     validationResult.passed_checks ??
     checks.filter((check) => isCheckPassed(check)).length;
   const failedChecks = Math.max(totalChecks - passedChecks, 0);
+  const allChecksPassed =
+    validationResult.passed === true || (totalChecks > 0 && failedChecks === 0);
+  const guidanceMessage = allChecksPassed
+    ? "All checks passed. Review the completed checks and recommendations for your final understanding."
+    : "Review failed topics and use the general hints before running validation again.";
 
   const score = getScore(validationResult, checks);
   const safeScore = Math.min(Math.max(score, 0), 100);
@@ -121,14 +127,12 @@ function ValidationSummary({
       <div className="validation-status-panel">
         <div>
           <h4>
-            {validationResult.passed
+            {allChecksPassed
               ? "All checks passed"
               : "Some checks failed"}
           </h4>
 
-          <p className="muted">
-            Review failed topics and use the general hints before running validation again.
-          </p>
+          <p className="muted">{guidanceMessage}</p>
         </div>
 
         <div className="score-area">
@@ -171,4 +175,6 @@ function ValidationSummary({
 }
 
 export default ValidationSummary;
+
+
 
