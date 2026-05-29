@@ -222,6 +222,15 @@ def deploy_lab(
         topology_file=session["topology_file"],
     )
 
+    if _should_cleanup_partial_runtime_after_deploy_failure(
+        session=session,
+        result=result,
+    ):
+        result = _attempt_partial_runtime_cleanup_after_deploy_failure(
+            session=session,
+            failure_result=result,
+        )
+
     if result["success"]:
         if _is_deploy_only_session(session):
             result["message"] = (
@@ -473,6 +482,89 @@ def get_lab_recommendations(
         **build_recommendations_for_session(session)
     )
 
+
+
+def _should_cleanup_partial_runtime_after_deploy_failure(
+    session: dict,
+    result: dict,
+) -> bool:
+    if bool(result.get("success")):
+        return False
+
+    cleanup_candidate_error_codes = {
+        "CONTAINERLAB_DEPLOY_TIMEOUT",
+        "CONTAINERLAB_DEPLOY_FAILED",
+        "CONTAINER_NOT_RUNNING",
+    }
+
+    if result.get("error_code") not in cleanup_candidate_error_codes:
+        return False
+
+    return containerlab_adapter.runtime_containers_exist(session)
+
+
+def _attempt_partial_runtime_cleanup_after_deploy_failure(
+    session: dict,
+    failure_result: dict,
+) -> dict:
+    session_id = str(session["session_id"])
+    cleanup_result = containerlab_adapter.destroy_runtime_containers(session)
+
+    record_runtime_cleanup_result(
+        session_id=session_id,
+        trigger="containerlab_deploy_failed_partial_runtime",
+        cleanup_result=cleanup_result,
+    )
+
+    cleaned = bool(cleanup_result.get("success"))
+    cleanup_summary = (
+        "Partial runtime cleanup after failed deploy: completed successfully."
+        if cleaned
+        else (
+            "Partial runtime cleanup after failed deploy: attempted but failed "
+            f"({cleanup_result.get('error_code') or 'UNKNOWN_CLEANUP_ERROR'})."
+        )
+    )
+
+    logger_method = logger.warning if cleaned else logger.error
+    logger_method(
+        "Containerlab deploy failed after creating runtime containers; fallback cleanup recorded.",
+        extra={
+            "session_id": session_id,
+            "cleanup_success": cleaned,
+            "cleanup_error_code": cleanup_result.get("error_code"),
+            "cleanup_return_code": cleanup_result.get("return_code"),
+        },
+    )
+
+    response = dict(failure_result)
+    response["status"] = SessionStatus.destroyed if cleaned else SessionStatus.error
+    response["message"] = (
+        "Containerlab deploy failed. Partial runtime cleanup completed."
+        if cleaned
+        else (
+            "Containerlab deploy failed. Partial runtime cleanup was attempted "
+            "but did not complete."
+        )
+    )
+    response["stderr"] = "\n\n".join(
+        value
+        for value in [
+            str(response.get("stderr") or "").strip(),
+            cleanup_summary,
+        ]
+        if value
+    )
+    response["suggestion"] = (
+        "Retry deployment with a new lab session. The partial runtime was cleaned up."
+        if cleaned
+        else (
+            "Retry cleanup from the lab action, then check Docker and Containerlab "
+            "state if resources remain."
+        )
+    )
+
+    return response
 
 
 def _is_deploy_only_session(session: dict) -> bool:
