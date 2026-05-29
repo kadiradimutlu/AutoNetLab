@@ -20,7 +20,7 @@ from app.schemas.validation import StudentValidationResult, ValidationHistoryRes
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.runtime_error_injection import apply_runtime_error_injection
-from app.services.scenario_catalog import is_srlinux_scenario
+from app.services.scenario_catalog import is_deploy_only_scenario, is_srlinux_scenario
 from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
 from app.services.session_service import (
     build_lab_hints_response,
@@ -223,41 +223,47 @@ def deploy_lab(
     )
 
     if result["success"]:
-        if _is_srlinux_session(session):
-            runtime_result = apply_srlinux_runtime_setup(session)
-            runtime_success_message = "SR Linux runtime setup applied successfully."
-        else:
-            runtime_result = apply_runtime_error_injection(session)
-            runtime_success_message = "Runtime error injection applied successfully."
-
-        if not runtime_result["success"]:
-            runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
-                session=session,
-                failure_result=runtime_result,
+        if _is_deploy_only_session(session):
+            result["message"] = (
+                result["message"]
+                + " Scenario deployed in foundation mode without runtime fault injection."
             )
-            update_session_status(session_id, runtime_result["status"])
-            return ActionResponse(**runtime_result)
+        else:
+            if _is_srlinux_session(session):
+                runtime_result = apply_srlinux_runtime_setup(session)
+                runtime_success_message = "SR Linux runtime setup applied successfully."
+            else:
+                runtime_result = apply_runtime_error_injection(session)
+                runtime_success_message = "Runtime error injection applied successfully."
 
-        result["message"] = (
-            result["message"]
-            + f" {runtime_success_message}"
-        )
-        result["stdout"] = "\n\n".join(
-            value
-            for value in [
-                result.get("stdout", ""),
-                runtime_result.get("stdout", ""),
-            ]
-            if value
-        )
-        result["stderr"] = "\n\n".join(
-            value
-            for value in [
-                result.get("stderr", ""),
-                runtime_result.get("stderr", ""),
-            ]
-            if value
-        )
+            if not runtime_result["success"]:
+                runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
+                    session=session,
+                    failure_result=runtime_result,
+                )
+                update_session_status(session_id, runtime_result["status"])
+                return ActionResponse(**runtime_result)
+
+            result["message"] = (
+                result["message"]
+                + f" {runtime_success_message}"
+            )
+            result["stdout"] = "\n\n".join(
+                value
+                for value in [
+                    result.get("stdout", ""),
+                    runtime_result.get("stdout", ""),
+                ]
+                if value
+            )
+            result["stderr"] = "\n\n".join(
+                value
+                for value in [
+                    result.get("stderr", ""),
+                    runtime_result.get("stderr", ""),
+                ]
+                if value
+            )
 
     update_session_status(session_id, result["status"])
 
@@ -467,6 +473,15 @@ def get_lab_recommendations(
         **build_recommendations_for_session(session)
     )
 
+
+
+def _is_deploy_only_session(session: dict) -> bool:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict):
+        return is_deploy_only_scenario(scenario.get("id"))
+
+    return False
 
 
 def _is_srlinux_session(session: dict) -> bool:

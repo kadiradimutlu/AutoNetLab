@@ -7,6 +7,11 @@ SR_LINUX_IMAGE = "ghcr.io/nokia/srlinux:26.3.2"
 NETWORK_CLIENT_IMAGE = "ghcr.io/srl-labs/network-multitool:latest"
 
 SR_BASIC_LINK_SCENARIO_ID = "srl-basic-link"
+CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID = "campus-core-static-routing"
+
+DEPLOY_ONLY_SCENARIO_IDS = {
+    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+}
 
 
 _SCENARIOS: dict[str, dict] = {
@@ -85,7 +90,238 @@ _SCENARIOS: dict[str, dict] = {
             "Injected faults are hidden from the student view.",
             "Use the scenario design requirements as the expected network state.",
         ],
-    }
+    },
+    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID: {
+        "id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+        "title": "Campus Core Static Routing",
+        "summary": (
+            "A professional campus-core foundation scenario with two Linux clients "
+            "and four Nokia SR Linux routers."
+        ),
+        "topology_template": "campus-core-static-routing",
+        "platform": "containerlab",
+        "router_os": "Nokia SR Linux",
+        "supported_difficulties": ["easy", "medium", "hard"],
+        "objective": (
+            "Build the foundation for a multi-router campus topology that can later "
+            "support golden configuration, runtime fault injection, and live validation."
+        ),
+        "story": (
+            "A campus network has two client edge segments connected through a four-router "
+            "SR Linux core. This foundation sprint proves that the topology can be generated, "
+            "deployed, inspected, and destroyed cleanly."
+        ),
+        "runtime_profile": "deploy_only",
+        "devices": [
+            {
+                "id": "client1",
+                "label": "Client 1",
+                "role": "client",
+                "os": "Linux",
+                "image": NETWORK_CLIENT_IMAGE,
+                "cli_profile": "linux_shell",
+            },
+            {
+                "id": "client2",
+                "label": "Client 2",
+                "role": "client",
+                "os": "Linux",
+                "image": NETWORK_CLIENT_IMAGE,
+                "cli_profile": "linux_shell",
+            },
+            {
+                "id": "srl1",
+                "label": "Campus Edge Router 1",
+                "role": "edge_router",
+                "os": "Nokia SR Linux",
+                "image": SR_LINUX_IMAGE,
+                "cli_profile": "sr_cli",
+            },
+            {
+                "id": "srl2",
+                "label": "Campus Edge Router 2",
+                "role": "edge_router",
+                "os": "Nokia SR Linux",
+                "image": SR_LINUX_IMAGE,
+                "cli_profile": "sr_cli",
+            },
+            {
+                "id": "srl3",
+                "label": "Campus Core Router 3",
+                "role": "core_router",
+                "os": "Nokia SR Linux",
+                "image": SR_LINUX_IMAGE,
+                "cli_profile": "sr_cli",
+            },
+            {
+                "id": "srl4",
+                "label": "Campus Core Router 4",
+                "role": "core_router",
+                "os": "Nokia SR Linux",
+                "image": SR_LINUX_IMAGE,
+                "cli_profile": "sr_cli",
+            },
+        ],
+        "links": [
+            {
+                "source": {"node": "client1", "interface": "eth1"},
+                "target": {"node": "srl1", "interface": "ethernet-1/1"},
+                "subnet": "10.10.10.0/24",
+            },
+            {
+                "source": {"node": "srl1", "interface": "ethernet-1/2"},
+                "target": {"node": "srl3", "interface": "ethernet-1/1"},
+                "subnet": "10.10.13.0/30",
+            },
+            {
+                "source": {"node": "srl3", "interface": "ethernet-1/2"},
+                "target": {"node": "srl2", "interface": "ethernet-1/2"},
+                "subnet": "10.10.23.0/30",
+            },
+            {
+                "source": {"node": "srl2", "interface": "ethernet-1/1"},
+                "target": {"node": "client2", "interface": "eth1"},
+                "subnet": "10.10.20.0/24",
+            },
+            {
+                "source": {"node": "srl1", "interface": "ethernet-1/3"},
+                "target": {"node": "srl4", "interface": "ethernet-1/1"},
+                "subnet": "10.10.14.0/30",
+            },
+            {
+                "source": {"node": "srl4", "interface": "ethernet-1/2"},
+                "target": {"node": "srl2", "interface": "ethernet-1/3"},
+                "subnet": "10.10.24.0/30",
+            },
+        ],
+        "addressing_table": [
+            {
+                "device": "client1",
+                "interface": "eth1",
+                "ip_address": "10.10.10.10/24",
+                "default_gateway": "10.10.10.1",
+                "connects_to": "srl1 ethernet-1/1",
+            },
+            {
+                "device": "srl1",
+                "interface": "ethernet-1/1",
+                "ip_address": "10.10.10.1/24",
+                "connects_to": "client1 eth1",
+            },
+            {
+                "device": "srl1",
+                "interface": "ethernet-1/2",
+                "ip_address": "10.10.13.1/30",
+                "connects_to": "srl3 ethernet-1/1",
+            },
+            {
+                "device": "srl3",
+                "interface": "ethernet-1/1",
+                "ip_address": "10.10.13.2/30",
+                "connects_to": "srl1 ethernet-1/2",
+            },
+            {
+                "device": "srl3",
+                "interface": "ethernet-1/2",
+                "ip_address": "10.10.23.2/30",
+                "connects_to": "srl2 ethernet-1/2",
+            },
+            {
+                "device": "srl2",
+                "interface": "ethernet-1/2",
+                "ip_address": "10.10.23.1/30",
+                "connects_to": "srl3 ethernet-1/2",
+            },
+            {
+                "device": "srl1",
+                "interface": "ethernet-1/3",
+                "ip_address": "10.10.14.1/30",
+                "connects_to": "srl4 ethernet-1/1",
+            },
+            {
+                "device": "srl4",
+                "interface": "ethernet-1/1",
+                "ip_address": "10.10.14.2/30",
+                "connects_to": "srl1 ethernet-1/3",
+            },
+            {
+                "device": "srl4",
+                "interface": "ethernet-1/2",
+                "ip_address": "10.10.24.2/30",
+                "connects_to": "srl2 ethernet-1/3",
+            },
+            {
+                "device": "srl2",
+                "interface": "ethernet-1/3",
+                "ip_address": "10.10.24.1/30",
+                "connects_to": "srl4 ethernet-1/2",
+            },
+            {
+                "device": "srl2",
+                "interface": "ethernet-1/1",
+                "ip_address": "10.10.20.1/24",
+                "connects_to": "client2 eth1",
+            },
+            {
+                "device": "client2",
+                "interface": "eth1",
+                "ip_address": "10.10.20.10/24",
+                "default_gateway": "10.10.20.1",
+                "connects_to": "srl2 ethernet-1/1",
+            },
+        ],
+        "routing_requirements": [
+            {
+                "device": "client1",
+                "requirement": "client1 should use 10.10.10.1 as its default gateway.",
+            },
+            {
+                "device": "client2",
+                "requirement": "client2 should use 10.10.20.1 as its default gateway.",
+            },
+            {
+                "device": "srl1",
+                "requirement": "srl1 should route toward client2 through the SR Linux core.",
+            },
+            {
+                "device": "srl2",
+                "requirement": "srl2 should route toward client1 through the SR Linux core.",
+            },
+            {
+                "device": "srl3",
+                "requirement": "srl3 is the upper core transit router between srl1 and srl2.",
+            },
+            {
+                "device": "srl4",
+                "requirement": "srl4 is the lower core transit router between srl1 and srl2.",
+            },
+        ],
+        "expected_connectivity": [
+            {
+                "source": "client1",
+                "destination": "client2",
+                "protocol": "ICMP",
+                "expectation": "Future golden configuration should allow end-to-end client connectivity.",
+            },
+            {
+                "source": "srl1",
+                "destination": "srl2",
+                "protocol": "ICMP",
+                "expectation": "Future routing validation should verify core path reachability.",
+            },
+        ],
+        "student_tasks": [
+            "Inspect all six nodes and their roles.",
+            "Review the campus addressing table.",
+            "Understand the redundant SR Linux core paths.",
+            "Use this topology as the base for future routing and validation sprints.",
+        ],
+        "student_notes": [
+            "This foundation sprint is deploy-only.",
+            "Golden configuration, injected faults, and full routing validation are planned for later sprints.",
+            "No hidden solution data is exposed in the student response.",
+        ],
+    },
 }
 
 
@@ -110,3 +346,7 @@ def get_scenario(scenario_id: str | None) -> dict | None:
 
 def is_srlinux_scenario(scenario_id: str | None) -> bool:
     return scenario_id == SR_BASIC_LINK_SCENARIO_ID
+
+
+def is_deploy_only_scenario(scenario_id: str | None) -> bool:
+    return scenario_id in DEPLOY_ONLY_SCENARIO_IDS

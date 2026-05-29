@@ -7,6 +7,7 @@ class TopologyNode(BaseModel):
     kind: str = Field(..., examples=["linux"])
     image: str | None = Field(default=None, examples=["alpine:latest"])
     mgmt_ipv4: str | None = Field(default=None, examples=["172.20.20.11"])
+    role: str | None = Field(default=None, examples=["router"])
 
 
 class TopologyEndpoint(BaseModel):
