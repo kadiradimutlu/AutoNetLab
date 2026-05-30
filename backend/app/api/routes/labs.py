@@ -31,6 +31,7 @@ from app.services.session_service import (
     get_lab_session,
     list_lab_sessions,
     record_runtime_cleanup_result,
+    remove_generated_session_folder,
     to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
@@ -378,7 +379,35 @@ def destroy_lab(
 
     update_session_status(session_id, result["status"])
 
+    if _is_successful_destroy_result(result):
+        _cleanup_generated_folder_after_successful_destroy(session)
+
     return ActionResponse(**result)
+
+
+
+def _is_successful_destroy_result(result: dict) -> bool:
+    return (
+        bool(result.get("success"))
+        and _session_status_value(result.get("status")) == SessionStatus.destroyed.value
+    )
+
+
+def _cleanup_generated_folder_after_successful_destroy(session: dict) -> None:
+    cleanup_result = remove_generated_session_folder(
+        session_id=str(session["session_id"]),
+        topology_file=session.get("topology_file"),
+    )
+
+    if not cleanup_result.get("success"):
+        logger.warning(
+            "Generated lab folder cleanup after destroy did not complete.",
+            extra={
+                "session_id": session.get("session_id"),
+                "cleanup_error_code": cleanup_result.get("error_code"),
+                "cleanup_path": cleanup_result.get("path"),
+            },
+        )
 
 
 def _should_fallback_destroy_runtime_containers(
@@ -510,6 +539,8 @@ def finish_lab(
 
     result["status"] = finished_session["status"]
     result["message"] = "Lab finished successfully. Validation history is preserved."
+
+    _cleanup_generated_folder_after_successful_destroy(session)
 
     return ActionResponse(**result)
 
