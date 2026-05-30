@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from app.services.recommendation.features import (
     topic_label,
@@ -24,20 +24,20 @@ def build_rule_based_recommendations(
     if not failed_topics:
         return [
             {
-                "topic": "next_challenge",
-                "label": "Next Challenge",
+                "topic": "lab_lifecycle",
+                "label": "Lab Completion",
                 "reason": "No failed validation checks were detected.",
                 "explanation": (
                     "The current lab appears to be completed successfully. "
-                    "The student can continue with a higher difficulty level or repeat the lab for practice."
+                    "The student can move to a harder scenario or repeat the lab to improve speed and confidence."
                 ),
                 "priority": "low",
-                "confidence": 0.75,
+                "confidence": 0.82,
                 "source": "rule_based",
                 "next_actions": [
-                    "Try a higher difficulty lab.",
-                    "Repeat the same lab and solve it faster.",
-                    "Review the validation result to understand why all checks passed.",
+                    "Review the checks that passed so the successful troubleshooting path is clear.",
+                    "Try a higher difficulty lab when ready.",
+                    "Repeat the same scenario later to confirm retention.",
                 ],
                 "related_failed_checks": [],
             }
@@ -50,11 +50,13 @@ def build_rule_based_recommendations(
         label = item.get("label") or topic_label(topic)
         failure_rate = float(item.get("failure_rate", 0.0))
         fail_count = int(item.get("fail_count", 0))
+        score_impact = int(item.get("score_impact", 0))
 
         rule_priority = _priority_from_rule(
             failure_rate=failure_rate,
             fail_count=fail_count,
             score=score,
+            score_impact=score_impact,
         )
         rule_confidence = _confidence_from_rule(rule_priority)
 
@@ -82,6 +84,7 @@ def build_rule_based_recommendations(
                     fail_count=fail_count,
                     score=score,
                     passed=passed,
+                    score_impact=score_impact,
                 ),
                 "priority": priority,
                 "confidence": round(min(confidence, 0.98), 2),
@@ -103,11 +106,12 @@ def _priority_from_rule(
     failure_rate: float,
     fail_count: int,
     score: int | None,
+    score_impact: int = 0,
 ) -> str:
-    if failure_rate >= 60 or fail_count >= 3 or (score is not None and score < 50):
+    if failure_rate >= 60 or fail_count >= 3 or score_impact >= 30 or (score is not None and score < 50):
         return "high"
 
-    if failure_rate >= 30 or fail_count >= 1 or (score is not None and score < 80):
+    if failure_rate >= 30 or fail_count >= 1 or score_impact >= 10 or (score is not None and score < 80):
         return "medium"
 
     return "low"
@@ -118,9 +122,9 @@ def _confidence_from_rule(priority: str) -> float:
         return 0.9
 
     if priority == "medium":
-        return 0.78
+        return 0.8
 
-    return 0.65
+    return 0.68
 
 
 def _priority_sort_value(priority: str) -> int:
@@ -137,6 +141,7 @@ def _build_explanation(
     fail_count: int,
     score: int | None,
     passed: bool | None,
+    score_impact: int = 0,
 ) -> str:
     score_text = "unknown" if score is None else str(score)
 
@@ -148,6 +153,8 @@ def _build_explanation(
 
     return (
         f"{fail_count} validation check(s) related to {label} failed. "
-        f"The topic failure rate is {failure_rate}%. Current score: {score_text}. "
-        "The student should focus on this topic before attempting a harder lab."
+        f"The topic failure rate is {failure_rate}%. "
+        f"Estimated score impact from this topic is {score_impact} point(s). "
+        f"Current score: {score_text}. "
+        "The student should review the related concept before attempting a harder lab."
     )

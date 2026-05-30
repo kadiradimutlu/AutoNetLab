@@ -5,6 +5,7 @@ class DifficultyDistributionItem(BaseModel):
     difficulty: str = Field(..., examples=["medium"])
     session_count: int = Field(..., ge=0, examples=[12])
     completed_count: int = Field(..., ge=0, examples=[8])
+    pass_rate: float = Field(default=0.0, ge=0, le=100, examples=[75.0])
     average_score: float = Field(..., ge=0, le=100, examples=[72.5])
 
 
@@ -13,8 +14,11 @@ class TopicWeaknessItem(BaseModel):
     label: str = Field(..., examples=["IP Addressing"])
     fail_count: int = Field(..., ge=0, examples=[5])
     attempt_count: int = Field(..., ge=0, examples=[9])
+    failures: int = Field(default=0, ge=0, examples=[5])
+    attempts: int = Field(default=0, ge=0, examples=[9])
     failure_rate: float = Field(..., ge=0, le=100, examples=[55.56])
     average_score: float = Field(..., ge=0, le=100, examples=[64.25])
+    average_score_impact: float = Field(default=0.0, ge=0, le=100, examples=[27.5])
     severity: str = Field(..., examples=["medium"])
 
 
@@ -25,6 +29,8 @@ class RecentSessionItem(BaseModel):
     status: str = Field(..., examples=["validated"])
     score: int | None = Field(default=None, ge=0, le=100, examples=[75])
     passed: bool | None = Field(default=None, examples=[False])
+    scenario_id: str | None = Field(default=None, examples=["campus-core-static-routing"])
+    topology_template: str | None = Field(default=None, examples=["campus-core-static-routing"])
     created_at: str | None = Field(default=None)
     completed_at: str | None = Field(default=None)
 
@@ -36,6 +42,7 @@ class StudentListItem(BaseModel):
     active_sessions: int = Field(..., ge=0, examples=[2])
     average_score: float = Field(..., ge=0, le=100, examples=[72.5])
     pass_rate: float = Field(..., ge=0, le=100, examples=[50.0])
+    repeated_failed_topics: list[TopicWeaknessItem] = Field(default_factory=list)
     last_activity_at: str | None = Field(default=None)
 
 
@@ -45,8 +52,28 @@ class ScoreTrendItem(BaseModel):
     status: str = Field(..., examples=["validated"])
     score: int | None = Field(default=None, ge=0, le=100, examples=[75])
     passed: bool | None = Field(default=None, examples=[False])
+    scenario_id: str | None = Field(default=None, examples=["campus-core-static-routing"])
+    topology_template: str | None = Field(default=None, examples=["campus-core-static-routing"])
     created_at: str | None = Field(default=None)
     completed_at: str | None = Field(default=None)
+
+
+class ScenarioPerformanceItem(BaseModel):
+    scenario_id: str = Field(..., examples=["campus-core-static-routing"])
+    total_sessions: int = Field(..., ge=0, examples=[10])
+    completed_sessions: int = Field(..., ge=0, examples=[8])
+    passed_sessions: int = Field(default=0, ge=0, examples=[6])
+    pass_rate: float = Field(..., ge=0, le=100, examples=[75.0])
+    average_score: float = Field(..., ge=0, le=100, examples=[82.5])
+
+
+class DifficultyPerformanceItem(BaseModel):
+    difficulty: str = Field(..., examples=["easy"])
+    total_sessions: int = Field(..., ge=0, examples=[10])
+    completed_sessions: int = Field(..., ge=0, examples=[8])
+    passed_sessions: int = Field(default=0, ge=0, examples=[6])
+    pass_rate: float = Field(..., ge=0, le=100, examples=[75.0])
+    average_score: float = Field(..., ge=0, le=100, examples=[82.5])
 
 
 class AnalyticsSummaryResponse(BaseModel):
@@ -57,12 +84,17 @@ class AnalyticsSummaryResponse(BaseModel):
     passed_sessions: int = Field(..., ge=0)
     average_score: float = Field(..., ge=0, le=100)
     pass_rate: float = Field(..., ge=0, le=100)
+    scenario_performance: list[ScenarioPerformanceItem] = Field(default_factory=list)
+    difficulty_performance: list[DifficultyPerformanceItem] = Field(default_factory=list)
+    topic_weaknesses: list[TopicWeaknessItem] = Field(default_factory=list)
+    cleanup_error_incidents: int = Field(default=0, ge=0)
     message: str
 
 
 class DifficultyDistributionResponse(BaseModel):
     success: bool = True
     distribution: list[DifficultyDistributionItem]
+    difficulty_performance: list[DifficultyPerformanceItem] = Field(default_factory=list)
     message: str
 
 
@@ -93,6 +125,7 @@ class StudentSummaryResponse(BaseModel):
     passed_sessions: int = Field(..., ge=0)
     average_score: float = Field(..., ge=0, le=100)
     pass_rate: float = Field(..., ge=0, le=100)
+    repeated_failed_topics: list[TopicWeaknessItem] = Field(default_factory=list)
     first_seen_at: str | None = Field(default=None)
     last_activity_at: str | None = Field(default=None)
     message: str

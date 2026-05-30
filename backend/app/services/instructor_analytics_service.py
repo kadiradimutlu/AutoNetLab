@@ -13,26 +13,19 @@ from sqlalchemy.orm import joinedload
 from app.db.models import LabSessionRecord
 from app.db.session import session_scope
 from app.services.topology_generator import GENERATED_DIR
+from app.services.network_topics import (
+    TOPIC_LABELS as NETWORK_TOPIC_LABELS,
+    network_topic_label,
+    normalize_network_topic,
+    scenario_id_from_session,
+)
 
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_DIFFICULTIES = ["easy", "medium", "hard"]
 
-TOPIC_LABELS = {
-    "ip_addressing": "IP Addressing",
-    "subnetting": "Subnetting",
-    "interface_status": "Interface Status",
-    "routing": "Routing",
-    "static_routing": "Static Routing",
-    "default_gateway": "Default Gateway",
-    "vlan": "VLAN",
-    "vlan_like": "VLAN-like Configuration",
-    "acl": "ACL",
-    "acl_like": "ACL-like Policy",
-    "connectivity": "Connectivity",
-    "unknown": "Unknown",
-}
+TOPIC_LABELS = NETWORK_TOPIC_LABELS
 
 
 def get_analytics_summary() -> dict:
@@ -73,66 +66,33 @@ def get_analytics_summary() -> dict:
         "passed_sessions": len(passed_sessions),
         "average_score": average_score,
         "pass_rate": pass_rate,
+        "scenario_performance": _build_scenario_performance(sessions),
+        "difficulty_performance": _build_difficulty_performance(sessions),
+        "topic_weaknesses": _build_topic_weaknesses(sessions),
+        "cleanup_error_incidents": _count_cleanup_error_incidents(sessions),
         "message": "Instructor analytics summary generated successfully.",
     }
 
 
 def get_difficulty_distribution() -> dict:
     sessions = _load_session_records()
+    difficulty_performance = _build_difficulty_performance(sessions)
 
-    distribution_by_difficulty = {
-        difficulty: {
-            "difficulty": difficulty,
-            "session_count": 0,
-            "completed_count": 0,
-            "scores": [],
+    distribution = [
+        {
+            "difficulty": item["difficulty"],
+            "session_count": item["total_sessions"],
+            "completed_count": item["completed_sessions"],
+            "pass_rate": item["pass_rate"],
+            "average_score": item["average_score"],
         }
-        for difficulty in DEFAULT_DIFFICULTIES
-    }
-
-    for session in sessions:
-        difficulty = _normalize_difficulty(session.get("difficulty"))
-
-        if difficulty not in distribution_by_difficulty:
-            distribution_by_difficulty[difficulty] = {
-                "difficulty": difficulty,
-                "session_count": 0,
-                "completed_count": 0,
-                "scores": [],
-            }
-
-        distribution_by_difficulty[difficulty]["session_count"] += 1
-
-        if _is_completed(session):
-            distribution_by_difficulty[difficulty]["completed_count"] += 1
-
-        score = _extract_score(session)
-        if score is not None:
-            distribution_by_difficulty[difficulty]["scores"].append(score)
-
-    distribution = []
-
-    for difficulty, item in distribution_by_difficulty.items():
-        distribution.append(
-            {
-                "difficulty": difficulty,
-                "session_count": item["session_count"],
-                "completed_count": item["completed_count"],
-                "average_score": _safe_average(item["scores"]),
-            }
-        )
-
-    distribution.sort(
-        key=lambda item: (
-            DEFAULT_DIFFICULTIES.index(item["difficulty"])
-            if item["difficulty"] in DEFAULT_DIFFICULTIES
-            else 99
-        )
-    )
+        for item in difficulty_performance
+    ]
 
     return {
         "success": True,
         "distribution": distribution,
+        "difficulty_performance": difficulty_performance,
         "message": "Difficulty distribution generated successfully.",
     }
 
@@ -216,6 +176,7 @@ def get_students(limit: int = 100) -> dict:
                 "active_sessions": len(active_sessions),
                 "average_score": _safe_average(scores),
                 "pass_rate": pass_rate,
+                "repeated_failed_topics": _build_repeated_failed_topics(student_sessions),
                 "last_activity_at": _latest_activity(student_sessions),
             }
         )
@@ -271,6 +232,7 @@ def get_student_summary(student_id: str) -> dict:
         "passed_sessions": len(passed_sessions),
         "average_score": _safe_average(scores),
         "pass_rate": pass_rate,
+        "repeated_failed_topics": _build_repeated_failed_topics(student_sessions),
         "first_seen_at": _first_activity(student_sessions),
         "last_activity_at": _latest_activity(student_sessions),
         "message": "Student analytics summary generated successfully.",
@@ -332,6 +294,8 @@ def get_student_score_trend(student_id: str, limit: int = 50) -> dict:
             "status": _normalize_status(session.get("status")),
             "score": _extract_score(session),
             "passed": _extract_passed(session),
+            "scenario_id": _scenario_id(session),
+            "topology_template": _topology_template(session),
             "created_at": session.get("created_at"),
             "completed_at": session.get("completed_at"),
         }
@@ -524,33 +488,18 @@ def _normalize_status(value: Any) -> str:
 
 
 def _normalize_topic(value: Any) -> str:
-    if value is None:
-        return "unknown"
-
-    text = str(value).strip().lower()
-    text = re.sub(r"[^a-z0-9]+", "_", text)
-    text = text.strip("_")
-
-    if text in {"routing", "static_route", "static_routes"}:
-        return "static_routing"
-
-    if text in {"vlan", "vlan_mismatch"}:
-        return "vlan_like"
-
-    if text in {"acl", "access_control", "access_control_list"}:
-        return "acl_like"
-
-    return text or "unknown"
+    return normalize_network_topic(value)
 
 
 def _build_topic_weaknesses(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     topic_stats: dict[str, dict[str, Any]] = defaultdict(
         lambda: {
-            "topic": "unknown",
-            "label": "Unknown",
+            "topic": "general_troubleshooting",
+            "label": "General Troubleshooting",
             "fail_count": 0,
             "attempt_count": 0,
             "scores": [],
+            "score_impacts": [],
         }
     )
 
@@ -563,11 +512,11 @@ def _build_topic_weaknesses(sessions: list[dict[str, Any]]) -> list[dict[str, An
         score = _extract_score(session)
 
         for check in validation_result.get("checks", []):
-            raw_topic = check.get("topic", "unknown")
+            raw_topic = check.get("topic", "general_troubleshooting")
             topic_key = _normalize_topic(raw_topic)
 
             topic_stats[topic_key]["topic"] = topic_key
-            topic_stats[topic_key]["label"] = TOPIC_LABELS.get(topic_key, raw_topic)
+            topic_stats[topic_key]["label"] = network_topic_label(topic_key)
             topic_stats[topic_key]["attempt_count"] += 1
 
             if score is not None:
@@ -575,6 +524,7 @@ def _build_topic_weaknesses(sessions: list[dict[str, Any]]) -> list[dict[str, An
 
             if check.get("passed") is False:
                 topic_stats[topic_key]["fail_count"] += 1
+                topic_stats[topic_key]["score_impacts"].append(_score_impact_for_check(check, score))
 
     topic_weaknesses = []
 
@@ -589,18 +539,181 @@ def _build_topic_weaknesses(sessions: list[dict[str, Any]]) -> list[dict[str, An
                 "label": stats["label"],
                 "fail_count": fail_count,
                 "attempt_count": attempt_count,
+                "failures": fail_count,
+                "attempts": attempt_count,
                 "failure_rate": failure_rate,
                 "average_score": _safe_average(stats["scores"]),
+                "average_score_impact": _safe_average(stats["score_impacts"]),
                 "severity": _severity_from_failure_rate(failure_rate),
             }
         )
 
     topic_weaknesses.sort(
-        key=lambda item: (item["fail_count"], item["failure_rate"]),
+        key=lambda item: (item["fail_count"], item["failure_rate"], item["average_score_impact"]),
         reverse=True,
     )
 
     return topic_weaknesses
+
+
+def _build_repeated_failed_topics(
+    sessions: list[dict[str, Any]],
+    *,
+    limit: int = 3,
+    min_failures: int = 2,
+) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in _build_topic_weaknesses(sessions)
+        if item["fail_count"] >= min_failures
+    ][:limit]
+
+
+def _build_scenario_performance(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "scenario_id": "unknown",
+            "total_sessions": 0,
+            "completed_sessions": 0,
+            "passed_sessions": 0,
+            "scores": [],
+        }
+    )
+
+    for session in sessions:
+        scenario_id = _scenario_id(session)
+        grouped[scenario_id]["scenario_id"] = scenario_id
+        grouped[scenario_id]["total_sessions"] += 1
+
+        if _is_completed(session):
+            grouped[scenario_id]["completed_sessions"] += 1
+
+        if _extract_passed(session) is True:
+            grouped[scenario_id]["passed_sessions"] += 1
+
+        score = _extract_score(session)
+        if score is not None:
+            grouped[scenario_id]["scores"].append(score)
+
+    items = []
+
+    for stats in grouped.values():
+        completed_sessions = stats["completed_sessions"]
+        passed_sessions = stats["passed_sessions"]
+
+        items.append(
+            {
+                "scenario_id": stats["scenario_id"],
+                "total_sessions": stats["total_sessions"],
+                "completed_sessions": completed_sessions,
+                "passed_sessions": passed_sessions,
+                "pass_rate": (
+                    round((passed_sessions / completed_sessions) * 100, 2)
+                    if completed_sessions
+                    else 0.0
+                ),
+                "average_score": _safe_average(stats["scores"]),
+            }
+        )
+
+    items.sort(key=lambda item: (item["total_sessions"], item["scenario_id"]), reverse=True)
+    return items
+
+
+def _build_difficulty_performance(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {
+        difficulty: {
+            "difficulty": difficulty,
+            "total_sessions": 0,
+            "completed_sessions": 0,
+            "passed_sessions": 0,
+            "scores": [],
+        }
+        for difficulty in DEFAULT_DIFFICULTIES
+    }
+
+    for session in sessions:
+        difficulty = _normalize_difficulty(session.get("difficulty"))
+
+        if difficulty not in grouped:
+            grouped[difficulty] = {
+                "difficulty": difficulty,
+                "total_sessions": 0,
+                "completed_sessions": 0,
+                "passed_sessions": 0,
+                "scores": [],
+            }
+
+        grouped[difficulty]["total_sessions"] += 1
+
+        if _is_completed(session):
+            grouped[difficulty]["completed_sessions"] += 1
+
+        if _extract_passed(session) is True:
+            grouped[difficulty]["passed_sessions"] += 1
+
+        score = _extract_score(session)
+        if score is not None:
+            grouped[difficulty]["scores"].append(score)
+
+    items = []
+
+    for difficulty, stats in grouped.items():
+        completed_sessions = stats["completed_sessions"]
+        passed_sessions = stats["passed_sessions"]
+
+        items.append(
+            {
+                "difficulty": difficulty,
+                "total_sessions": stats["total_sessions"],
+                "completed_sessions": completed_sessions,
+                "passed_sessions": passed_sessions,
+                "pass_rate": (
+                    round((passed_sessions / completed_sessions) * 100, 2)
+                    if completed_sessions
+                    else 0.0
+                ),
+                "average_score": _safe_average(stats["scores"]),
+            }
+        )
+
+    items.sort(
+        key=lambda item: (
+            DEFAULT_DIFFICULTIES.index(item["difficulty"])
+            if item["difficulty"] in DEFAULT_DIFFICULTIES
+            else 99
+        )
+    )
+
+    return items
+
+
+def _score_impact_for_check(check: dict[str, Any], score: int | None) -> int:
+    try:
+        points = int(check.get("points", 0))
+        max_points = int(check.get("max_points", 0))
+    except (TypeError, ValueError):
+        points = 0
+        max_points = 0
+
+    point_impact = max(max_points - points, 0)
+
+    if point_impact:
+        return point_impact
+
+    if score is None:
+        return 0
+
+    return max(100 - score, 0)
+
+
+def _count_cleanup_error_incidents(sessions: list[dict[str, Any]]) -> int:
+    return sum(
+        1
+        for session in sessions
+        if _normalize_status(session.get("status")) == "error"
+        or bool(session.get("runtime_cleanup_history"))
+    )
 
 
 def _safe_average(values: list[int | float]) -> float:
@@ -663,9 +776,20 @@ def _session_to_recent_item(session: dict[str, Any]) -> dict:
         "status": _normalize_status(session.get("status")),
         "score": _extract_score(session),
         "passed": _extract_passed(session),
+        "scenario_id": _scenario_id(session),
+        "topology_template": _topology_template(session),
         "created_at": session.get("created_at"),
         "completed_at": session.get("completed_at"),
     }
+
+
+def _scenario_id(session: dict[str, Any]) -> str:
+    return scenario_id_from_session(session)
+
+
+def _topology_template(session: dict[str, Any]) -> str | None:
+    topology_template = session.get("topology_template")
+    return str(topology_template) if topology_template else None
 
 
 def _first_activity(sessions: list[dict[str, Any]]) -> str | None:

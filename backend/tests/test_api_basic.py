@@ -401,11 +401,18 @@ def test_sprint8_validation_checks_include_advanced_fields():
 
     allowed_topics = {
         "ip_addressing",
-        "subnetting",
-        "interface_status",
         "default_gateway",
         "static_routing",
-            "routing",
+        "interface_state",
+        "connectivity_testing",
+        "network_instance",
+        "terminal_usage",
+        "lab_lifecycle",
+        "general_troubleshooting",
+        # Backward-compatible historical topic keys.
+        "subnetting",
+        "interface_status",
+        "routing",
         "vlan_like",
         "acl_like",
         "connectivity",
