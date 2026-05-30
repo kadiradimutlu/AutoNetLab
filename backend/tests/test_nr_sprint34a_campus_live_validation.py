@@ -218,4 +218,3 @@ def test_nr_sprint34a_srl_basic_link_validation_still_uses_basic_path(monkeypatc
         "srl_check_4_client_default_gateway",
         "srl_check_5_gateway_connectivity",
     ]
-
