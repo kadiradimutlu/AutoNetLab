@@ -7,7 +7,10 @@ from typing import Any
 from app.schemas.enums import SessionStatus
 from app.schemas.validation import ValidationCheck, ValidationResult
 from app.services.validation_rules import get_live_validation_rule
-from app.services.scenario_catalog import SR_BASIC_LINK_SCENARIO_ID, is_srlinux_scenario
+from app.services.scenario_catalog import (
+    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    SR_BASIC_LINK_SCENARIO_ID,
+)
 
 
 TOPIC_LABELS = {
@@ -129,6 +132,130 @@ SRLINUX_BASIC_LINK_CHECKS: list[dict[str, Any]] = [
 ]
 
 
+def _campus_ping_retry_command(ip_address: str) -> str:
+    return (
+        "for i in 1 2 3 4 5; do "
+        f"ping -c 3 -W 2 {ip_address} && exit 0; "
+        "sleep 2; "
+        "done; "
+        f"ping -c 3 -W 2 {ip_address}"
+    )
+
+
+CAMPUS_CORE_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
+    {
+        "check_id": "campus_check_1_client1_address",
+        "topic": "ip_addressing",
+        "device": "client1",
+        "description": "Validate that client1 eth1 has the expected campus IPv4 address.",
+        "command": ["sh", "-lc", "ip -4 addr show dev eth1"],
+        "expected_outputs": ["10.10.10.10/24"],
+        "max_points": 10,
+        "hint": "Check client1 eth1 addressing against the campus addressing table.",
+    },
+    {
+        "check_id": "campus_check_2_client1_default_gateway",
+        "topic": "default_gateway",
+        "device": "client1",
+        "description": "Validate that client1 uses srl1 as its default gateway.",
+        "command": ["sh", "-lc", "ip route"],
+        "expected_outputs": ["default via 10.10.10.1"],
+        "max_points": 10,
+        "hint": "Check whether client1 default route points to 10.10.10.1.",
+    },
+    {
+        "check_id": "campus_check_3_client2_address",
+        "topic": "ip_addressing",
+        "device": "client2",
+        "description": "Validate that client2 eth1 has the expected campus IPv4 address.",
+        "command": ["sh", "-lc", "ip -4 addr show dev eth1"],
+        "expected_outputs": ["10.10.20.10/24"],
+        "max_points": 10,
+        "hint": "Check client2 eth1 addressing against the campus addressing table.",
+    },
+    {
+        "check_id": "campus_check_4_client2_default_gateway",
+        "topic": "default_gateway",
+        "device": "client2",
+        "description": "Validate that client2 uses srl2 as its default gateway.",
+        "command": ["sh", "-lc", "ip route"],
+        "expected_outputs": ["default via 10.10.20.1"],
+        "max_points": 10,
+        "hint": "Check whether client2 default route points to 10.10.20.1.",
+    },
+    {
+        "check_id": "campus_check_5_client1_to_client2_connectivity",
+        "topic": "connectivity",
+        "device": "client1",
+        "description": "Validate that client1 can reach client2 across the campus core.",
+        "command": ["sh", "-lc", _campus_ping_retry_command("10.10.20.10")],
+        "expected_outputs": ["bytes from 10.10.20.10"],
+        "max_points": 10,
+        "hint": "Check client addressing, default gateways, SR Linux routes, and core reachability.",
+    },
+    {
+        "check_id": "campus_check_6_client2_to_client1_connectivity",
+        "topic": "connectivity",
+        "device": "client2",
+        "description": "Validate that client2 can reach client1 across the campus core.",
+        "command": ["sh", "-lc", _campus_ping_retry_command("10.10.10.10")],
+        "expected_outputs": ["bytes from 10.10.10.10"],
+        "max_points": 10,
+        "hint": "Check return-path routing from the campus core toward client1.",
+    },
+    {
+        "check_id": "campus_check_7_srl1_edge_and_core_interfaces",
+        "topic": "ip_addressing",
+        "device": "srl1",
+        "description": "Validate that srl1 has the client-edge and primary-core interface addresses.",
+        "command": ["sr_cli", "-ec", "info from state interface"],
+        "expected_outputs": ["10.10.10.1/24", "10.10.13.1/30"],
+        "max_points": 10,
+        "hint": "Check srl1 ethernet-1/1 and ethernet-1/2 subinterface IPv4 addressing.",
+    },
+    {
+        "check_id": "campus_check_8_srl2_edge_and_core_interfaces",
+        "topic": "ip_addressing",
+        "device": "srl2",
+        "description": "Validate that srl2 has the client-edge and primary-core interface addresses.",
+        "command": ["sr_cli", "-ec", "info from state interface"],
+        "expected_outputs": ["10.10.20.1/24", "10.10.23.1/30"],
+        "max_points": 10,
+        "hint": "Check srl2 ethernet-1/1 and ethernet-1/2 subinterface IPv4 addressing.",
+    },
+    {
+        "check_id": "campus_check_9_srl3_transit_routes",
+        "topic": "static_routing",
+        "device": "srl3",
+        "description": "Validate that srl3 has primary transit routes for both campus client networks.",
+        "command": ["sr_cli", "-ec", "info network-instance default static-routes"],
+        "expected_outputs": ["campus-srl3-to-client1", "campus-srl3-to-client2"],
+        "max_points": 10,
+        "hint": "Check srl3 static routes and next-hop groups toward both client networks.",
+    },
+    {
+        "check_id": "campus_check_10_srl1_route_to_client2",
+        "topic": "static_routing",
+        "device": "srl1",
+        "description": "Validate that srl1 has a static route toward the client2 network.",
+        "command": ["sr_cli", "-ec", "info network-instance default static-routes route 10.10.20.0/24"],
+        "expected_outputs": ["campus-srl1-to-client2"],
+        "max_points": 10,
+        "hint": "Check srl1 route to 10.10.20.0/24 through the campus core.",
+    },
+    {
+        "check_id": "campus_check_11_srl2_route_to_client1",
+        "topic": "static_routing",
+        "device": "srl2",
+        "description": "Validate that srl2 has a static route toward the client1 network.",
+        "command": ["sr_cli", "-ec", "info network-instance default static-routes route 10.10.10.0/24"],
+        "expected_outputs": ["campus-srl2-to-client1"],
+        "max_points": 10,
+        "hint": "Check srl2 route to 10.10.10.0/24 through the campus core.",
+    },
+]
+
+
 def validate_session(session: dict) -> ValidationResult:
     """
     Validation Service v2 / Doğrulama Servisi v2.
@@ -139,6 +266,9 @@ def validate_session(session: dict) -> ValidationResult:
     - Use topic taxonomy / konu sınıflandırması for recommendation and analytics.
     - Prepare evidence / observed state fields without exposing full solution data.
     """
+
+    if _is_campus_core_static_routing_session(session):
+        return _validate_campus_core_static_routing_session(session)
 
     if _is_srlinux_basic_link_session(session):
         return _validate_srlinux_basic_link_session(session)
@@ -179,13 +309,104 @@ def validate_session(session: dict) -> ValidationResult:
 
 
 
-def _is_srlinux_basic_link_session(session: dict) -> bool:
+def _scenario_id_for_session(session: dict) -> str | None:
     scenario = session.get("scenario")
 
-    if isinstance(scenario, dict) and is_srlinux_scenario(scenario.get("id")):
-        return True
+    if isinstance(scenario, dict):
+        scenario_id = scenario.get("id")
+        if scenario_id:
+            return str(scenario_id)
 
-    return str(session.get("topology_template") or "") == SR_BASIC_LINK_SCENARIO_ID
+    topology_template = session.get("topology_template")
+    if topology_template:
+        return str(topology_template)
+
+    return None
+
+
+def _is_srlinux_basic_link_session(session: dict) -> bool:
+    return _scenario_id_for_session(session) == SR_BASIC_LINK_SCENARIO_ID
+
+
+def _is_campus_core_static_routing_session(session: dict) -> bool:
+    return _scenario_id_for_session(session) == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID
+
+
+def _validate_campus_core_static_routing_session(session: dict) -> ValidationResult:
+    if not _runtime_status_allows_live_validation(session):
+        return _build_live_validation_unavailable_result(
+            session=session,
+            scenario_label="Campus core static routing",
+        )
+
+    checks = [
+        _build_srlinux_validation_check(
+            index=index,
+            spec=spec,
+            session=session,
+        )
+        for index, spec in enumerate(CAMPUS_CORE_STATIC_ROUTING_CHECKS, start=1)
+    ]
+
+    earned_points = sum(check.points for check in checks)
+    max_points = sum(check.max_points for check in checks)
+
+    score = int((earned_points / max_points) * 100) if max_points else 100
+    overall_passed = score == 100
+    recommendations = _build_recommendations(checks)
+
+    return ValidationResult(
+        session_id=session["session_id"],
+        status=SessionStatus.validated,
+        passed=overall_passed,
+        score=score,
+        checks=checks,
+        recommendations=recommendations,
+    )
+
+
+def _runtime_status_allows_live_validation(session: dict) -> bool:
+    status_value = session.get("status")
+
+    if hasattr(status_value, "value"):
+        status_value = status_value.value
+
+    return str(status_value or "").lower() in {"deployed", "validated"}
+
+
+def _build_live_validation_unavailable_result(
+    *,
+    session: dict,
+    scenario_label: str,
+) -> ValidationResult:
+    check = ValidationCheck(
+        check_id="campus_check_runtime_deployed",
+        topic="connectivity",
+        description=f"Validate that {scenario_label} runtime is deployed before live validation.",
+        status="failed",
+        passed=False,
+        points=0,
+        max_points=100,
+        message=(
+            f"{scenario_label} live validation could not run because the lab "
+            "runtime is not deployed."
+        ),
+        hint="Deploy the lab first, then run validation again.",
+        evidence={
+            "validation_mode": "srlinux_live_state_precheck",
+            "observed_state": "runtime status is not deployed or validated",
+            "status": str(session.get("status")),
+        },
+    )
+
+    return ValidationResult(
+        session_id=session["session_id"],
+        status=SessionStatus.validated,
+        passed=False,
+        score=0,
+        checks=[check],
+        recommendations=["Deploy the lab runtime before running live validation."],
+    )
 
 
 def _validate_srlinux_basic_link_session(session: dict) -> ValidationResult:
