@@ -41,6 +41,7 @@ from app.services.web_cli_service import (
     WebCliError,
     build_web_cli_context,
     get_web_cli_readiness,
+    run_terminal_pty_bridge,
     run_web_cli_bridge,
 )
 
@@ -202,6 +203,45 @@ async def web_cli_socket(
     )
 
     await run_web_cli_bridge(
+        websocket=websocket,
+        context=context,
+    )
+
+
+@router.websocket("/{session_id}/terminal/ws/{device_id}")
+async def web_terminal_socket(
+    websocket: WebSocket,
+    session_id: str,
+    device_id: str,
+    token: str | None = None,
+) -> None:
+    await websocket.accept()
+
+    try:
+        context = build_web_cli_context(
+            session_id=session_id,
+            device_id=device_id,
+            token=token,
+        )
+    except WebCliError as exc:
+        await websocket.send_json(exc.to_payload())
+        await websocket.close(code=exc.websocket_code)
+        return
+
+    await websocket.send_json(
+        {
+            "type": "terminal_connected",
+            "success": True,
+            "session_id": context.session_id,
+            "device_id": context.device_id,
+            "container_name": context.container_name,
+            "mode": "terminal_pty_bridge",
+            "endpoint": "/api/v1/labs/{session_id}/terminal/ws/{device_id}",
+            "message": "Real terminal connection accepted by backend.",
+        }
+    )
+
+    await run_terminal_pty_bridge(
         websocket=websocket,
         context=context,
     )
