@@ -103,13 +103,13 @@ _SCENARIOS: dict[str, dict] = {
         "router_os": "Nokia SR Linux",
         "supported_difficulties": ["easy", "medium", "hard"],
         "objective": (
-            "Build the foundation for a multi-router campus topology that can later "
-            "support golden configuration, runtime fault injection, and live validation."
+            "Deploy a golden campus static-routing baseline with end-to-end "
+            "client connectivity across the SR Linux core."
         ),
         "story": (
             "A campus network has two client edge segments connected through a four-router "
-            "SR Linux core. This foundation sprint proves that the topology can be generated, "
-            "deployed, inspected, and destroyed cleanly."
+            "SR Linux core. The golden baseline configures client addressing, SR Linux "
+            "routed subinterfaces, network-instance bindings, and static routes."
         ),
         "runtime_profile": "deploy_only",
         "devices": [
@@ -296,18 +296,56 @@ _SCENARIOS: dict[str, dict] = {
                 "requirement": "srl4 is the lower core transit router between srl1 and srl2.",
             },
         ],
+        "static_routing_table": [
+            {
+                "device": "srl1",
+                "destination": "10.10.20.0/24",
+                "next_hop": "10.10.13.2",
+                "path": "primary path toward client2 via srl3",
+            },
+            {
+                "device": "srl2",
+                "destination": "10.10.10.0/24",
+                "next_hop": "10.10.23.2",
+                "path": "primary path toward client1 via srl3",
+            },
+            {
+                "device": "srl3",
+                "destination": "10.10.10.0/24",
+                "next_hop": "10.10.13.1",
+                "path": "return path toward client1 edge",
+            },
+            {
+                "device": "srl3",
+                "destination": "10.10.20.0/24",
+                "next_hop": "10.10.23.1",
+                "path": "forward path toward client2 edge",
+            },
+            {
+                "device": "srl4",
+                "destination": "10.10.10.0/24",
+                "next_hop": "10.10.14.1",
+                "path": "alternate lower-core path toward client1 edge",
+            },
+            {
+                "device": "srl4",
+                "destination": "10.10.20.0/24",
+                "next_hop": "10.10.24.1",
+                "path": "alternate lower-core path toward client2 edge",
+            },
+        ],
         "expected_connectivity": [
             {
                 "source": "client1",
-                "destination": "client2",
+                "destination": "10.10.20.10",
                 "protocol": "ICMP",
-                "expectation": "Future golden configuration should allow end-to-end client connectivity.",
+                "expectation": "client1 can ping client2 across the campus core.",
             },
             {
-                "source": "srl1",
-                "destination": "srl2",
+                "source": "client2",
+                "destination": "10.10.10.10",
                 "protocol": "ICMP",
-                "expectation": "Future routing validation should verify core path reachability.",
+                "expectation": "client2 can ping client1 across the campus core.",
             },
         ],
         "student_tasks": [
@@ -317,8 +355,8 @@ _SCENARIOS: dict[str, dict] = {
             "Use this topology as the base for future routing and validation sprints.",
         ],
         "student_notes": [
-            "This foundation sprint is deploy-only.",
-            "Golden configuration, injected faults, and full routing validation are planned for later sprints.",
+            "This scenario starts from a golden campus static-routing baseline.",
+            "Runtime fault injection and full routing validation are planned for later sprints.",
             "No hidden solution data is exposed in the student response.",
         ],
     },
@@ -345,7 +383,10 @@ def get_scenario(scenario_id: str | None) -> dict | None:
 
 
 def is_srlinux_scenario(scenario_id: str | None) -> bool:
-    return scenario_id == SR_BASIC_LINK_SCENARIO_ID
+    return scenario_id in {
+        SR_BASIC_LINK_SCENARIO_ID,
+        CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    }
 
 
 def is_deploy_only_scenario(scenario_id: str | None) -> bool:
