@@ -20,7 +20,7 @@ def _campus_cli_access(session_id: str = "lab-campus-golden-test") -> list[dict[
 def test_nr_sprint33a_catalog_exposes_campus_golden_static_routing_metadata():
     scenario = get_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID)
 
-    assert scenario["runtime_profile"] == "deploy_only"
+    assert scenario["runtime_profile"] == "runtime_fault_injection"
     assert is_srlinux_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID) is True
 
     static_routes = {

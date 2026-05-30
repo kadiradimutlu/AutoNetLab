@@ -13,6 +13,11 @@ SRLINUX_CLIENT_INJECTED_GATEWAY = "10.10.10.254"
 SRLINUX_WRONG_CLIENT_GATEWAY_CODE = "SRLINUX_WRONG_CLIENT_GATEWAY"
 SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID = "srl_basic_link_client_wrong_default_gateway"
 
+CAMPUS_CLIENT2_EXPECTED_GATEWAY = "10.10.20.1"
+CAMPUS_CLIENT2_INJECTED_GATEWAY = "10.10.20.254"
+CAMPUS_WRONG_CLIENT2_GATEWAY_CODE = "CAMPUS_CLIENT2_WRONG_GATEWAY"
+CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID = "campus_client2_wrong_gateway"
+
 
 CAMPUS_CLIENTS: dict[str, dict[str, str]] = {
     "client1": {
@@ -98,35 +103,61 @@ CAMPUS_STATIC_ROUTES: dict[str, list[dict[str, Any]]] = {
 }
 
 
+
 def build_srlinux_runtime_faults(
     *,
     difficulty: Any,
     seed: str,
+    scenario_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    '''
-    Builds deterministic SR Linux runtime faults for Sprint 30E.
+    """
+    Builds deterministic SR Linux runtime faults.
 
-    The first SR Linux scenario intentionally starts broken by making client1
-    use a wrong default gateway. Student-facing API responses keep this hidden;
-    validation reads live device state.
-    '''
+    The current backend uses one reliable, fixable runtime fault per supported
+    scenario so validation can prove the lab starts broken and becomes healthy
+    after the student applies the expected live-state fix.
+    """
 
-    return [
-        {
-            "code": SRLINUX_WRONG_CLIENT_GATEWAY_CODE,
-            "topic": "default_gateway",
-            "device": "client1",
-            "description": "client1 has an incorrect default gateway for the SR Linux link.",
-            "severity": "medium",
-            "variant_id": SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
-            "interface": "eth1",
-            "validation_command": "ip route",
-            "expected_outputs": [f"default via {SRLINUX_CLIENT_EXPECTED_GATEWAY}"],
-            "injection_commands": [
-                f"ip route replace default via {SRLINUX_CLIENT_INJECTED_GATEWAY} dev eth1"
-            ],
-        }
-    ]
+    scenario_key = scenario_id or SR_BASIC_LINK_SCENARIO_ID
+
+    if scenario_key == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
+        return [_campus_client2_wrong_gateway_fault()]
+
+    return [_basic_link_client_wrong_gateway_fault()]
+
+
+def _basic_link_client_wrong_gateway_fault() -> dict[str, Any]:
+    return {
+        "code": SRLINUX_WRONG_CLIENT_GATEWAY_CODE,
+        "topic": "default_gateway",
+        "device": "client1",
+        "description": "client1 has an incorrect default gateway for the SR Linux link.",
+        "severity": "medium",
+        "variant_id": SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
+        "interface": "eth1",
+        "validation_command": "ip route",
+        "expected_outputs": [f"default via {SRLINUX_CLIENT_EXPECTED_GATEWAY}"],
+        "injection_commands": [
+            f"ip route replace default via {SRLINUX_CLIENT_INJECTED_GATEWAY} dev eth1"
+        ],
+    }
+
+
+def _campus_client2_wrong_gateway_fault() -> dict[str, Any]:
+    return {
+        "code": CAMPUS_WRONG_CLIENT2_GATEWAY_CODE,
+        "topic": "default_gateway",
+        "device": "client2",
+        "description": "client2 has an incorrect default gateway for the campus client segment.",
+        "severity": "medium",
+        "variant_id": CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+        "interface": "eth1",
+        "validation_command": "ip route",
+        "expected_outputs": [f"default via {CAMPUS_CLIENT2_EXPECTED_GATEWAY}"],
+        "injection_commands": [
+            f"ip route replace default via {CAMPUS_CLIENT2_INJECTED_GATEWAY} dev eth1"
+        ],
+    }
 
 
 def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
@@ -134,10 +165,9 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
     Applies runtime setup for supported SR Linux scenarios.
 
     Basic link keeps its existing Sprint 30 behavior and can still inject the
-    wrong-gateway fault after baseline setup. Campus core static routing applies
-    only a golden baseline: client IP/default routes, SR Linux interface and
-    network-instance bindings, and static routes. Campus runtime fault injection
-    remains intentionally out of scope for NR-Sprint33A.
+    wrong-gateway fault after baseline setup. Campus core static routing first applies the golden baseline, verifies it,
+    and then applies a hidden, scenario-specific runtime fault so live validation
+    can prove troubleshooting behavior.
     '''
 
     session_id = str(session["session_id"])
@@ -408,10 +438,30 @@ def _apply_campus_core_static_routing_runtime_setup(
     if verification_failure is not None:
         return verification_failure
 
+    fault_failure = _apply_srlinux_runtime_fault_injection(
+        session=session,
+        command_results=command_results,
+    )
+
+    if fault_failure is not None:
+        return _error_response(
+            session_id=session_id,
+            command_results=command_results,
+            error_code=fault_failure["error_code"],
+            detail=fault_failure["detail"],
+        )
+
+    has_runtime_faults = bool(_srlinux_faults_for_session(session))
+    message = (
+        "SR Linux campus golden runtime setup and runtime fault injection applied successfully."
+        if has_runtime_faults
+        else "SR Linux campus golden runtime setup applied successfully."
+    )
+
     return _success_response(
         session_id=session_id,
         command_results=command_results,
-        message="SR Linux campus golden runtime setup applied successfully.",
+        message=message,
     )
 
 
@@ -836,8 +886,14 @@ def _srlinux_faults_for_session(session: dict[str, Any]) -> list[dict[str, Any]]
         variant_id = str(fault.get("variant_id") or "")
 
         if (
-            code == SRLINUX_WRONG_CLIENT_GATEWAY_CODE
-            or variant_id == SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID
+            code in {
+                SRLINUX_WRONG_CLIENT_GATEWAY_CODE,
+                CAMPUS_WRONG_CLIENT2_GATEWAY_CODE,
+            }
+            or variant_id in {
+                SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
+                CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+            }
         ):
             faults.append(fault)
 

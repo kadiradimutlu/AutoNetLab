@@ -27,6 +27,7 @@ from app.schemas.topology import Topology
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 from app.services.recommendation.features import build_topic_performance
 from app.services.scenario_catalog import (
+    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
     SR_BASIC_LINK_SCENARIO_ID,
     get_scenario,
     is_deploy_only_scenario,
@@ -113,15 +114,15 @@ def create_lab_session(
     topology = generated_topology["topology"]
 
     # Sprint 32B: New lab creation is SR Linux scenario-first.
-    # NR-Sprint 32A: deploy-only campus foundation scenarios intentionally
-    # skip basic-link runtime fault injection until golden config and
-    # validation v2 are implemented.
-    if is_deploy_only_scenario(scenario_id):
+    # NR-Sprint34B: Campus static-routing scenarios now start from a golden
+    # baseline and then receive hidden, scenario-specific runtime fault metadata.
+    if is_deploy_only_scenario(scenario_id) and scenario_id != CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
         injected_errors = []
     else:
         injected_errors = build_srlinux_runtime_faults(
             difficulty=request.difficulty,
             seed=session_id,
+            scenario_id=scenario_id,
         )
 
     cli_access = build_cli_access(
