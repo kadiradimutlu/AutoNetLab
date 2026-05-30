@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -439,6 +440,102 @@ def _datetime_to_iso(value) -> str | None:
         return value.isoformat()
 
     return str(value)
+
+
+
+def remove_generated_session_folder(
+    session_id: str,
+    topology_file: str | None = None,
+) -> dict:
+    """
+    Safely removes the generated Containerlab session folder after a successful
+    lifecycle cleanup.
+
+    This helper intentionally removes only direct lab-* children under
+    containerlab/generated. It never deletes arbitrary paths from topology_file.
+    """
+
+    session_id_value = str(session_id or "")
+
+    if (
+        not _is_safe_session_id(session_id_value)
+        or not session_id_value.startswith("lab-")
+    ):
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": None,
+            "message": "Generated lab folder cleanup rejected an unsafe session_id.",
+            "error_code": "UNSAFE_GENERATED_SESSION_ID",
+        }
+
+    generated_root = GENERATED_DIR.resolve()
+    session_dir = GENERATED_DIR / session_id_value
+    resolved_session_dir = session_dir.resolve()
+
+    if (
+        resolved_session_dir.parent != generated_root
+        or resolved_session_dir.name != session_id_value
+        or session_dir.is_symlink()
+    ):
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab folder cleanup rejected an unsafe path.",
+            "error_code": "UNSAFE_GENERATED_SESSION_PATH",
+        }
+
+    if topology_file:
+        topology_parent = Path(str(topology_file)).parent
+        if not topology_parent.is_absolute():
+            topology_parent = (Path.cwd() / topology_parent)
+        # topology_file is treated as advisory context only. The deletion target
+        # remains GENERATED_DIR / session_id_value to avoid arbitrary path delete.
+
+    if not session_dir.exists():
+        return {
+            "success": True,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab folder is already absent.",
+            "error_code": None,
+        }
+
+    if not session_dir.is_dir():
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab cleanup target is not a directory.",
+            "error_code": "GENERATED_SESSION_PATH_NOT_DIRECTORY",
+        }
+
+    try:
+        shutil.rmtree(session_dir)
+    except OSError as exc:
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab folder cleanup failed.",
+            "error_code": "GENERATED_SESSION_FOLDER_CLEANUP_FAILED",
+            "detail": str(exc),
+        }
+
+    return {
+        "success": True,
+        "session_id": session_id_value,
+        "removed": True,
+        "path": str(session_dir),
+        "message": "Generated lab folder removed successfully.",
+        "error_code": None,
+    }
 
 
 def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
