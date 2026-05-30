@@ -224,8 +224,7 @@ async def run_web_cli_bridge(
             return_when=asyncio.FIRST_COMPLETED,
         )
 
-        for task in pending:
-            task.cancel()
+        await _cancel_pending_tasks(pending)
 
         for task in done:
             task.result()
@@ -347,8 +346,7 @@ async def run_terminal_pty_bridge(
             return_when=asyncio.FIRST_COMPLETED,
         )
 
-        for task in pending:
-            task.cancel()
+        await _cancel_pending_tasks(pending)
 
         for task in done:
             task.result()
@@ -396,6 +394,17 @@ async def run_terminal_pty_bridge(
 
         _close_fd(master_fd)
         await _safe_close(websocket)
+
+
+
+async def _cancel_pending_tasks(tasks: set[asyncio.Task]) -> None:
+    if not tasks:
+        return
+
+    for task in tasks:
+        task.cancel()
+
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 
