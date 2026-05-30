@@ -6305,3 +6305,156 @@ html {
     height: 46vh;
   }
 }
+
+
+/* NR-Sprint37B multi-terminal workspace tabs */
+.terminal-workspace-panel {
+  gap: 18px;
+}
+
+.terminal-workspace-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.terminal-workspace-summary > div {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.88);
+  padding: 12px;
+}
+
+.terminal-workspace-summary span,
+.terminal-workspace-summary strong {
+  display: block;
+}
+
+.terminal-workspace-summary span {
+  color: #64748b;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.terminal-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.terminal-device-tab {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  align-items: start;
+  min-height: 96px;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.terminal-device-tab:hover {
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.11);
+  transform: translateY(-1px);
+}
+
+.terminal-device-tab.active {
+  border-color: rgba(37, 99, 235, 0.8);
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.16);
+}
+
+.terminal-device-tab.connected {
+  border-color: rgba(22, 163, 74, 0.68);
+}
+
+.terminal-device-tab.error {
+  border-color: rgba(220, 38, 38, 0.68);
+}
+
+.terminal-tab-title {
+  font-weight: 800;
+}
+
+.terminal-tab-device-id {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.terminal-tab-status {
+  justify-self: start;
+}
+
+.terminal-workspace-panels {
+  min-width: 0;
+}
+
+.terminal-tab-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.terminal-tab-panel[hidden] {
+  display: none;
+}
+
+.terminal-workspace-toolbar {
+  align-items: center;
+}
+
+.terminal-workspace-toolbar-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.terminal-workspace-selected-device {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.terminal-workspace-controls {
+  align-items: end;
+}
+
+.multi-terminal-xterm-container {
+  min-height: 430px;
+}
+
+@media (max-width: 1050px) {
+  .terminal-workspace-summary,
+  .terminal-workspace-selected-device {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .terminal-workspace-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .terminal-workspace-summary,
+  .terminal-workspace-selected-device,
+  .terminal-workspace-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-workspace-toolbar,
+  .terminal-workspace-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .terminal-workspace-toolbar-badges {
+    justify-content: flex-start;
+  }
+
+  .multi-terminal-xterm-container {
+    min-height: 330px;
+  }
+}

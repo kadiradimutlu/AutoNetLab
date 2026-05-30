@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -155,6 +155,40 @@ function parseControlFrame(rawMessage) {
   }
 }
 
+function normalizeReadinessPayload(payload) {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const device = getReadinessDevice(safePayload);
+
+  return {
+    ...safePayload,
+    ready: safePayload.ready === true || device?.ready === true,
+    devices: Array.isArray(safePayload.devices)
+      ? safePayload.devices
+      : device
+        ? [device]
+        : []
+  };
+}
+
+function formatConnectionState(state) {
+  return String(state || "idle")
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getStatusBadgeClass(state) {
+  if (state === "connected" || state === "ready") {
+    return "pass";
+  }
+
+  if (state === "error") {
+    return "fail";
+  }
+
+  return "neutral";
+}
+
 function ReadinessDetails({ readiness }) {
   if (!readiness) {
     return (
@@ -227,37 +261,51 @@ function ReadinessDetails({ readiness }) {
   );
 }
 
-function WebCliTerminal({
-  sessionId,
-  devices = [],
-  mode = "browser_cli_mvp"
+function TerminalPane({
+  active,
+  device,
+  mode,
+  onStatusChange,
+  sessionId
 }) {
+  const deviceId = device?.deviceId || "";
+  const deviceLabel = device?.label || deviceId || "Device";
   const socketRef = useRef(null);
   const terminalRef = useRef(null);
   const fitAddonRef = useRef(null);
   const terminalContainerRef = useRef(null);
   const dataDisposableRef = useRef(null);
   const resizeObserverRef = useRef(null);
-  const reconnectTargetRef = useRef({
-    sessionId: "",
-    deviceId: ""
-  });
+  const activeRef = useRef(active);
 
-  const normalizedDevices = useMemo(() => {
-    return devices
-      .map((device, index) => ({
-        ...device,
-        deviceId: getDeviceId(device, index),
-        label: getDeviceLabel(device, index)
-      }))
-      .filter((device) => Boolean(device.deviceId));
-  }, [devices]);
-
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
   const [webCliError, setWebCliError] = useState("");
   const [webCliErrorDetails, setWebCliErrorDetails] = useState("");
   const [readiness, setReadiness] = useState(null);
+
+  const terminalPanelId = `terminal-panel-${deviceId}`;
+  const isCheckingReadiness = connectionState === "checking readiness";
+  const isReady = readiness?.ready === true;
+  const isConnected = connectionState === "connected";
+  const isConnecting = connectionState === "connecting";
+  const canConnect = isReady && !isConnected && !isConnecting && !isCheckingReadiness;
+  const statusBadgeClass = getStatusBadgeClass(connectionState);
+
+  useEffect(() => {
+    activeRef.current = active;
+
+    if (active) {
+      window.setTimeout(() => {
+        fitTerminal();
+        terminalRef.current?.focus();
+        sendResizeFrame();
+      }, 80);
+    }
+  }, [active]);
+
+  useEffect(() => {
+    onStatusChange(deviceId, connectionState, deviceLabel);
+  }, [connectionState, deviceId, deviceLabel, onStatusChange]);
 
   useEffect(() => {
     if (!terminalContainerRef.current || terminalRef.current) {
@@ -284,9 +332,18 @@ function WebCliTerminal({
 
     terminal.loadAddon(fitAddon);
     terminal.open(terminalContainerRef.current);
-    fitAddon.fit();
-    terminal.writeln("AutoNetLab Real Terminal");
-    terminal.writeln("Select a device, check readiness, then connect.");
+
+    if (activeRef.current) {
+      try {
+        fitAddon.fit();
+      } catch (error) {
+        console.warn("Initial xterm fit failed.", error);
+      }
+    }
+
+    terminal.writeln("AutoNetLab Terminal Workspace");
+    terminal.writeln(`Terminal tab: ${deviceLabel} (${deviceId})`);
+    terminal.writeln("Check readiness, then connect.");
     terminal.writeln("");
 
     dataDisposableRef.current = terminal.onData((data) => {
@@ -303,34 +360,47 @@ function WebCliTerminal({
     fitAddonRef.current = fitAddon;
 
     resizeObserverRef.current = new ResizeObserver(() => {
+      if (!activeRef.current) {
+        return;
+      }
+
       fitTerminal();
       sendResizeFrame();
     });
     resizeObserverRef.current.observe(terminalContainerRef.current);
 
     return () => {
+      const socket = socketRef.current;
+
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+
+        if (
+          socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING
+        ) {
+          socket.close();
+        }
+      }
+
       dataDisposableRef.current?.dispose();
       resizeObserverRef.current?.disconnect();
-      socketRef.current?.close();
       terminal.dispose();
+
       dataDisposableRef.current = null;
       resizeObserverRef.current = null;
       socketRef.current = null;
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, []);
+  }, [deviceId, deviceLabel]);
 
   useEffect(() => {
-    if (!selectedDeviceId && normalizedDevices.length > 0) {
-      setSelectedDeviceId(normalizedDevices[0].deviceId);
-    }
-  }, [normalizedDevices, selectedDeviceId]);
-
-  useEffect(() => {
-    if (!sessionId || !selectedDeviceId) {
-      setReadiness(null);
-      return;
+    if (!active || !sessionId || !deviceId || readiness || connectionState !== "idle") {
+      return undefined;
     }
 
     const timer = window.setTimeout(() => {
@@ -338,7 +408,7 @@ function WebCliTerminal({
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [sessionId, selectedDeviceId]);
+  }, [active, connectionState, deviceId, readiness, sessionId]);
 
   function writeTerminal(text = "") {
     terminalRef.current?.write(text);
@@ -350,8 +420,8 @@ function WebCliTerminal({
 
   function clearTerminal() {
     terminalRef.current?.clear();
-    writeTerminalLine("AutoNetLab Real Terminal");
-    writeTerminalLine(selectedDeviceId ? `Selected device: ${selectedDeviceId}` : "No device selected.");
+    writeTerminalLine("AutoNetLab Terminal Workspace");
+    writeTerminalLine(`Terminal tab: ${deviceLabel} (${deviceId})`);
     writeTerminalLine("");
   }
 
@@ -403,21 +473,6 @@ function WebCliTerminal({
     }
   }
 
-  function normalizeReadinessPayload(payload) {
-    const safePayload = payload && typeof payload === "object" ? payload : {};
-    const device = getReadinessDevice(safePayload);
-
-    return {
-      ...safePayload,
-      ready: safePayload.ready === true || device?.ready === true,
-      devices: Array.isArray(safePayload.devices)
-        ? safePayload.devices
-        : device
-          ? [device]
-          : []
-    };
-  }
-
   function setReadinessFailureFromError(error) {
     const normalizedReadiness = normalizeReadinessPayload({
       success: false,
@@ -453,7 +508,7 @@ function WebCliTerminal({
       return null;
     }
 
-    if (!selectedDeviceId) {
+    if (!deviceId) {
       const message = "Select a device before checking Web Terminal readiness.";
       setWebCliError(message);
       setConnectionState("error");
@@ -472,11 +527,11 @@ function WebCliTerminal({
     setConnectionState("checking readiness");
 
     if (!silent) {
-      writeTerminalLine(`[system] Checking readiness for ${selectedDeviceId}...`);
+      writeTerminalLine(`[system] Checking readiness for ${deviceId}...`);
     }
 
     try {
-      const result = await getWebCliDeviceReadiness(sessionId, selectedDeviceId);
+      const result = await getWebCliDeviceReadiness(sessionId, deviceId);
       const normalizedReadiness = normalizeReadinessPayload(result);
       const message = formatReadinessMessage(normalizedReadiness);
 
@@ -521,17 +576,13 @@ function WebCliTerminal({
     try {
       const webTerminalUrl = getWebTerminalUrl({
         sessionId,
-        deviceId: selectedDeviceId
+        deviceId
       });
 
       disconnectWebTerminal({ writeMessage: false });
-      reconnectTargetRef.current = {
-        sessionId,
-        deviceId: selectedDeviceId
-      };
 
       clearTerminal();
-      writeTerminalLine(`[system] Connecting to ${selectedDeviceId}...`);
+      writeTerminalLine(`[system] Connecting to ${deviceId}...`);
 
       const socket = new WebSocket(webTerminalUrl);
       socket.binaryType = "arraybuffer";
@@ -543,7 +594,10 @@ function WebCliTerminal({
         writeTerminalLine("[system] WebSocket connection opened.");
         fitTerminal();
         sendResizeFrame();
-        terminalRef.current?.focus();
+
+        if (activeRef.current) {
+          terminalRef.current?.focus();
+        }
       };
 
       socket.onmessage = async (event) => {
@@ -582,6 +636,7 @@ function WebCliTerminal({
       };
 
       socket.onclose = () => {
+        socketRef.current = null;
         setConnectionState("disconnected");
         writeTerminalLine("\r\n[system] WebSocket connection closed.");
       };
@@ -594,91 +649,54 @@ function WebCliTerminal({
   }
 
   function reconnectWebTerminal() {
-    const target = reconnectTargetRef.current;
-
-    if (target.sessionId !== sessionId || target.deviceId !== selectedDeviceId) {
-      connectWebTerminal();
-      return;
-    }
-
     disconnectWebTerminal({ writeMessage: false });
     connectWebTerminal();
   }
 
-  function handleDeviceChange(event) {
-    const nextDeviceId = event.target.value;
-
-    disconnectWebTerminal({ writeMessage: false });
-    setSelectedDeviceId(nextDeviceId);
-    setReadiness(null);
-    setWebCliError("");
-    setWebCliErrorDetails("");
-    setConnectionState("idle");
-
-    window.setTimeout(() => {
-      terminalRef.current?.clear();
-      writeTerminalLine("AutoNetLab Real Terminal");
-      writeTerminalLine(`Selected device: ${nextDeviceId}`);
-      writeTerminalLine("Check readiness, then connect.");
-      writeTerminalLine("");
-    }, 0);
-  }
-
-  const isCheckingReadiness = connectionState === "checking readiness";
-  const isReady = connectionState === "ready";
-  const isConnected = connectionState === "connected";
-  const isConnecting = connectionState === "connecting";
-  const canConnect = isReady && normalizedDevices.length > 0;
-  const selectedDevice =
-    normalizedDevices.find((device) => device.deviceId === selectedDeviceId) ||
-    null;
-  const statusBadgeClass = isConnected || isReady ? "pass" : connectionState === "error" ? "fail" : "neutral";
-
   return (
-    <section className="web-cli-panel web-cli-panel-terminal-first web-terminal-panel">
-      <div className="section-title-row">
-        <div>
-          <h4>Real Web Terminal</h4>
-          <p className="muted">
-            Open an interactive PTY-backed terminal for the selected lab device.
-          </p>
-        </div>
-
-        <span className={`badge ${statusBadgeClass}`}>
-          {connectionState}
-        </span>
-      </div>
-
+    <div
+      className={`terminal-tab-panel ${active ? "active" : "inactive"}`}
+      hidden={!active}
+      id={terminalPanelId}
+      role="tabpanel"
+      aria-label={`${deviceLabel} terminal panel`}
+    >
       <div className="web-terminal-shell-card">
-        <div className="web-terminal-toolbar">
+        <div className="web-terminal-toolbar terminal-workspace-toolbar">
           <div>
-            <span className="muted">Interactive terminal</span>
-            <strong>{selectedDevice?.label || selectedDeviceId || "No device selected"}</strong>
+            <span className="muted">Active terminal tab</span>
+            <strong>{deviceLabel}</strong>
           </div>
 
-          <span className={`badge ${isConnected ? "pass" : "neutral"}`}>
-            {isConnected ? "LIVE PTY" : "DISCONNECTED"}
-          </span>
+          <div className="terminal-workspace-toolbar-badges">
+            <span className={`badge ${statusBadgeClass}`}>
+              {formatConnectionState(connectionState)}
+            </span>
+
+            <span className={`badge ${isConnected ? "pass" : "neutral"}`}>
+              {isConnected ? "LIVE PTY" : "NOT LIVE"}
+            </span>
+          </div>
         </div>
 
         <div
-          className="xterm-shell-container"
+          className="xterm-shell-container multi-terminal-xterm-container"
           ref={terminalContainerRef}
           onClick={() => terminalRef.current?.focus()}
           role="application"
-          aria-label="Interactive Web Terminal"
+          aria-label={`Interactive Web Terminal for ${deviceLabel}`}
         />
       </div>
 
-      <div className="web-cli-selected-device">
+      <div className="web-cli-selected-device terminal-workspace-selected-device">
         <div>
           <span>Selected Device</span>
-          <strong>{selectedDevice?.label || selectedDeviceId || "No device selected"}</strong>
+          <strong>{deviceLabel}</strong>
         </div>
 
         <div>
           <span>Device ID</span>
-          <strong>{selectedDevice?.deviceId || selectedDeviceId || "-"}</strong>
+          <strong>{deviceId || "-"}</strong>
         </div>
 
         <div>
@@ -688,36 +706,16 @@ function WebCliTerminal({
 
         <div>
           <span>Connection State</span>
-          <strong>{connectionState}</strong>
+          <strong>{formatConnectionState(connectionState)}</strong>
         </div>
       </div>
 
-      <div className="web-cli-controls">
-        <div className="form-group">
-          <label htmlFor="web-cli-device">Device</label>
-          <select
-            id="web-cli-device"
-            value={selectedDeviceId}
-            onChange={handleDeviceChange}
-            disabled={isConnecting || isCheckingReadiness}
-          >
-            {normalizedDevices.length === 0 && (
-              <option value="">No devices available</option>
-            )}
-
-            {normalizedDevices.map((device) => (
-              <option value={device.deviceId} key={device.deviceId}>
-                {device.label} ({device.deviceId})
-              </option>
-            ))}
-          </select>
-        </div>
-
+      <div className="web-cli-controls terminal-workspace-controls">
         <div className="web-cli-button-row">
           <button
             className="secondary-button"
             onClick={() => checkReadiness({ silent: false })}
-            disabled={isConnected || isConnecting || isCheckingReadiness || normalizedDevices.length === 0}
+            disabled={isConnected || isConnecting || isCheckingReadiness}
             type="button"
           >
             {isCheckingReadiness ? "Checking..." : "Check Readiness"}
@@ -726,17 +724,17 @@ function WebCliTerminal({
           <button
             className="primary-button"
             onClick={connectWebTerminal}
-            disabled={!canConnect || isConnected || isConnecting || isCheckingReadiness}
-            title={!canConnect ? "Check readiness and deploy the lab before connecting." : "Connect to the selected device."}
+            disabled={!canConnect}
+            title={!canConnect ? "Check readiness and deploy the lab before connecting." : "Connect to this device."}
             type="button"
           >
-            {isConnecting ? "Connecting..." : canConnect ? "Connect Terminal" : "Not Ready"}
+            {isConnecting ? "Connecting..." : isConnected ? "Connected" : "Connect Terminal"}
           </button>
 
           <button
             className="secondary-button"
             onClick={reconnectWebTerminal}
-            disabled={!selectedDeviceId || isConnecting || isCheckingReadiness}
+            disabled={isConnecting || isCheckingReadiness}
             type="button"
           >
             Reconnect
@@ -754,8 +752,6 @@ function WebCliTerminal({
           <button
             className="secondary-button"
             onClick={clearTerminal}
-            disabled={!selectedDeviceId}
-            title="Clear the visible terminal screen."
             type="button"
           >
             Clear Terminal
@@ -782,15 +778,190 @@ function WebCliTerminal({
 
       <ReadinessDetails readiness={readiness} />
 
+      <p className="footer-note">
+        Current mode: {mode || "browser_cli_mvp"}. This tab keeps its own WebSocket, xterm state, and terminal scrollback while you switch devices.
+      </p>
+    </div>
+  );
+}
+
+function WebCliTerminal({
+  sessionId,
+  devices = [],
+  mode = "browser_cli_mvp"
+}) {
+  const [activeDeviceId, setActiveDeviceId] = useState("");
+  const [terminalStatuses, setTerminalStatuses] = useState({});
+
+  const normalizedDevices = useMemo(() => {
+    return devices
+      .map((device, index) => ({
+        ...device,
+        deviceId: getDeviceId(device, index),
+        label: getDeviceLabel(device, index)
+      }))
+      .filter((device) => Boolean(device.deviceId));
+  }, [devices]);
+
+  useEffect(() => {
+    if (normalizedDevices.length === 0) {
+      setActiveDeviceId("");
+      return;
+    }
+
+    const activeDeviceStillExists = normalizedDevices.some(
+      (device) => device.deviceId === activeDeviceId
+    );
+
+    if (!activeDeviceId || !activeDeviceStillExists) {
+      setActiveDeviceId(normalizedDevices[0].deviceId);
+    }
+  }, [activeDeviceId, normalizedDevices]);
+
+  const handleStatusChange = useCallback((deviceId, state, label) => {
+    if (!deviceId) {
+      return;
+    }
+
+    setTerminalStatuses((currentStatuses) => {
+      const currentStatus = currentStatuses[deviceId];
+
+      if (
+        currentStatus?.state === state &&
+        currentStatus?.label === label
+      ) {
+        return currentStatuses;
+      }
+
+      return {
+        ...currentStatuses,
+        [deviceId]: {
+          label,
+          state,
+          updatedAt: Date.now()
+        }
+      };
+    });
+  }, []);
+
+  const activeDevice =
+    normalizedDevices.find((device) => device.deviceId === activeDeviceId) ||
+    null;
+  const connectedCount = normalizedDevices.filter(
+    (device) => terminalStatuses[device.deviceId]?.state === "connected"
+  ).length;
+
+  if (normalizedDevices.length === 0) {
+    return (
+      <section className="web-cli-panel web-cli-panel-terminal-first web-terminal-panel terminal-workspace-panel">
+        <div className="section-title-row">
+          <div>
+            <h4>Terminal Workspace</h4>
+            <p className="muted">
+              Open interactive PTY-backed terminal tabs for lab devices.
+            </p>
+          </div>
+
+          <span className="badge neutral">No Devices</span>
+        </div>
+
+        <MessageBox
+          type="info"
+          title="No terminal devices"
+          message="CLI access information is not available yet."
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="web-cli-panel web-cli-panel-terminal-first web-terminal-panel terminal-workspace-panel">
+      <div className="section-title-row">
+        <div>
+          <h4>Terminal Workspace</h4>
+          <p className="muted">
+            Keep multiple device terminals open and switch tabs without closing active sessions.
+          </p>
+        </div>
+
+        <span className="badge pass">
+          {connectedCount} Connected
+        </span>
+      </div>
+
+      <div className="terminal-workspace-summary">
+        <div>
+          <span>Active Tab</span>
+          <strong>{activeDevice?.label || "No active device"}</strong>
+        </div>
+
+        <div>
+          <span>Open Device Tabs</span>
+          <strong>{normalizedDevices.length}</strong>
+        </div>
+
+        <div>
+          <span>Live Sessions</span>
+          <strong>{connectedCount}</strong>
+        </div>
+
+        <div>
+          <span>Endpoint</span>
+          <strong>/terminal/ws</strong>
+        </div>
+      </div>
+
+      <div
+        className="terminal-workspace-tabs"
+        role="tablist"
+        aria-label="Device terminal tabs"
+      >
+        {normalizedDevices.map((device) => {
+          const status = terminalStatuses[device.deviceId]?.state || "idle";
+          const isActive = activeDeviceId === device.deviceId;
+
+          return (
+            <button
+              aria-controls={`terminal-panel-${device.deviceId}`}
+              aria-selected={isActive}
+              className={`terminal-device-tab ${isActive ? "active" : ""} ${status}`}
+              key={device.deviceId}
+              onClick={() => setActiveDeviceId(device.deviceId)}
+              role="tab"
+              type="button"
+            >
+              <span className="terminal-tab-title">{device.label}</span>
+              <span className="terminal-tab-device-id">{device.deviceId}</span>
+              <span className={`terminal-tab-status badge ${getStatusBadgeClass(status)}`}>
+                {formatConnectionState(status)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="terminal-workspace-panels">
+        {normalizedDevices.map((device) => (
+          <TerminalPane
+            active={activeDeviceId === device.deviceId}
+            device={device}
+            key={`${sessionId || "session"}-${device.deviceId}`}
+            mode={mode}
+            onStatusChange={handleStatusChange}
+            sessionId={sessionId}
+          />
+        ))}
+      </div>
+
       <div className="web-cli-help-stack">
         <MessageBox
           type="info"
-          title="Safe Web Terminal access"
-          message="Device selection uses trusted lab metadata. Container names cannot be typed or overridden from the browser."
+          title="Safe multi-terminal access"
+          message="Each device tab uses trusted lab metadata and its own WebSocket session. Closing or disconnecting one tab does not close the other terminal tabs."
         />
 
         <p className="footer-note">
-          Current mode: {mode || "browser_cli_mvp"}. Terminal input is sent directly to the backend PTY bridge.
+          Backend terminal concurrency is used through /terminal/ws. Terminal tabs stay mounted so output and scrollback are preserved while switching devices.
         </p>
       </div>
     </section>
