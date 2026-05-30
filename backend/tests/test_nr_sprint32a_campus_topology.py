@@ -33,8 +33,8 @@ def test_nr_sprint32a_catalog_exposes_campus_core_static_routing():
     assert scenario["title"] == "Campus Core Static Routing"
     assert scenario["topology_template"] == "campus-core-static-routing"
     assert scenario["router_os"] == "Nokia SR Linux"
-    assert scenario["runtime_profile"] == "deploy_only"
-    assert is_deploy_only_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID) is True
+    assert scenario["runtime_profile"] == "runtime_fault_injection"
+    assert is_deploy_only_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID) is False
 
     devices = {device["id"]: device for device in scenario["devices"]}
     assert set(devices) == {"client1", "client2", "srl1", "srl2", "srl3", "srl4"}
