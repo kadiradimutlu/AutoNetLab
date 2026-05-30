@@ -368,11 +368,11 @@ def destroy_lab(
         result=result,
     ):
         result = containerlab_adapter.destroy_runtime_containers(session)
-    elif _is_historical_error_cleanup_already_complete(
+    elif _is_idempotent_destroy_cleanup_already_complete(
         session=session,
         result=result,
     ):
-        result = _historical_error_cleanup_completed_response(
+        result = _idempotent_destroy_cleanup_completed_response(
             session_id=session_id,
             result=result,
         )
@@ -427,20 +427,26 @@ def _is_topology_file_missing_destroy_result(result: dict) -> bool:
     )
 
 
-def _is_historical_error_cleanup_already_complete(
+def _is_idempotent_destroy_cleanup_already_complete(
     session: dict,
     result: dict,
 ) -> bool:
     if not _is_topology_file_missing_destroy_result(result):
         return False
 
-    if _session_status_value(session.get("status")) != SessionStatus.error.value:
+    status_value = _session_status_value(session.get("status"))
+
+    if status_value not in {
+        SessionStatus.error.value,
+        SessionStatus.destroyed.value,
+        SessionStatus.finished.value,
+    }:
         return False
 
     return not containerlab_adapter.runtime_containers_exist(session)
 
 
-def _historical_error_cleanup_completed_response(
+def _idempotent_destroy_cleanup_completed_response(
     session_id: str,
     result: dict,
 ) -> dict:
@@ -449,7 +455,7 @@ def _historical_error_cleanup_completed_response(
         "session_id": session_id,
         "status": SessionStatus.destroyed,
         "message": (
-            "Historical error-state lab cleanup is already complete. "
+            "Lab runtime cleanup is already complete. "
             "Topology metadata is missing and no runtime containers were found."
         ),
         "command": result.get("command"),

@@ -1,4 +1,4 @@
-import shutil
+﻿import shutil
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -34,6 +34,22 @@ def _successful_destroy_action(session_id: str) -> dict:
         "error_code": None,
         "detail": None,
         "suggestion": None,
+    }
+
+
+def _topology_missing_destroy_action(session_id: str) -> dict:
+    return {
+        "success": False,
+        "session_id": session_id,
+        "status": SessionStatus.error,
+        "message": "Topology YAML file could not be found.",
+        "command": "containerlab destroy -t missing-lab.clab.yml",
+        "return_code": None,
+        "stdout": "",
+        "stderr": "",
+        "error_code": "TOPOLOGY_FILE_NOT_FOUND",
+        "detail": "Topology file not found.",
+        "suggestion": "Create the lab session again or check generated metadata.",
     }
 
 
@@ -176,3 +192,44 @@ def test_nr_sprint39b_generated_folder_cleanup_rejects_unsafe_session_id():
     assert result["success"] is False
     assert result["removed"] is False
     assert result["error_code"] == "UNSAFE_GENERATED_SESSION_ID"
+
+def test_nr_sprint39b_destroy_is_idempotent_for_destroyed_session_with_session_json_only(monkeypatch):
+    session_id = _create_lab(
+        student_prefix="nr39b-destroyed-session-json-only",
+        scenario_id=SR_BASIC_LINK_SCENARIO_ID,
+    )
+    session_dir = GENERATED_DIR / session_id
+    topology_file = session_dir / "lab.clab.yml"
+    metadata_path = session_dir / "session.json"
+
+    assert topology_file.exists()
+    assert metadata_path.exists()
+
+    update_session_status(session_id, SessionStatus.destroyed)
+    topology_file.unlink()
+
+    assert not topology_file.exists()
+    assert metadata_path.exists()
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.containerlab_adapter.destroy",
+        lambda session_id, topology_file: _topology_missing_destroy_action(session_id),
+    )
+    monkeypatch.setattr(
+        containerlab_adapter,
+        "runtime_containers_exist",
+        lambda session: False,
+    )
+
+    response = client.post(f"/api/v1/labs/{session_id}/destroy")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["status"] == "destroyed"
+    assert payload["error_code"] is None
+    assert "already complete" in payload["message"]
+    assert not session_dir.exists()
+
+    refreshed = get_lab_session(session_id)
+    assert refreshed["status"] == SessionStatus.destroyed
