@@ -1,4 +1,30 @@
-﻿import { useLanguage } from "../hooks/useLanguage";
+import { useLanguage } from "../hooks/useLanguage";
+
+const TOPIC_LEARNING_FOCUS = {
+  ip_addressing: "Review addressing, subnet membership, and interface IP consistency.",
+  default_gateway: "Focus on the client gateway path and confirm that traffic leaves the host through the expected next hop.",
+  static_routing: "Review route direction, next-hop reachability, and return-path coverage.",
+  interface_state: "Confirm operational state, interface binding, and link readiness before retesting connectivity.",
+  connectivity_testing: "Use structured ping tests to separate local reachability from end-to-end routing issues.",
+  network_instance: "Review SR Linux network-instance membership and routed interface placement.",
+  terminal_usage: "Use terminal evidence carefully and compare live output with the scenario guide.",
+  lab_lifecycle: "Finish the lab only after reviewing the passed checks and understanding the final network state.",
+  general_troubleshooting: "Start from the failed validation areas and work through the topology one layer at a time."
+};
+
+const UNSAFE_GUIDANCE_PATTERNS = [
+  /injected[_\s-]*errors?/i,
+  /expected[_\s-]*fix/i,
+  /\bevidence\b/i,
+  /\bdebug\b/i,
+  /\bsolution\b/i,
+  /\banswer\b/i,
+  /validation[_\s-]*command/i,
+  /injection[_\s-]*commands?/i,
+  /ip\s+route\s+replace/i,
+  /10\.10\.20\.1/i,
+  /10\.10\.10\.1/i
+];
 
 function getSafeText(value, fallback = "-") {
   if (value === undefined || value === null || value === "") {
@@ -6,6 +32,16 @@ function getSafeText(value, fallback = "-") {
   }
 
   return String(value);
+}
+
+function getStudentSafeText(value, fallback = "Review this topic using the scenario guide and validation feedback.") {
+  const text = getSafeText(value, fallback);
+
+  if (UNSAFE_GUIDANCE_PATTERNS.some((pattern) => pattern.test(text))) {
+    return fallback;
+  }
+
+  return text;
 }
 
 function toReadableLabel(value) {
@@ -116,6 +152,20 @@ function formatConfidence(confidence) {
   return `${Math.round(numericConfidence)}%`;
 }
 
+function formatPercent(value, fallback = "-") {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const numericValue = Number(value);
+
+  if (Number.isNaN(numericValue)) {
+    return fallback;
+  }
+
+  return `${numericValue.toFixed(1)}%`;
+}
+
 function normalizeList(value) {
   if (!value) {
     return [];
@@ -128,12 +178,59 @@ function normalizeList(value) {
   return [value];
 }
 
+function normalizeTopicPerformance(value) {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .filter(Boolean)
+      .map((item, index) => normalizeTopicPerformanceItem(item, index));
+  }
+
+  if (typeof value === "object") {
+    return Object.entries(value).map(([topic, item], index) =>
+      normalizeTopicPerformanceItem(
+        item && typeof item === "object" ? { topic, ...item } : { topic, score: item },
+        index
+      )
+    );
+  }
+
+  return [];
+}
+
+function normalizeTopicPerformanceItem(item, index) {
+  const safeItem = item && typeof item === "object" ? item : {};
+  const topic = safeItem.topic || safeItem.name || safeItem.id || `topic_${index + 1}`;
+  const passedChecks = Number(safeItem.passed_checks ?? safeItem.pass_count ?? safeItem.passed ?? 0);
+  const failedChecks = Number(safeItem.failed_checks ?? safeItem.fail_count ?? safeItem.failed ?? 0);
+  const totalChecks = Number(safeItem.total_checks ?? safeItem.attempt_count ?? passedChecks + failedChecks);
+
+  return {
+    topic,
+    label: safeItem.label || safeItem.topic_label || toReadableLabel(topic),
+    passed_checks: Number.isNaN(passedChecks) ? 0 : passedChecks,
+    failed_checks: Number.isNaN(failedChecks) ? 0 : failedChecks,
+    total_checks: Number.isNaN(totalChecks) ? 0 : totalChecks,
+    pass_rate: safeItem.pass_rate ?? safeItem.success_rate ?? null,
+    failure_rate: safeItem.failure_rate ?? safeItem.fail_rate ?? null,
+    status: safeItem.status || safeItem.result || ""
+  };
+}
+
+function getTopicLearningFocus(topic) {
+  return TOPIC_LEARNING_FOCUS[String(topic || "").toLowerCase()] ||
+    "Review the related validation topic and compare the live state with the scenario guide.";
+}
+
 function normalizeFailedCheck(check, index) {
   if (typeof check === "string") {
     return {
       id: check,
       topic: "-",
-      message: check
+      message: getStudentSafeText(check)
     };
   }
 
@@ -157,11 +254,12 @@ function normalizeFailedCheck(check, index) {
       check.check_type ||
       check.type ||
       "-",
-    message:
+    message: getStudentSafeText(
       check.message ||
-      check.description ||
-      check.reason ||
-      "This failed check is related to the recommendation."
+        check.description ||
+        check.reason ||
+        "This failed check is related to the recommendation."
+    )
   };
 }
 
@@ -169,9 +267,9 @@ function normalizeRecommendation(recommendation, index, parentSource = "rule_bas
   if (typeof recommendation === "string") {
     return {
       id: `recommendation-${index + 1}`,
-      topic: `Recommendation ${index + 1}`,
+      topic: `recommendation_${index + 1}`,
       label: `Recommendation ${index + 1}`,
-      reason: recommendation,
+      reason: getStudentSafeText(recommendation),
       explanation: "This recommendation was generated from the validation result.",
       priority: "medium",
       confidence: "",
@@ -185,7 +283,7 @@ function normalizeRecommendation(recommendation, index, parentSource = "rule_bas
   if (!recommendation || typeof recommendation !== "object") {
     return {
       id: `recommendation-${index + 1}`,
-      topic: `Recommendation ${index + 1}`,
+      topic: `recommendation_${index + 1}`,
       label: `Recommendation ${index + 1}`,
       reason: "No recommendation detail is available.",
       explanation: "Run validation again if this looks incomplete.",
@@ -198,7 +296,7 @@ function normalizeRecommendation(recommendation, index, parentSource = "rule_bas
     };
   }
 
-  const topic = recommendation.topic || recommendation.title || `topic-${index + 1}`;
+  const topic = recommendation.topic || recommendation.title || `topic_${index + 1}`;
   const label = recommendation.label || recommendation.topic_label || recommendation.display_name || toReadableLabel(topic);
   const source = normalizeSource(recommendation.source || parentSource);
 
@@ -206,16 +304,18 @@ function normalizeRecommendation(recommendation, index, parentSource = "rule_bas
     id: recommendation.id || `${topic}-${index}`,
     topic,
     label,
-    reason:
+    reason: getStudentSafeText(
       recommendation.reason ||
-      recommendation.message ||
-      recommendation.description ||
-      "This topic was selected based on the validation result.",
-    explanation:
+        recommendation.message ||
+        recommendation.description ||
+        "This topic was selected based on the validation result."
+    ),
+    explanation: getStudentSafeText(
       recommendation.explanation ||
-      recommendation.details ||
-      recommendation.text ||
-      "Review this topic before attempting a harder lab.",
+        recommendation.details ||
+        recommendation.text ||
+        getTopicLearningFocus(topic)
+    ),
     priority: normalizePriority(
       recommendation.priority ||
         recommendation.severity ||
@@ -229,7 +329,9 @@ function normalizeRecommendation(recommendation, index, parentSource = "rule_bas
       recommendation.next_actions ||
         recommendation.nextActions ||
         recommendation.actions
-    ),
+    )
+      .map((action) => getStudentSafeText(action, "Review this topic using the scenario guide."))
+      .filter(Boolean),
     related_failed_checks: normalizeList(
       recommendation.related_failed_checks ||
         recommendation.failed_checks ||
@@ -252,6 +354,60 @@ function getRecommendationPayload(recommendationData, recommendations) {
   };
 }
 
+function RecommendationContextPanel({ payload, topicPerformance }) {
+  const scenarioId = payload?.scenario_id || payload?.scenarioId || "";
+  const topologyTemplate = payload?.topology_template || payload?.topologyTemplate || "";
+  const hasContext = scenarioId || topologyTemplate || topicPerformance.length > 0;
+
+  if (!hasContext) {
+    return null;
+  }
+
+  return (
+    <div className="recommendation-context-panel">
+      <div className="recommendation-context-grid">
+        <div>
+          <span>Scenario</span>
+          <strong>{scenarioId || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Topology</span>
+          <strong>{topologyTemplate || "Not provided"}</strong>
+        </div>
+
+        <div>
+          <span>Tracked Topics</span>
+          <strong>{topicPerformance.length}</strong>
+        </div>
+      </div>
+
+      {topicPerformance.length > 0 && (
+        <div className="topic-performance-mini-grid">
+          {topicPerformance.map((topic) => (
+            <article className="topic-performance-mini-card" key={topic.topic}>
+              <div className="result-title-row">
+                <strong>{topic.label}</strong>
+                <span className={`badge ${topic.failed_checks > 0 ? "fail" : "pass"}`}>
+                  {topic.failed_checks > 0 ? "Needs Review" : "On Track"}
+                </span>
+              </div>
+
+              <p>{getTopicLearningFocus(topic.topic)}</p>
+
+              <div className="topic-performance-stats">
+                <span>{topic.passed_checks} passed</span>
+                <span>{topic.failed_checks} failed</span>
+                <span>{topic.pass_rate !== null && topic.pass_rate !== undefined ? `${formatPercent(topic.pass_rate)} pass rate` : `${topic.total_checks} checks`}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecommendationCard({
   recommendationData = null,
   recommendations = []
@@ -265,7 +421,8 @@ function RecommendationCard({
 
   const source = normalizeSource(payload?.source);
   const fallbackUsed = Boolean(payload?.fallback_used);
-  const message = payload?.message || "";
+  const message = getStudentSafeText(payload?.message || "", "");
+  const topicPerformance = normalizeTopicPerformance(payload?.topic_performance || payload?.topicPerformance);
 
   const normalizedRecommendations = normalizeList(payloadRecommendations).map(
     (item, index) => normalizeRecommendation(item, index, source)
@@ -273,7 +430,7 @@ function RecommendationCard({
 
   if (!normalizedRecommendations.length) {
     return (
-      <section className="card recommendation-card">
+      <section className="card recommendation-card recommendation-card-v2">
         <div className="section-title-row">
           <div>
             <h3>{t("recommendation")}</h3>
@@ -286,6 +443,8 @@ function RecommendationCard({
             {getSourceLabel(source)}
           </span>
         </div>
+
+        <RecommendationContextPanel payload={payload} topicPerformance={topicPerformance} />
 
         {fallbackUsed && (
           <div className="recommendation-info-note">
@@ -309,12 +468,12 @@ function RecommendationCard({
   }
 
   return (
-    <section className="card recommendation-card">
+    <section className="card recommendation-card recommendation-card-v2">
       <div className="section-title-row">
         <div>
           <h3>{t("recommendation")}</h3>
           <p className="muted">
-            Explanation-based recommendations generated from the validation result.
+            Topic-aware learning guidance generated from the validation result.
           </p>
         </div>
 
@@ -323,11 +482,19 @@ function RecommendationCard({
         </span>
       </div>
 
-      <div className="recommendation-source-panel">
+      <RecommendationContextPanel payload={payload} topicPerformance={topicPerformance} />
+
+      <div className="recommendation-source-panel recommendation-source-panel-v2">
         <div>
           <span className="muted">Source</span>
           <strong>{getSourceLabel(source)}</strong>
           <p>{getSourceDescription(source)}</p>
+        </div>
+
+        <div>
+          <span className="muted">Learning Focus</span>
+          <strong>{normalizedRecommendations.length} topic-aware item{normalizedRecommendations.length === 1 ? "" : "s"}</strong>
+          <p>Guidance is student-safe and avoids hidden runtime details.</p>
         </div>
 
         {fallbackUsed && (
@@ -348,12 +515,12 @@ function RecommendationCard({
 
           return (
             <div
-              className={`list-item recommendation-item ${priorityClass}`}
+              className={`list-item recommendation-item recommendation-item-v2 ${priorityClass}`}
               key={recommendation.id || `${recommendation.topic}-${index}`}
             >
               <div className="recommendation-card-header">
                 <div>
-                  <span className="muted">Topic</span>
+                  <span className="muted">Affected Topic</span>
                   <strong>{recommendation.label}</strong>
                 </div>
 
@@ -369,16 +536,16 @@ function RecommendationCard({
               </div>
 
               <div className="recommendation-explanation-block">
-                <span>Reason</span>
+                <span>Why this matters</span>
                 <p>{recommendation.reason}</p>
               </div>
 
               <div className="recommendation-explanation-block">
-                <span>Explanation</span>
+                <span>Next learning focus</span>
                 <p>{recommendation.explanation}</p>
               </div>
 
-              <div className="recommendation-meta-grid">
+              <div className="recommendation-meta-grid recommendation-meta-grid-v2">
                 <div>
                   <span>Priority</span>
                   <strong>{toReadableLabel(recommendation.priority)}</strong>
@@ -387,6 +554,11 @@ function RecommendationCard({
                 <div>
                   <span>Confidence</span>
                   <strong>{recommendation.confidence || "Not provided"}</strong>
+                </div>
+
+                <div>
+                  <span>Topic Key</span>
+                  <strong>{recommendation.topic}</strong>
                 </div>
               </div>
 
@@ -397,7 +569,7 @@ function RecommendationCard({
                   <ol className="next-action-list">
                     {recommendation.next_actions.map((action, actionIndex) => (
                       <li key={`${recommendation.id}-action-${actionIndex}`}>
-                        {getSafeText(action, "Review this topic.")}
+                        {getStudentSafeText(action, "Review this topic using the scenario guide.")}
                       </li>
                     ))}
                   </ol>
@@ -418,7 +590,7 @@ function RecommendationCard({
                       >
                         <strong>{check.id}</strong>
                         <span>{toReadableLabel(check.topic)}</span>
-                        <p>{check.message}</p>
+                        <p>{getStudentSafeText(check.message)}</p>
                       </div>
                     ))}
                   </div>

@@ -1,15 +1,17 @@
-function formatNumber(value) {
+function formatNumber(value, fallback = "-") {
   if (value === null || value === undefined || value === "") {
-    return "-";
+    return fallback;
   }
 
   const numericValue = Number(value);
 
   if (Number.isNaN(numericValue)) {
-    return "-";
+    return fallback;
   }
 
-  return numericValue.toLocaleString("en-US");
+  return numericValue.toLocaleString("en-US", {
+    maximumFractionDigits: 2
+  });
 }
 
 function formatPercent(value) {
@@ -27,17 +29,29 @@ function formatPercent(value) {
 }
 
 function formatScore(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
+  return formatNumber(value, "-");
+}
+
+function getArrayCount(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function getCleanupIncidentCount(summary) {
+  const incidents = summary?.cleanup_error_incidents;
+
+  if (Array.isArray(incidents)) {
+    return incidents.length;
   }
 
-  const numericValue = Number(value);
+  const numericValue = Number(
+    incidents ??
+      summary?.cleanup_error_incident_count ??
+      summary?.cleanup_incident_count ??
+      summary?.error_incident_count ??
+      0
+  );
 
-  if (Number.isNaN(numericValue)) {
-    return "-";
-  }
-
-  return numericValue.toFixed(1);
+  return Number.isNaN(numericValue) ? 0 : numericValue;
 }
 
 function AnalyticsSummaryCards({ summary }) {
@@ -71,21 +85,31 @@ function AnalyticsSummaryCards({ summary }) {
       title: "Pass Rate",
       value: formatPercent(summary?.pass_rate),
       helper: "Passed sessions / completed sessions"
+    },
+    {
+      title: "Scenarios Tracked",
+      value: formatNumber(getArrayCount(summary?.scenario_performance)),
+      helper: "Scenario-level training coverage"
+    },
+    {
+      title: "Cleanup/Error Incidents",
+      value: formatNumber(getCleanupIncidentCount(summary)),
+      helper: "Labs requiring runtime cleanup attention"
     }
   ];
 
   return (
-    <section className="card analytics-summary-card">
+    <section className="card analytics-summary-card analytics-summary-card-v2">
       <div className="section-title-row">
         <div>
           <h3>Analytics Summary</h3>
           <p className="muted">
-            Class-level session, completion, score, and pass-rate overview.
+            Class-level session, scenario, score, pass-rate, and cleanup overview.
           </p>
         </div>
       </div>
 
-      <div className="analytics-summary-metric-grid">
+      <div className="analytics-summary-metric-grid analytics-summary-metric-grid-v2">
         {cards.map((card) => (
           <div className="analytics-summary-metric" key={card.title}>
             <span className="muted">{card.title}</span>

@@ -5,7 +5,7 @@ function formatDifficultyLabel(value) {
     return "-";
   }
 
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  return String(value).charAt(0).toUpperCase() + String(value).slice(1);
 }
 
 function formatDate(value) {
@@ -109,16 +109,24 @@ function getLastActivityAt(session) {
   return session.completed_at || session.updated_at || session.created_at;
 }
 
+function getScenarioValue(session) {
+  return session.scenario_id || session.scenario || session.scenario_name || "-";
+}
+
+function getTopologyValue(session) {
+  return session.topology_template || session.topology_name || session.topology || "-";
+}
+
 function RecentSessionsTable({ sessions }) {
   const items = Array.isArray(sessions) ? sessions : [];
 
   return (
-    <section className="card analytics-card">
+    <section className="card analytics-card recent-sessions-card-v2">
       <div className="section-title-row">
         <div>
           <h3>Recent Sessions</h3>
           <p className="muted">
-            Latest student lab sessions and validation results.
+            Latest student lab sessions with scenario and topology context.
           </p>
         </div>
       </div>
@@ -130,11 +138,13 @@ function RecentSessionsTable({ sessions }) {
         />
       ) : (
         <div className="analytics-table-wrapper">
-          <table className="analytics-table">
+          <table className="analytics-table analytics-table-wide">
             <thead>
               <tr>
                 <th>Session ID</th>
                 <th>Student</th>
+                <th>Scenario</th>
+                <th>Topology</th>
                 <th>Difficulty</th>
                 <th>Status</th>
                 <th>Score</th>
@@ -148,6 +158,12 @@ function RecentSessionsTable({ sessions }) {
                 <tr key={session.session_id}>
                   <td>{session.session_id}</td>
                   <td>{session.student_id || "-"}</td>
+                  <td>
+                    <span className="analytics-code-pill">{getScenarioValue(session)}</span>
+                  </td>
+                  <td>
+                    <span className="analytics-code-pill neutral">{getTopologyValue(session)}</span>
+                  </td>
                   <td>
                     <span className={`badge ${session.difficulty}`}>
                       {formatDifficultyLabel(session.difficulty)}

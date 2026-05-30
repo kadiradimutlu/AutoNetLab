@@ -6458,3 +6458,150 @@ html {
     min-height: 330px;
   }
 }
+
+
+/* NR-Sprint38B recommendation and analytics v2 */
+.recommendation-card-v2 {
+  gap: 18px;
+}
+
+.recommendation-context-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.07), rgba(14, 165, 233, 0.03));
+  padding: 14px;
+}
+
+.recommendation-context-grid,
+.analytics-mini-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.recommendation-context-grid > div,
+.analytics-mini-metric-grid > div {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 10px;
+}
+
+.recommendation-context-grid span,
+.analytics-mini-metric-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.recommendation-context-grid strong,
+.analytics-mini-metric-grid strong {
+  color: #0f172a;
+}
+
+.topic-performance-mini-grid,
+.scenario-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.topic-performance-mini-card,
+.scenario-performance-card-item {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.topic-performance-mini-card p,
+.scenario-performance-card-item p {
+  color: #475569;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+
+.topic-performance-stats,
+.analytics-bar-meta-v2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.recommendation-source-panel-v2 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.recommendation-item-v2 {
+  border-left: 5px solid rgba(37, 99, 235, 0.3);
+}
+
+.recommendation-item-v2.high-priority {
+  border-left-color: #dc2626;
+}
+
+.recommendation-item-v2.medium-priority {
+  border-left-color: #d97706;
+}
+
+.recommendation-item-v2.low-priority {
+  border-left-color: #16a34a;
+}
+
+.recommendation-meta-grid-v2 {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.analytics-summary-card-v2 .analytics-summary-metric-grid-v2 {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.analytics-table-wide {
+  min-width: 1040px;
+}
+
+.analytics-code-pill {
+  display: inline-flex;
+  max-width: 220px;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1e3a8a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 0.24rem 0.5rem;
+}
+
+.analytics-code-pill.neutral {
+  border-color: rgba(100, 116, 139, 0.18);
+  background: rgba(100, 116, 139, 0.08);
+  color: #334155;
+}
+
+.repeated-topic-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.cleanup-incident-card .analytics-empty-state,
+.repeated-topic-card .analytics-empty-state,
+.scenario-performance-card .analytics-empty-state {
+  background: #f8fafc;
+}
+
+@media (max-width: 800px) {
+  .recommendation-context-grid,
+  .analytics-mini-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topic-performance-mini-grid,
+  .scenario-performance-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -234,16 +234,28 @@ const STUDENT_DETAIL_TABS = [
 
 const ANALYTICS_DETAIL_TABS = [
   {
+    id: "scenario",
+    label: "Scenario Performance"
+  },
+  {
     id: "difficulty",
-    label: "Difficulty Distribution"
+    label: "Difficulty Performance"
   },
   {
     id: "weaknesses",
-    label: "Topic Weakness Analytics"
+    label: "Topic Weaknesses"
+  },
+  {
+    id: "repeated",
+    label: "Repeated Failed Topics"
   },
   {
     id: "recentSessions",
     label: "Recent Sessions"
+  },
+  {
+    id: "incidents",
+    label: "Cleanup Incidents"
   }
 ];
 
@@ -901,6 +913,220 @@ function StudentScoreTrend({ scoreTrend }) {
   );
 }
 
+
+function getAnalyticsArray(...values) {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
+}
+
+function getCleanupIncidentCount(value) {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+
+  const numericValue = Number(value ?? 0);
+
+  return Number.isNaN(numericValue) ? 0 : numericValue;
+}
+
+function getScenarioPerformanceKey(item, index) {
+  return item?.scenario_id || item?.scenario || item?.id || `scenario-${index + 1}`;
+}
+
+function ScenarioPerformancePanel({ scenarios }) {
+  const items = Array.isArray(scenarios) ? scenarios : [];
+
+  return (
+    <section className="card analytics-card scenario-performance-card">
+      <div className="section-title-row">
+        <div>
+          <h3>Scenario Performance</h3>
+          <p className="muted">
+            Scenario-level progress, score, and pass-rate view for network training outcomes.
+          </p>
+        </div>
+
+        <span className="badge neutral">{items.length} scenarios</span>
+      </div>
+
+      {items.length === 0 ? (
+        <AnalyticsEmptyState
+          title="No scenario data yet."
+          message="Scenario performance will appear after students validate scenario-based labs."
+        />
+      ) : (
+        <div className="scenario-performance-grid">
+          {items.map((item, index) => {
+            const scenarioId = getScenarioPerformanceKey(item, index);
+            const sessionCount = item.session_count ?? item.total_sessions ?? item.sessions ?? 0;
+            const averageScore = item.average_score ?? item.avg_score ?? null;
+            const passRate = item.pass_rate ?? item.success_rate ?? null;
+
+            return (
+              <article className="scenario-performance-card-item" key={scenarioId}>
+                <div className="result-title-row">
+                  <div>
+                    <span className="muted">Scenario</span>
+                    <strong>{scenarioId}</strong>
+                    <p className="muted">{item.topology_template || item.topology || "Topology not provided"}</p>
+                  </div>
+
+                  <span className="badge pass">
+                    {formatPercent(passRate)}
+                  </span>
+                </div>
+
+                <div className="analytics-mini-metric-grid">
+                  <div>
+                    <span>Sessions</span>
+                    <strong>{formatNumber(sessionCount, "0")}</strong>
+                  </div>
+
+                  <div>
+                    <span>Completed</span>
+                    <strong>{formatNumber(item.completed_count ?? item.completed_sessions, "0")}</strong>
+                  </div>
+
+                  <div>
+                    <span>Passed</span>
+                    <strong>{formatNumber(item.passed_count ?? item.passed_sessions, "0")}</strong>
+                  </div>
+
+                  <div>
+                    <span>Average Score</span>
+                    <strong>{formatNumber(averageScore, "-")}</strong>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RepeatedFailedTopicsPanel({ topics }) {
+  const items = Array.isArray(topics) ? topics : [];
+
+  return (
+    <section className="card analytics-card repeated-topic-card">
+      <div className="section-title-row">
+        <div>
+          <h3>Repeated Failed Topics</h3>
+          <p className="muted">
+            Topics repeatedly failed across validation attempts and sessions.
+          </p>
+        </div>
+
+        <span className="badge neutral">{items.length} topics</span>
+      </div>
+
+      {items.length === 0 ? (
+        <AnalyticsEmptyState
+          title="No repeated failed topics detected."
+          message="Repeated-failure analytics will appear when the same network topic fails across attempts."
+        />
+      ) : (
+        <div className="topic-weakness-grid repeated-topic-grid">
+          {items.map((item, index) => (
+            <article className="topic-weakness-card" key={item.topic || item.label || index}>
+              <div className="result-title-row">
+                <div>
+                  <span className="muted">Topic</span>
+                  <strong>{item.label || formatTitleCase(item.topic)}</strong>
+                </div>
+
+                <span className={`badge ${getSeverityClass(item.severity)}`}>
+                  {item.severity || "medium"}
+                </span>
+              </div>
+
+              <div className="analytics-mini-metric-grid">
+                <div>
+                  <span>Failures</span>
+                  <strong>{formatNumber(item.fail_count ?? item.failed_count, "0")}</strong>
+                </div>
+
+                <div>
+                  <span>Students</span>
+                  <strong>{formatNumber(item.student_count ?? item.students, "0")}</strong>
+                </div>
+
+                <div>
+                  <span>Sessions</span>
+                  <strong>{formatNumber(item.session_count ?? item.sessions, "0")}</strong>
+                </div>
+
+                <div>
+                  <span>Failure Rate</span>
+                  <strong>{formatPercent(item.failure_rate ?? item.fail_rate)}</strong>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CleanupIncidentPanel({ incidents }) {
+  const incidentCount = getCleanupIncidentCount(incidents);
+  const incidentItems = Array.isArray(incidents) ? incidents : [];
+
+  return (
+    <section className="card analytics-card cleanup-incident-card">
+      <div className="section-title-row">
+        <div>
+          <h3>Cleanup/Error Incidents</h3>
+          <p className="muted">
+            Runtime cleanup and error-state incidents that may need instructor awareness.
+          </p>
+        </div>
+
+        <span className={`badge ${incidentCount > 0 ? "fail" : "pass"}`}>
+          {incidentCount} incidents
+        </span>
+      </div>
+
+      {incidentCount === 0 ? (
+        <AnalyticsEmptyState
+          title="No cleanup incidents detected."
+          message="No cleanup-required or error-state lab incidents are present in the current analytics data."
+        />
+      ) : incidentItems.length > 0 ? (
+        <div className="result-list">
+          {incidentItems.map((incident, index) => (
+            <article className="list-item" key={incident.session_id || index}>
+              <div className="result-title-row">
+                <div>
+                  <strong>{incident.session_id || `Incident ${index + 1}`}</strong>
+                  <p className="muted">{incident.message || incident.reason || "Cleanup incident recorded."}</p>
+                </div>
+
+                <span className="badge fail">
+                  {formatTitleCase(incident.status || incident.type || "cleanup")}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="analytics-empty-state">
+          <strong>{incidentCount} cleanup incident{incidentCount === 1 ? "" : "s"} recorded.</strong>
+          <p>Detailed incident rows are not included in this analytics response.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function InstructorDashboardPage() {
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
@@ -925,7 +1151,10 @@ function InstructorDashboardPage() {
   const [activeTab, setActiveTab] = useState("home");
   const [globalSummary, setGlobalSummary] = useState(null);
   const [difficultyDistribution, setDifficultyDistribution] = useState([]);
+  const [scenarioPerformance, setScenarioPerformance] = useState([]);
   const [globalTopicWeaknesses, setGlobalTopicWeaknesses] = useState([]);
+  const [repeatedFailedTopics, setRepeatedFailedTopics] = useState([]);
+  const [cleanupErrorIncidents, setCleanupErrorIncidents] = useState(0);
   const [recentSessions, setRecentSessions] = useState([]);
   const [isGlobalAnalyticsLoading, setIsGlobalAnalyticsLoading] = useState(false);
   const [globalErrorMessage, setGlobalErrorMessage] = useState("");
@@ -935,7 +1164,7 @@ function InstructorDashboardPage() {
   const [forceCloseErrorMessage, setForceCloseErrorMessage] = useState("");
   const [forceCloseErrorDetails, setForceCloseErrorDetails] = useState("");
   const [studentDetailTab, setStudentDetailTab] = useState("overview");
-  const [analyticsDetailTab, setAnalyticsDetailTab] = useState("difficulty");
+  const [analyticsDetailTab, setAnalyticsDetailTab] = useState("scenario");
 
 
   async function loadGlobalAnalytics() {
@@ -956,21 +1185,49 @@ function InstructorDashboardPage() {
         getRecentSessions(10)
       ]);
 
-      setGlobalSummary(summaryResponse || null);
+      const summaryPayload = summaryResponse || {};
+      const difficultyPayload = difficultyResponse || {};
+      const topicPayload = topicWeaknessResponse || {};
+      const recentPayload = recentSessionsResponse || {};
+
+      setGlobalSummary(summaryPayload);
+      setScenarioPerformance(
+        getAnalyticsArray(
+          summaryPayload.scenario_performance,
+          difficultyPayload.scenario_performance,
+          topicPayload.scenario_performance
+        )
+      );
       setDifficultyDistribution(
-        Array.isArray(difficultyResponse?.distribution)
-          ? difficultyResponse.distribution
-          : []
+        getAnalyticsArray(
+          difficultyPayload.difficulty_performance,
+          summaryPayload.difficulty_performance,
+          difficultyPayload.distribution
+        )
       );
       setGlobalTopicWeaknesses(
-        Array.isArray(topicWeaknessResponse?.topic_weaknesses)
-          ? topicWeaknessResponse.topic_weaknesses
-          : []
+        getAnalyticsArray(
+          topicPayload.topic_weaknesses,
+          summaryPayload.topic_weaknesses
+        )
+      );
+      setRepeatedFailedTopics(
+        getAnalyticsArray(
+          topicPayload.repeated_failed_topics,
+          summaryPayload.repeated_failed_topics
+        )
+      );
+      setCleanupErrorIncidents(
+        summaryPayload.cleanup_error_incidents ??
+          summaryPayload.cleanup_error_incident_count ??
+          topicPayload.cleanup_error_incidents ??
+          0
       );
       setRecentSessions(
-        Array.isArray(recentSessionsResponse?.recent_sessions)
-          ? recentSessionsResponse.recent_sessions
-          : []
+        getAnalyticsArray(
+          recentPayload.recent_sessions,
+          summaryPayload.recent_sessions
+        )
       );
     } catch (error) {
       setGlobalErrorMessage(
@@ -1456,6 +1713,10 @@ function InstructorDashboardPage() {
               onChange={setAnalyticsDetailTab}
             />
 
+            {analyticsDetailTab === "scenario" && (
+              <ScenarioPerformancePanel scenarios={scenarioPerformance} />
+            )}
+
             {analyticsDetailTab === "difficulty" && (
               <DifficultyDistributionChart distribution={difficultyDistribution} />
             )}
@@ -1464,8 +1725,16 @@ function InstructorDashboardPage() {
               <TopicWeaknessList topicWeaknesses={globalTopicWeaknesses} />
             )}
 
+            {analyticsDetailTab === "repeated" && (
+              <RepeatedFailedTopicsPanel topics={repeatedFailedTopics} />
+            )}
+
             {analyticsDetailTab === "recentSessions" && (
               <RecentSessionsTable sessions={recentSessions} />
+            )}
+
+            {analyticsDetailTab === "incidents" && (
+              <CleanupIncidentPanel incidents={cleanupErrorIncidents} />
             )}
           </div>
         </div>
