@@ -70,6 +70,16 @@ def get_cli_access_modes() -> dict:
                 ),
             },
             {
+                "value": "browser_terminal_pty_bridge",
+                "label": "Browser terminal PTY bridge",
+                "status": "backend_ready",
+                "description": (
+                    "NR-Sprint36A backend terminal bridge. The frontend can connect "
+                    "xterm.js to a raw WebSocket terminal endpoint backed by Docker "
+                    "exec TTY and a backend PTY."
+                ),
+            },
+            {
                 "value": "local_docker_exec_demo",
                 "label": "Local docker exec demo mode",
                 "status": "supported",
@@ -112,6 +122,19 @@ def get_cli_access_modes() -> dict:
             "example": (
                 "ws://127.0.0.1:8000/api/v1/labs/"
                 "lab-abc12345/cli/ws/r1?token=demo-student-token"
+            ),
+        },
+        "terminal_websocket": {
+            "path_template": "/api/v1/labs/{session_id}/terminal/ws/{device_id}",
+            "auth_query_param": "token",
+            "status": "backend_ready",
+            "mode": "terminal_pty_bridge",
+            "input": "binary frames or text frames are forwarded as raw terminal bytes",
+            "output": "terminal output is sent as binary frames",
+            "resize_control_message": {"type": "resize", "cols": 120, "rows": 32},
+            "example": (
+                "ws://127.0.0.1:8000/api/v1/labs/"
+                "lab-abc12345/terminal/ws/srl1?token=demo-student-token"
             ),
         },
         "decision": (

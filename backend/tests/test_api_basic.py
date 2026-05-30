@@ -1664,3 +1664,175 @@ def test_sprint21_ownership_forbidden_error_code_is_stable():
     assert forbidden_response.status_code == 403
     forbidden_payload = _sprint21_error_payload(forbidden_response)
     assert forbidden_payload["error_code"] == "LAB_OWNERSHIP_FORBIDDEN"
+
+
+
+def test_nr_sprint36a_terminal_context_resolves_trusted_command_from_cli_metadata():
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from app.services.web_cli_service import build_web_cli_context
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "srl-basic-link",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    srl_context = build_web_cli_context(
+        session_id=session_id,
+        device_id="srl1",
+        token="demo-student-token",
+    )
+
+    client_context = build_web_cli_context(
+        session_id=session_id,
+        device_id="client1",
+        token="demo-student-token",
+    )
+
+    assert srl_context.terminal_command == ["sr_cli"]
+    assert client_context.terminal_command == ["sh"]
+
+
+def test_nr_sprint36a_terminal_ws_endpoint_uses_separate_pty_mode(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+
+    async def fake_terminal_bridge(websocket, context):
+        await websocket.send_json(
+            {
+                "type": "terminal_bridge_mock",
+                "success": True,
+                "session_id": context.session_id,
+                "device_id": context.device_id,
+                "terminal_command": context.terminal_command,
+            }
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.run_terminal_pty_bridge",
+        fake_terminal_bridge,
+    )
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "srl-basic-link",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/terminal/ws/srl1?token=demo-student-token"
+    ) as websocket:
+        connected = websocket.receive_json()
+        bridge_payload = websocket.receive_json()
+
+    assert connected["type"] == "terminal_connected"
+    assert connected["success"] is True
+    assert connected["mode"] == "terminal_pty_bridge"
+    assert connected["endpoint"] == "/api/v1/labs/{session_id}/terminal/ws/{device_id}"
+
+    assert bridge_payload["type"] == "terminal_bridge_mock"
+    assert bridge_payload["success"] is True
+    assert bridge_payload["terminal_command"] == ["sr_cli"]
+
+
+def test_nr_sprint36a_terminal_ws_reuses_web_cli_authz_guardrails():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "another-student",
+            "difficulty": "easy",
+            "scenario_id": "srl-basic-link",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/terminal/ws/srl1?token=demo-student-token"
+    ) as websocket:
+        payload = websocket.receive_json()
+
+    assert payload["type"] == "error"
+    assert payload["success"] is False
+    assert payload["status_code"] == 403
+    assert payload["error_code"] == "WEB_CLI_FORBIDDEN"
+
+
+def test_nr_sprint36a_terminal_input_parser_preserves_raw_terminal_bytes():
+    from app.services.web_cli_service import _websocket_message_to_terminal_input
+
+    terminal_input, control_message = _websocket_message_to_terminal_input(
+        {"type": "websocket.receive", "bytes": b"\x03"}
+    )
+
+    assert terminal_input == b"\x03"
+    assert control_message is None
+
+    terminal_input, control_message = _websocket_message_to_terminal_input(
+        {"type": "websocket.receive", "text": "\x1b[A"}
+    )
+
+    assert terminal_input == b"\x1b[A"
+    assert control_message is None
+
+    terminal_input, control_message = _websocket_message_to_terminal_input(
+        {
+            "type": "websocket.receive",
+            "text": '{"type":"resize","cols":120,"rows":32}',
+        }
+    )
+
+    assert terminal_input is None
+    assert control_message == {
+        "type": "resize",
+        "cols": 120,
+        "rows": 32,
+    }
+
+
+
+def test_nr_sprint36a_cli_access_modes_metadata_includes_terminal_contract():
+    response = client.get("/api/v1/meta/cli-access-modes")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    modes_by_value = {
+        item["value"]: item
+        for item in data["modes"]
+    }
+
+    assert data["current_mode"] == "browser_cli_mvp"
+    assert data["websocket"]["path_template"] == "/api/v1/labs/{session_id}/cli/ws/{device_id}"
+
+    assert modes_by_value["browser_terminal_pty_bridge"]["status"] == "backend_ready"
+
+    terminal_ws = data["terminal_websocket"]
+    assert terminal_ws["path_template"] == "/api/v1/labs/{session_id}/terminal/ws/{device_id}"
+    assert terminal_ws["auth_query_param"] == "token"
+    assert terminal_ws["status"] == "backend_ready"
+    assert terminal_ws["mode"] == "terminal_pty_bridge"
+    assert terminal_ws["resize_control_message"] == {
+        "type": "resize",
+        "cols": 120,
+        "rows": 32,
+    }

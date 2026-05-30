@@ -1,4 +1,8 @@
 import asyncio
+import json
+import os
+import select
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -19,6 +23,7 @@ class WebCliContext:
     container_name: str
     username: str
     role: str
+    terminal_command: list[str]
 
 
 class WebCliError(Exception):
@@ -103,6 +108,10 @@ def build_web_cli_context(
         container_name=container_name,
         username=current_user.username,
         role=current_user.role,
+        terminal_command=_build_terminal_command(
+            cli_item=cli_item,
+            container_name=container_name,
+        ),
     )
 
 
@@ -235,6 +244,161 @@ async def run_web_cli_bridge(
         await _safe_close(websocket)
 
 
+
+async def run_terminal_pty_bridge(
+    websocket: WebSocket,
+    context: WebCliContext,
+) -> None:
+    """
+    Bridges a WebSocket to a real Docker exec TTY via a backend PTY.
+
+    NR-Sprint36A:
+    - Uses docker exec -it <container> <trusted command>.
+    - Allocates a backend PTY so interactive terminal behavior works.
+    - Forwards raw bytes in both directions.
+    - Preserves CTRL+C and escape sequences for arrows/function keys.
+    - Supports resize control frames: {"type":"resize","cols":120,"rows":32}.
+    """
+
+    command = [
+        "docker",
+        "exec",
+        "-it",
+        context.container_name,
+        *context.terminal_command,
+    ]
+
+    try:
+        master_fd, slave_fd = _open_terminal_pty()
+    except TerminalPtyUnavailableError as exc:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "success": False,
+                "error_code": "TERMINAL_PTY_UNAVAILABLE",
+                "message": str(exc),
+            }
+        )
+        await _safe_close(websocket, code=1011)
+        return
+    except OSError as exc:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "success": False,
+                "error_code": "TERMINAL_PTY_START_FAILED",
+                "message": f"Could not allocate backend PTY: {exc}",
+            }
+        )
+        await _safe_close(websocket, code=1011)
+        return
+
+    process: asyncio.subprocess.Process | None = None
+
+    try:
+        os.set_blocking(master_fd, False)
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdin=slave_fd,
+                stdout=slave_fd,
+                stderr=slave_fd,
+                close_fds=True,
+            )
+        finally:
+            _close_fd(slave_fd)
+
+        await websocket.send_json(
+            {
+                "type": "terminal_started",
+                "success": True,
+                "session_id": context.session_id,
+                "device_id": context.device_id,
+                "container_name": context.container_name,
+                "mode": "terminal_pty_bridge",
+                "terminal_command": context.terminal_command,
+                "protocol": {
+                    "input": "binary frames or text frames are forwarded as raw terminal bytes",
+                    "output": "terminal output is sent as binary frames",
+                    "resize": {"type": "resize", "cols": 120, "rows": 32},
+                },
+                "message": "Real terminal PTY bridge started.",
+            }
+        )
+
+        output_task = asyncio.create_task(
+            _pipe_terminal_pty_to_websocket(
+                master_fd=master_fd,
+                websocket=websocket,
+            )
+        )
+        input_task = asyncio.create_task(
+            _pipe_websocket_to_terminal_pty(
+                websocket=websocket,
+                master_fd=master_fd,
+            )
+        )
+
+        process_wait_task = asyncio.create_task(process.wait())
+
+        done, pending = await asyncio.wait(
+            {output_task, input_task, process_wait_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        for task in pending:
+            task.cancel()
+
+        for task in done:
+            task.result()
+    except FileNotFoundError:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "success": False,
+                "error_code": "DOCKER_NOT_FOUND_FOR_TERMINAL",
+                "message": (
+                    "Docker command was not found in the backend runtime environment. "
+                    "Run the backend inside WSL/Ubuntu or the VM where Docker is installed."
+                ),
+            }
+        )
+    except PermissionError as exc:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "success": False,
+                "error_code": "DOCKER_PERMISSION_DENIED_FOR_TERMINAL",
+                "message": f"Permission denied while opening terminal: {exc}",
+            }
+        )
+    except WebSocketDisconnect:
+        pass
+    except OSError as exc:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "success": False,
+                "error_code": "TERMINAL_PTY_BRIDGE_FAILED",
+                "message": f"Terminal PTY bridge failed: {exc}",
+            }
+        )
+    finally:
+        if process is not None and process.returncode is None:
+            process.terminate()
+
+            try:
+                await asyncio.wait_for(process.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+
+        _close_fd(master_fd)
+        await _safe_close(websocket)
+
+
+
 async def _pipe_stream_to_websocket(
     stream: asyncio.StreamReader | None,
     websocket: WebSocket,
@@ -264,6 +428,181 @@ async def _pipe_websocket_to_process(
 
         process.stdin.write(text.encode())
         await process.stdin.drain()
+
+
+
+class TerminalPtyUnavailableError(RuntimeError):
+    pass
+
+
+def _build_terminal_command(cli_item: Any, container_name: str) -> list[str]:
+    command_text = _get_cli_value(cli_item, "command")
+
+    if isinstance(command_text, str) and command_text.strip():
+        try:
+            tokens = shlex.split(command_text)
+        except ValueError:
+            tokens = []
+
+        if container_name in tokens:
+            container_index = tokens.index(container_name)
+            terminal_command = tokens[container_index + 1 :]
+
+            if terminal_command:
+                return terminal_command
+
+    return ["sh"]
+
+
+def _open_terminal_pty() -> tuple[int, int]:
+    try:
+        import pty
+    except ImportError as exc:
+        raise TerminalPtyUnavailableError(
+            "Backend PTY support is only available on Unix-like runtimes such as the Ubuntu VM."
+        ) from exc
+
+    return pty.openpty()
+
+
+def _websocket_message_to_terminal_input(
+    message: dict[str, Any],
+) -> tuple[bytes | None, dict[str, int] | None]:
+    raw_bytes = message.get("bytes")
+
+    if raw_bytes is not None:
+        return raw_bytes, None
+
+    text = message.get("text")
+
+    if text is None:
+        return None, None
+
+    control_message = _parse_terminal_control_message(text)
+
+    if control_message is not None:
+        return None, control_message
+
+    return text.encode(), None
+
+
+def _parse_terminal_control_message(text: str) -> dict[str, int] | None:
+    stripped = text.strip()
+
+    if not stripped.startswith("{"):
+        return None
+
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    if payload.get("type") != "resize":
+        return None
+
+    try:
+        cols = int(payload["cols"])
+        rows = int(payload["rows"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    if cols < 1 or rows < 1:
+        return None
+
+    return {
+        "type": "resize",
+        "cols": cols,
+        "rows": rows,
+    }
+
+
+async def _pipe_terminal_pty_to_websocket(
+    master_fd: int,
+    websocket: WebSocket,
+) -> None:
+    while True:
+        data = await asyncio.to_thread(_read_terminal_pty_chunk, master_fd)
+
+        if not data:
+            continue
+
+        await websocket.send_bytes(data)
+
+
+def _read_terminal_pty_chunk(master_fd: int) -> bytes:
+    ready, _, _ = select.select([master_fd], [], [], 0.25)
+
+    if not ready:
+        return b""
+
+    try:
+        return os.read(master_fd, 4096)
+    except BlockingIOError:
+        return b""
+    except OSError:
+        return b""
+
+
+async def _pipe_websocket_to_terminal_pty(
+    websocket: WebSocket,
+    master_fd: int,
+) -> None:
+    while True:
+        message = await websocket.receive()
+
+        if message.get("type") == "websocket.disconnect":
+            raise WebSocketDisconnect
+
+        terminal_input, control_message = _websocket_message_to_terminal_input(message)
+
+        if control_message is not None:
+            _resize_terminal_pty(
+                master_fd=master_fd,
+                cols=control_message["cols"],
+                rows=control_message["rows"],
+            )
+            continue
+
+        if terminal_input is None:
+            continue
+
+        await asyncio.to_thread(_write_terminal_pty_input, master_fd, terminal_input)
+
+
+def _write_terminal_pty_input(master_fd: int, terminal_input: bytes) -> None:
+    if not terminal_input:
+        return
+
+    os.write(master_fd, terminal_input)
+
+
+def _resize_terminal_pty(master_fd: int, cols: int, rows: int) -> None:
+    try:
+        import fcntl
+        import struct
+        import termios
+    except ImportError:
+        return
+
+    if cols < 1 or rows < 1:
+        return
+
+    fcntl.ioctl(
+        master_fd,
+        termios.TIOCSWINSZ,
+        struct.pack("HHHH", rows, cols, 0, 0),
+    )
+
+
+def _close_fd(fd: int) -> None:
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
 
 
 def _authenticate_web_cli_user(token: str | None) -> AuthenticatedUser:
@@ -562,3 +901,4 @@ def _readiness_message(
         return "Web CLI runtime is ready."
 
     return "Web CLI runtime is not ready. Check device readiness details."
+
