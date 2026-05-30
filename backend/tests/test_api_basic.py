@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 from fastapi.testclient import TestClient
 
@@ -1750,6 +1751,237 @@ def test_nr_sprint36a_terminal_ws_endpoint_uses_separate_pty_mode(monkeypatch):
     assert bridge_payload["type"] == "terminal_bridge_mock"
     assert bridge_payload["success"] is True
     assert bridge_payload["terminal_command"] == ["sr_cli"]
+
+
+def _nr_sprint37a_wait_until(predicate, timeout: float = 1.0) -> bool:
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.01)
+
+    return predicate()
+
+
+def test_nr_sprint37a_terminal_ws_supports_concurrent_devices(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from starlette.websockets import WebSocketDisconnect
+
+    active_devices: set[str] = set()
+    closed_devices: list[str] = []
+
+    async def fake_terminal_bridge(websocket, context):
+        active_devices.add(context.device_id)
+
+        try:
+            await websocket.send_json(
+                {
+                    "type": "terminal_started",
+                    "success": True,
+                    "session_id": context.session_id,
+                    "device_id": context.device_id,
+                    "container_name": context.container_name,
+                    "mode": "terminal_pty_bridge",
+                    "terminal_command": context.terminal_command,
+                }
+            )
+
+            while True:
+                message = await websocket.receive()
+
+                if message.get("type") == "websocket.disconnect":
+                    raise WebSocketDisconnect()
+
+                terminal_input = message.get("bytes")
+                if terminal_input is None and message.get("text") is not None:
+                    terminal_input = message["text"].encode()
+
+                if terminal_input:
+                    await websocket.send_bytes(
+                        f"{context.device_id}:".encode() + terminal_input
+                    )
+        except WebSocketDisconnect:
+            closed_devices.append(context.device_id)
+        finally:
+            active_devices.discard(context.device_id)
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.run_terminal_pty_bridge",
+        fake_terminal_bridge,
+    )
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "campus-core-static-routing",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/terminal/ws/client2?token=demo-student-token"
+    ) as client2_ws:
+        client2_connected = client2_ws.receive_json()
+        client2_started = client2_ws.receive_json()
+
+        assert client2_connected["type"] == "terminal_connected"
+        assert client2_started["type"] == "terminal_started"
+        assert client2_started["device_id"] == "client2"
+        assert client2_started["terminal_command"] == ["sh"]
+
+        with client.websocket_connect(
+            f"/api/v1/labs/{session_id}/terminal/ws/srl1?token=demo-student-token"
+        ) as srl1_ws:
+            srl1_connected = srl1_ws.receive_json()
+            srl1_started = srl1_ws.receive_json()
+
+            assert srl1_connected["type"] == "terminal_connected"
+            assert srl1_started["type"] == "terminal_started"
+            assert srl1_started["device_id"] == "srl1"
+            assert srl1_started["terminal_command"] == ["sr_cli"]
+
+            assert active_devices == {"client2", "srl1"}
+
+            client2_ws.send_bytes(b"ip route\n")
+            assert client2_ws.receive_bytes() == b"client2:ip route\n"
+
+            srl1_ws.send_text("show version\n")
+            assert srl1_ws.receive_bytes() == b"srl1:show version\n"
+
+        assert _nr_sprint37a_wait_until(lambda: "srl1" in closed_devices)
+
+        client2_ws.send_bytes(b"still-open\n")
+        assert client2_ws.receive_bytes() == b"client2:still-open\n"
+        assert active_devices == {"client2"}
+
+    assert _nr_sprint37a_wait_until(lambda: "client2" in closed_devices)
+    assert active_devices == set()
+
+
+def test_nr_sprint37a_terminal_ws_allows_same_device_parallel_sessions(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from starlette.websockets import WebSocketDisconnect
+
+    connection_counter = {"value": 0}
+    closed_connections: list[str] = []
+
+    async def fake_terminal_bridge(websocket, context):
+        connection_counter["value"] += 1
+        connection_id = f"{context.device_id}-{connection_counter['value']}"
+
+        try:
+            await websocket.send_json(
+                {
+                    "type": "terminal_started",
+                    "success": True,
+                    "session_id": context.session_id,
+                    "device_id": context.device_id,
+                    "connection_id": connection_id,
+                    "mode": "terminal_pty_bridge",
+                    "terminal_command": context.terminal_command,
+                }
+            )
+
+            while True:
+                message = await websocket.receive()
+
+                if message.get("type") == "websocket.disconnect":
+                    raise WebSocketDisconnect()
+
+                terminal_input = message.get("bytes")
+                if terminal_input is None and message.get("text") is not None:
+                    terminal_input = message["text"].encode()
+
+                if terminal_input:
+                    await websocket.send_bytes(
+                        f"{connection_id}:".encode() + terminal_input
+                    )
+        except WebSocketDisconnect:
+            closed_connections.append(connection_id)
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.run_terminal_pty_bridge",
+        fake_terminal_bridge,
+    )
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "campus-core-static-routing",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    url = f"/api/v1/labs/{session_id}/terminal/ws/client2?token=demo-student-token"
+
+    with client.websocket_connect(url) as first_ws:
+        first_connected = first_ws.receive_json()
+        first_started = first_ws.receive_json()
+
+        with client.websocket_connect(url) as second_ws:
+            second_connected = second_ws.receive_json()
+            second_started = second_ws.receive_json()
+
+            assert first_connected["type"] == "terminal_connected"
+            assert second_connected["type"] == "terminal_connected"
+
+            assert first_started["connection_id"] == "client2-1"
+            assert second_started["connection_id"] == "client2-2"
+
+            first_ws.send_bytes(b"first\n")
+            second_ws.send_bytes(b"second\n")
+
+            assert first_ws.receive_bytes() == b"client2-1:first\n"
+            assert second_ws.receive_bytes() == b"client2-2:second\n"
+
+        assert _nr_sprint37a_wait_until(
+            lambda: "client2-2" in closed_connections
+        )
+
+        first_ws.send_bytes(b"first-still-open\n")
+        assert first_ws.receive_bytes() == b"client2-1:first-still-open\n"
+
+    assert _nr_sprint37a_wait_until(lambda: "client2-1" in closed_connections)
+
+
+def test_nr_sprint37a_cancel_pending_tasks_drains_task_cancellation():
+    import asyncio
+
+    from app.services.web_cli_service import _cancel_pending_tasks
+
+    events: list[str] = []
+
+    async def wait_forever():
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            events.append("cancelled")
+            raise
+
+    async def scenario():
+        task = asyncio.create_task(wait_forever())
+        await asyncio.sleep(0)
+        await _cancel_pending_tasks({task})
+
+        assert task.cancelled()
+        assert events == ["cancelled"]
+
+    asyncio.run(scenario())
 
 
 def test_nr_sprint36a_terminal_ws_reuses_web_cli_authz_guardrails():
