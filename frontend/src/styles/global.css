@@ -5345,3 +5345,149 @@ html {
     min-height: 0;
   }
 }
+
+
+/* NR-Sprint32B campus topology frontend foundation */
+.scenario-card-grid-selectable {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.scenario-card-grid-selectable .scenario-select-card {
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario-card-grid-selectable .scenario-select-card.selected {
+  border-color: #2563eb;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.14);
+}
+
+.network-diagram-canvas.campus {
+  min-height: 560px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.campus-topology-diagram {
+  position: relative;
+  min-width: 1120px;
+  min-height: 500px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 25% 20%, rgba(59, 130, 246, 0.08), transparent 30%),
+    radial-gradient(circle at 75% 75%, rgba(34, 197, 94, 0.08), transparent 28%),
+    #f8fafc;
+}
+
+.campus-topology-svg {
+  position: absolute;
+  inset: 24px;
+  width: calc(100% - 48px);
+  height: calc(100% - 48px);
+  pointer-events: none;
+}
+
+.campus-topology-line {
+  stroke: #334155;
+  stroke-width: 0.75;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.campus-topology-endpoint {
+  fill: #2563eb;
+  stroke: #ffffff;
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.campus-node-layer,
+.campus-link-label-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.campus-node {
+  position: absolute;
+  width: 188px;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.campus-node .network-node-card {
+  min-height: 0;
+  padding: 0.65rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.campus-node .network-device-shell {
+  min-height: 48px;
+}
+
+.campus-node .network-device-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.campus-node .network-node-title-row strong,
+.campus-node .network-node-detail-grid strong {
+  font-size: 0.76rem;
+}
+
+.campus-node .network-node-title-row p,
+.campus-node .network-node-detail-grid span {
+  font-size: 0.68rem;
+}
+
+.campus-node .network-node-detail-grid {
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.campus-node .network-node-detail-grid > div:nth-child(2),
+.campus-node .network-node-detail-grid > div:nth-child(4) {
+  display: none;
+}
+
+.campus-node-client1 { left: 9%; top: 28%; }
+.campus-node-srl1 { left: 29%; top: 28%; }
+.campus-node-srl3 { left: 50%; top: 28%; }
+.campus-node-srl2 { left: 71%; top: 28%; }
+.campus-node-client2 { left: 91%; top: 28%; }
+.campus-node-srl4 { left: 50%; top: 78%; }
+
+.campus-link-label {
+  position: absolute;
+  z-index: 3;
+  max-width: 160px;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1e293b;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translate(-50%, -50%);
+  white-space: normal;
+}
+
+.campus-link-label-client1-srl1 { left: 19%; top: 13%; }
+.campus-link-label-srl1-srl3 { left: 39.5%; top: 13%; }
+.campus-link-label-srl3-srl2 { left: 60.5%; top: 13%; }
+.campus-link-label-srl2-client2 { left: 81%; top: 13%; }
+.campus-link-label-srl1-srl4 { left: 37%; top: 53%; }
+.campus-link-label-srl4-srl2 { left: 63%; top: 53%; }
+
+@media (max-width: 900px) {
+  .network-diagram-canvas.campus {
+    min-height: 520px;
+  }
+
+  .campus-topology-diagram {
+    min-width: 1040px;
+  }
+}

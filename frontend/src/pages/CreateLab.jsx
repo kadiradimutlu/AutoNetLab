@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createLab,
   getDifficulties,
@@ -15,6 +15,7 @@ import {
 } from "../utils/formatters";
 
 const DEFAULT_SCENARIO_ID = "srl-basic-link";
+const CAMPUS_SCENARIO_ID = "campus-core-static-routing";
 
 const FALLBACK_SRL_SCENARIO = {
   id: DEFAULT_SCENARIO_ID,
@@ -112,12 +113,21 @@ function normalizeScenarios(items) {
   return items.filter((scenario) => scenario?.id);
 }
 
-function getPrimaryScenario(scenarios) {
+function getPreferredScenario(scenarios) {
   return (
+    scenarios.find((scenario) => scenario.id === CAMPUS_SCENARIO_ID) ||
     scenarios.find((scenario) => scenario.id === DEFAULT_SCENARIO_ID) ||
     scenarios[0] ||
     FALLBACK_SRL_SCENARIO
   );
+}
+
+function getScenarioList(scenarios) {
+  return scenarios.length > 0 ? scenarios : [FALLBACK_SRL_SCENARIO];
+}
+
+function getDefaultScenarioId(scenarios) {
+  return getPreferredScenario(scenarios)?.id || DEFAULT_SCENARIO_ID;
 }
 
 function getScenarioDeviceCount(scenario) {
@@ -171,6 +181,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
   const [difficulty, setDifficulty] = useState("easy");
   const [difficulties, setDifficulties] = useState([]);
   const [scenarios, setScenarios] = useState([]);
+  const [selectedScenarioId, setSelectedScenarioId] = useState(DEFAULT_SCENARIO_ID);
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false);
   const [scenarioLoadMessage, setScenarioLoadMessage] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -209,6 +220,16 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
         if (isMounted) {
           setScenarios(normalizedScenarios);
 
+          setSelectedScenarioId((currentScenarioId) => {
+            const currentScenarioExists = normalizedScenarios.some(
+              (scenario) => scenario.id === currentScenarioId
+            );
+
+            return currentScenarioExists
+              ? currentScenarioId
+              : getDefaultScenarioId(normalizedScenarios);
+          });
+
           if (normalizedScenarios.length === 0) {
             setScenarioLoadMessage(
               "Scenario catalog returned no visible scenarios. The default SR Linux scenario will still be used."
@@ -220,6 +241,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
         if (isMounted) {
           setScenarios([]);
+          setSelectedScenarioId(DEFAULT_SCENARIO_ID);
           setScenarioLoadMessage(
             "Scenario catalog could not be loaded. The default SR Linux scenario will still be used."
           );
@@ -244,9 +266,16 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
   const selectedPreview = DIFFICULTY_PREVIEWS[difficulty] || DIFFICULTY_PREVIEWS.easy;
 
-  const selectedScenario = useMemo(() => {
-    return getPrimaryScenario(scenarios);
+  const availableScenarios = useMemo(() => {
+    return getScenarioList(scenarios);
   }, [scenarios]);
+
+  const selectedScenario = useMemo(() => {
+    return (
+      availableScenarios.find((scenario) => scenario.id === selectedScenarioId) ||
+      getPreferredScenario(availableScenarios)
+    );
+  }, [availableScenarios, selectedScenarioId]);
 
   async function handleCreateLab() {
     setIsCreating(true);
@@ -313,7 +342,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           <div>
             <h2>Create Lab</h2>
             <p className="muted">
-              Select a difficulty level for the SR Linux troubleshooting scenario.
+              Select a network realism scenario and difficulty level.
               The lab session will open in your workspace. Start the environment there when you are ready.
             </p>
           </div>
@@ -373,7 +402,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
             <div>
               <h3>Scenario</h3>
               <p className="muted">
-                AutoNetLab now uses a single network realism lab powered by Nokia SR Linux and a Linux troubleshooting client.
+                Choose a professional network realism scenario from the backend catalog.
               </p>
             </div>
           </div>
@@ -386,37 +415,53 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
             />
           )}
 
-          <div className="scenario-card-grid">
-            <div className="lab-type-card scenario-select-card selected">
-              <span className="badge neutral">
-                {isLoadingScenarios ? "Loading Scenario" : "Network Realism Scenario"}
-              </span>
+          <div className="scenario-card-grid scenario-card-grid-selectable">
+            {availableScenarios.map((scenario) => {
+              const isSelected = selectedScenario?.id === scenario.id;
 
-              <strong>{selectedScenario?.title || FALLBACK_SRL_SCENARIO.title}</strong>
-              <p>{getScenarioDisplaySummary(selectedScenario)}</p>
+              return (
+                <button
+                  className={`lab-type-card scenario-select-card ${isSelected ? "selected" : ""}`}
+                  key={scenario.id}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => setSelectedScenarioId(scenario.id)}
+                >
+                  <span className="badge neutral">
+                    {scenario.id === CAMPUS_SCENARIO_ID
+                      ? "Campus Scenario"
+                      : isLoadingScenarios
+                        ? "Loading Scenario"
+                        : "Network Realism Scenario"}
+                  </span>
 
-              <div className="scenario-card-meta-grid">
-                <div>
-                  <span>Router OS</span>
-                  <strong>{selectedScenario?.router_os || "Nokia SR Linux"}</strong>
-                </div>
+                  <strong>{scenario.title || FALLBACK_SRL_SCENARIO.title}</strong>
+                  <p>{getScenarioDisplaySummary(scenario)}</p>
 
-                <div>
-                  <span>Devices</span>
-                  <strong>{getScenarioDeviceCount(selectedScenario)}</strong>
-                </div>
+                  <div className="scenario-card-meta-grid">
+                    <div>
+                      <span>Router OS</span>
+                      <strong>{scenario.router_os || "Nokia SR Linux"}</strong>
+                    </div>
 
-                <div>
-                  <span>Links</span>
-                  <strong>{getScenarioLinkCount(selectedScenario)}</strong>
-                </div>
+                    <div>
+                      <span>Devices</span>
+                      <strong>{getScenarioDeviceCount(scenario)}</strong>
+                    </div>
 
-                <div>
-                  <span>CLI</span>
-                  <strong>{getScenarioCliSummary(selectedScenario)}</strong>
-                </div>
-              </div>
-            </div>
+                    <div>
+                      <span>Links</span>
+                      <strong>{getScenarioLinkCount(scenario)}</strong>
+                    </div>
+
+                    <div>
+                      <span>CLI</span>
+                      <strong>{getScenarioCliSummary(scenario)}</strong>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -502,7 +547,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
         <div className="info-row">
           <span>Topology</span>
           <strong>
-            {getScenarioDeviceCount(selectedScenario)} devices / {getScenarioLinkCount(selectedScenario)} link
+            {getScenarioDeviceCount(selectedScenario)} devices / {getScenarioLinkCount(selectedScenario)} {getScenarioLinkCount(selectedScenario) === 1 ? "link" : "links"}
           </strong>
         </div>
 
@@ -513,7 +558,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
 
         <div className="info-row">
           <span>Validation</span>
-          <strong>Live SR Linux validation</strong>
+          <strong>{selectedScenario?.runtime_profile === "deploy_only" ? "Deploy-only foundation" : "Live SR Linux validation"}</strong>
         </div>
 
         <h4>Scenario tasks</h4>

@@ -516,6 +516,138 @@ function RingTopologyDiagram({ nodes, links, cliAccess }) {
   );
 }
 
+
+const CAMPUS_NODE_ORDER = ["client1", "srl1", "srl3", "srl2", "client2", "srl4"];
+
+const CAMPUS_EDGE_CLASSES = {
+  "client1-srl1": "client1-srl1",
+  "srl1-client1": "client1-srl1",
+  "srl1-srl3": "srl1-srl3",
+  "srl3-srl1": "srl1-srl3",
+  "srl3-srl2": "srl3-srl2",
+  "srl2-srl3": "srl3-srl2",
+  "srl2-client2": "srl2-client2",
+  "client2-srl2": "srl2-client2",
+  "srl1-srl4": "srl1-srl4",
+  "srl4-srl1": "srl1-srl4",
+  "srl4-srl2": "srl4-srl2",
+  "srl2-srl4": "srl4-srl2"
+};
+
+function getCampusNodeSet(nodes) {
+  return new Set(nodes.map((node) => normalizeTopologyKey(node.id)));
+}
+
+function isCampusTopology(topology, nodes, links) {
+  const topologyName = normalizeTopologyKey(topology?.name || topology?.id || topology?.scenario_id || "");
+  const nodeSet = getCampusNodeSet(nodes);
+  const hasCampusNodes = CAMPUS_NODE_ORDER.every((nodeId) => nodeSet.has(nodeId));
+  const hasCampusName = topologyName.includes("campus-core-static-routing") || topologyName.includes("campus");
+
+  return hasCampusNodes && (hasCampusName || links.length >= 5);
+}
+
+function orderCampusNodes(nodes) {
+  const nodeMap = nodes.reduce((result, node) => {
+    result.set(normalizeTopologyKey(node.id), node);
+    return result;
+  }, new Map());
+
+  const orderedNodes = CAMPUS_NODE_ORDER
+    .map((nodeId) => nodeMap.get(nodeId))
+    .filter(Boolean);
+  const orderedNodeIds = new Set(orderedNodes.map((node) => normalizeTopologyKey(node.id)));
+  const remainingNodes = nodes.filter((node) => !orderedNodeIds.has(normalizeTopologyKey(node.id)));
+
+  return [...orderedNodes, ...remainingNodes];
+}
+
+function getCampusEdgeClass(link, index) {
+  const sourceKey = normalizeTopologyKey(link.sourceNode);
+  const targetKey = normalizeTopologyKey(link.targetNode);
+  const pairKey = `${sourceKey}-${targetKey}`;
+
+  return CAMPUS_EDGE_CLASSES[pairKey] || `extra-${index}`;
+}
+
+function getCampusLineCoordinates(edgeClass) {
+  const coordinatesByEdge = {
+    "client1-srl1": { x1: 16, y1: 18, x2: 24, y2: 18 },
+    "srl1-srl3": { x1: 34, y1: 18, x2: 44, y2: 18 },
+    "srl3-srl2": { x1: 54, y1: 18, x2: 64, y2: 18 },
+    "srl2-client2": { x1: 74, y1: 18, x2: 82, y2: 18 },
+    "srl1-srl4": { x1: 30, y1: 26, x2: 45, y2: 42 },
+    "srl4-srl2": { x1: 55, y1: 42, x2: 70, y2: 26 }
+  };
+
+  return coordinatesByEdge[edgeClass] || { x1: 48, y1: 30, x2: 52, y2: 30 };
+}
+
+function getCampusLinkLabel(link) {
+  return `${getSafeText(link.sourceNode)} ${getSafeText(link.sourceInterface)} ${LINK_ARROW} ${getSafeText(link.targetNode)} ${getSafeText(link.targetInterface)}`;
+}
+
+function CampusTopologyDiagram({ nodes, links, cliAccess }) {
+  const campusNodes = orderCampusNodes(nodes);
+  const campusLinks = links.map((link, index) => {
+    const edgeClass = getCampusEdgeClass(link, index);
+
+    return {
+      link,
+      edgeClass,
+      coordinates: getCampusLineCoordinates(edgeClass)
+    };
+  });
+
+  return (
+    <div className="campus-topology-diagram" aria-label="Campus core static routing topology diagram">
+      <svg
+        className="campus-topology-svg"
+        viewBox="0 0 100 58"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {campusLinks.map(({ link, edgeClass, coordinates }, index) => (
+          <g key={`${link.sourceNode}-${link.targetNode}-${index}`}>
+            <line
+              className={`campus-topology-line campus-link-line-${edgeClass}`}
+              x1={coordinates.x1}
+              y1={coordinates.y1}
+              x2={coordinates.x2}
+              y2={coordinates.y2}
+            />
+            <circle className="campus-topology-endpoint" cx={coordinates.x1} cy={coordinates.y1} r="1.1" />
+            <circle className="campus-topology-endpoint" cx={coordinates.x2} cy={coordinates.y2} r="1.1" />
+          </g>
+        ))}
+      </svg>
+
+      <div className="campus-link-label-layer" aria-hidden="true">
+        {campusLinks.map(({ link, edgeClass }, index) => (
+          <span
+            className={`campus-link-label campus-link-label-${edgeClass}`}
+            key={`${link.sourceNode}-${link.targetNode}-label-${index}`}
+            title={getCampusLinkLabel(link)}
+          >
+            {getCampusLinkLabel(link)}
+          </span>
+        ))}
+      </div>
+
+      <div className="campus-node-layer">
+        {campusNodes.map((node) => (
+          <div className={`campus-node campus-node-${normalizeTopologyKey(node.id)}`} key={node.id}>
+            <TopologyNode
+              node={node}
+              cliInfo={findCliAccessForNode(node, cliAccess)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TopologyLegend() {
   const items = [
     {
@@ -579,7 +711,8 @@ function TopologyCard({
   const hasNodes = nodes.length > 0;
   const isSimplePair = nodes.length === 2;
   const isFourNodeRing = nodes.length === 4 && links.length >= 4;
-  const isLinearMultiNode = nodes.length > 2 && !isFourNodeRing;
+  const isCampusTopologyDiagram = isCampusTopology(topology, nodes, links);
+  const isLinearMultiNode = nodes.length > 2 && !isFourNodeRing && !isCampusTopologyDiagram;
 
   return (
     <section className={`card topology-card topology-card-polished ${variant === "workspace" ? "topology-card-workspace" : ""}`}>
@@ -642,7 +775,7 @@ function TopologyCard({
             </strong>
           </div>
 
-          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""} ${isLinearMultiNode ? "linear" : ""}`}>
+          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""} ${isCampusTopologyDiagram ? "campus" : ""} ${isLinearMultiNode ? "linear" : ""}`}>
             {isSimplePair ? (
               <>
                 <TopologyNode
@@ -659,6 +792,12 @@ function TopologyCard({
               </>
             ) : isFourNodeRing ? (
               <RingTopologyDiagram
+                nodes={nodes}
+                links={links}
+                cliAccess={cliAccess}
+              />
+            ) : isCampusTopologyDiagram ? (
+              <CampusTopologyDiagram
                 nodes={nodes}
                 links={links}
                 cliAccess={cliAccess}
