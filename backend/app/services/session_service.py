@@ -26,7 +26,11 @@ from app.schemas.lab import (
 from app.schemas.topology import Topology
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 from app.services.recommendation.features import build_topic_performance
-from app.services.scenario_catalog import SR_BASIC_LINK_SCENARIO_ID, get_scenario
+from app.services.scenario_catalog import (
+    SR_BASIC_LINK_SCENARIO_ID,
+    get_scenario,
+    is_deploy_only_scenario,
+)
 from app.services.srlinux_runtime_setup import build_srlinux_runtime_faults
 
 
@@ -109,12 +113,16 @@ def create_lab_session(
     topology = generated_topology["topology"]
 
     # Sprint 32B: New lab creation is SR Linux scenario-first.
-    # Legacy Linux/Alpine error injection remains in older helper modules only
-    # while tests and compatibility paths are cleaned up incrementally.
-    injected_errors = build_srlinux_runtime_faults(
-        difficulty=request.difficulty,
-        seed=session_id,
-    )
+    # NR-Sprint 32A: deploy-only campus foundation scenarios intentionally
+    # skip basic-link runtime fault injection until golden config and
+    # validation v2 are implemented.
+    if is_deploy_only_scenario(scenario_id):
+        injected_errors = []
+    else:
+        injected_errors = build_srlinux_runtime_faults(
+            difficulty=request.difficulty,
+            seed=session_id,
+        )
 
     cli_access = build_cli_access(
         lab_name=generated_topology["lab_name"],

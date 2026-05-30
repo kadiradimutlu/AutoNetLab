@@ -4,6 +4,7 @@ import shlex
 import shutil
 import subprocess
 
+import yaml
 from fastapi import HTTPException, status
 
 from app.schemas.enums import SessionStatus
@@ -12,6 +13,13 @@ from app.schemas.enums import SessionStatus
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 GENERATED_DIR = PROJECT_ROOT / "containerlab" / "generated"
 TEMPLATES_DIR = PROJECT_ROOT / "containerlab" / "templates"
+
+
+DEFAULT_DEPLOY_TIMEOUT_SECONDS = 180
+DEFAULT_DESTROY_TIMEOUT_SECONDS = 180
+LARGE_TOPOLOGY_NODE_THRESHOLD = 6
+LARGE_TOPOLOGY_DEPLOY_TIMEOUT_SECONDS = 1200
+LARGE_TOPOLOGY_DESTROY_TIMEOUT_SECONDS = 600
 
 
 class ContainerlabAdapter:
@@ -40,7 +48,10 @@ class ContainerlabAdapter:
             command=["containerlab", "deploy", "-t", str(topology_path)],
             success_status=SessionStatus.deployed,
             success_message="Containerlab topology deployed successfully.",
-            timeout_seconds=180,
+            timeout_seconds=self._timeout_seconds_for_topology(
+                topology_path=topology_path,
+                action="deploy",
+            ),
         )
 
     def destroy(self, session_id: str, topology_file: str) -> dict:
@@ -59,7 +70,10 @@ class ContainerlabAdapter:
             command=["containerlab", "destroy", "-t", str(topology_path)],
             success_status=SessionStatus.destroyed,
             success_message="Containerlab topology destroyed successfully.",
-            timeout_seconds=180,
+            timeout_seconds=self._timeout_seconds_for_topology(
+                topology_path=topology_path,
+                action="destroy",
+            ),
         )
 
     def inspect(
@@ -85,6 +99,44 @@ class ContainerlabAdapter:
             success_message="Containerlab topology inspected successfully.",
             timeout_seconds=90,
         )
+
+    def _timeout_seconds_for_topology(
+        self,
+        topology_path: Path,
+        action: str,
+    ) -> int:
+        node_count = self._count_topology_nodes(topology_path)
+
+        if node_count < LARGE_TOPOLOGY_NODE_THRESHOLD:
+            if action == "destroy":
+                return DEFAULT_DESTROY_TIMEOUT_SECONDS
+
+            return DEFAULT_DEPLOY_TIMEOUT_SECONDS
+
+        if action == "destroy":
+            return LARGE_TOPOLOGY_DESTROY_TIMEOUT_SECONDS
+
+        return LARGE_TOPOLOGY_DEPLOY_TIMEOUT_SECONDS
+
+    @staticmethod
+    def _count_topology_nodes(topology_path: Path) -> int:
+        try:
+            payload = yaml.safe_load(topology_path.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            return 0
+
+        if not isinstance(payload, dict):
+            return 0
+
+        topology = payload.get("topology")
+        if not isinstance(topology, dict):
+            return 0
+
+        nodes = topology.get("nodes")
+        if isinstance(nodes, dict):
+            return len(nodes)
+
+        return 0
 
     def _run_containerlab_command(
         self,

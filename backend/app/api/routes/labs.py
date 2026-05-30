@@ -20,7 +20,7 @@ from app.schemas.validation import StudentValidationResult, ValidationHistoryRes
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.runtime_error_injection import apply_runtime_error_injection
-from app.services.scenario_catalog import is_srlinux_scenario
+from app.services.scenario_catalog import is_deploy_only_scenario, is_srlinux_scenario
 from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
 from app.services.session_service import (
     build_lab_hints_response,
@@ -222,42 +222,57 @@ def deploy_lab(
         topology_file=session["topology_file"],
     )
 
+    if _should_cleanup_partial_runtime_after_deploy_failure(
+        session=session,
+        result=result,
+    ):
+        result = _attempt_partial_runtime_cleanup_after_deploy_failure(
+            session=session,
+            failure_result=result,
+        )
+
     if result["success"]:
-        if _is_srlinux_session(session):
-            runtime_result = apply_srlinux_runtime_setup(session)
-            runtime_success_message = "SR Linux runtime setup applied successfully."
-        else:
-            runtime_result = apply_runtime_error_injection(session)
-            runtime_success_message = "Runtime error injection applied successfully."
-
-        if not runtime_result["success"]:
-            runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
-                session=session,
-                failure_result=runtime_result,
+        if _is_deploy_only_session(session):
+            result["message"] = (
+                result["message"]
+                + " Scenario deployed in foundation mode without runtime fault injection."
             )
-            update_session_status(session_id, runtime_result["status"])
-            return ActionResponse(**runtime_result)
+        else:
+            if _is_srlinux_session(session):
+                runtime_result = apply_srlinux_runtime_setup(session)
+                runtime_success_message = "SR Linux runtime setup applied successfully."
+            else:
+                runtime_result = apply_runtime_error_injection(session)
+                runtime_success_message = "Runtime error injection applied successfully."
 
-        result["message"] = (
-            result["message"]
-            + f" {runtime_success_message}"
-        )
-        result["stdout"] = "\n\n".join(
-            value
-            for value in [
-                result.get("stdout", ""),
-                runtime_result.get("stdout", ""),
-            ]
-            if value
-        )
-        result["stderr"] = "\n\n".join(
-            value
-            for value in [
-                result.get("stderr", ""),
-                runtime_result.get("stderr", ""),
-            ]
-            if value
-        )
+            if not runtime_result["success"]:
+                runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
+                    session=session,
+                    failure_result=runtime_result,
+                )
+                update_session_status(session_id, runtime_result["status"])
+                return ActionResponse(**runtime_result)
+
+            result["message"] = (
+                result["message"]
+                + f" {runtime_success_message}"
+            )
+            result["stdout"] = "\n\n".join(
+                value
+                for value in [
+                    result.get("stdout", ""),
+                    runtime_result.get("stdout", ""),
+                ]
+                if value
+            )
+            result["stderr"] = "\n\n".join(
+                value
+                for value in [
+                    result.get("stderr", ""),
+                    runtime_result.get("stderr", ""),
+                ]
+                if value
+            )
 
     update_session_status(session_id, result["status"])
 
@@ -467,6 +482,98 @@ def get_lab_recommendations(
         **build_recommendations_for_session(session)
     )
 
+
+
+def _should_cleanup_partial_runtime_after_deploy_failure(
+    session: dict,
+    result: dict,
+) -> bool:
+    if bool(result.get("success")):
+        return False
+
+    cleanup_candidate_error_codes = {
+        "CONTAINERLAB_DEPLOY_TIMEOUT",
+        "CONTAINERLAB_DEPLOY_FAILED",
+        "CONTAINER_NOT_RUNNING",
+    }
+
+    if result.get("error_code") not in cleanup_candidate_error_codes:
+        return False
+
+    return containerlab_adapter.runtime_containers_exist(session)
+
+
+def _attempt_partial_runtime_cleanup_after_deploy_failure(
+    session: dict,
+    failure_result: dict,
+) -> dict:
+    session_id = str(session["session_id"])
+    cleanup_result = containerlab_adapter.destroy_runtime_containers(session)
+
+    record_runtime_cleanup_result(
+        session_id=session_id,
+        trigger="containerlab_deploy_failed_partial_runtime",
+        cleanup_result=cleanup_result,
+    )
+
+    cleaned = bool(cleanup_result.get("success"))
+    cleanup_summary = (
+        "Partial runtime cleanup after failed deploy: completed successfully."
+        if cleaned
+        else (
+            "Partial runtime cleanup after failed deploy: attempted but failed "
+            f"({cleanup_result.get('error_code') or 'UNKNOWN_CLEANUP_ERROR'})."
+        )
+    )
+
+    logger_method = logger.warning if cleaned else logger.error
+    logger_method(
+        "Containerlab deploy failed after creating runtime containers; fallback cleanup recorded.",
+        extra={
+            "session_id": session_id,
+            "cleanup_success": cleaned,
+            "cleanup_error_code": cleanup_result.get("error_code"),
+            "cleanup_return_code": cleanup_result.get("return_code"),
+        },
+    )
+
+    response = dict(failure_result)
+    response["status"] = SessionStatus.destroyed if cleaned else SessionStatus.error
+    response["message"] = (
+        "Containerlab deploy failed. Partial runtime cleanup completed."
+        if cleaned
+        else (
+            "Containerlab deploy failed. Partial runtime cleanup was attempted "
+            "but did not complete."
+        )
+    )
+    response["stderr"] = "\n\n".join(
+        value
+        for value in [
+            str(response.get("stderr") or "").strip(),
+            cleanup_summary,
+        ]
+        if value
+    )
+    response["suggestion"] = (
+        "Retry deployment with a new lab session. The partial runtime was cleaned up."
+        if cleaned
+        else (
+            "Retry cleanup from the lab action, then check Docker and Containerlab "
+            "state if resources remain."
+        )
+    )
+
+    return response
+
+
+def _is_deploy_only_session(session: dict) -> bool:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict):
+        return is_deploy_only_scenario(scenario.get("id"))
+
+    return False
 
 
 def _is_srlinux_session(session: dict) -> bool:

@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.schemas.enums import Difficulty
 from app.schemas.topology import Topology, TopologyEndpoint, TopologyLink, TopologyNode
 from app.services.scenario_catalog import (
+    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
     NETWORK_CLIENT_IMAGE,
     SR_BASIC_LINK_SCENARIO_ID,
     SR_LINUX_IMAGE,
@@ -42,6 +43,7 @@ def generate_basic_topology(template_name: str = "basic-two-router") -> Topology
                 kind="linux",
                 image="alpine:latest",
                 mgmt_ipv4=None,
+                role="router",
             ),
             TopologyNode(
                 id="r2",
@@ -49,6 +51,7 @@ def generate_basic_topology(template_name: str = "basic-two-router") -> Topology
                 kind="linux",
                 image="alpine:latest",
                 mgmt_ipv4=None,
+                role="router",
             ),
         ],
         links=[
@@ -73,6 +76,9 @@ def generate_session_topology(
     - New student-facing lab creation is scenario-first.
     - If scenario_id is omitted by an older caller, SR Linux basic link is used.
     - Legacy difficulty templates remain only as compatibility code during cleanup.
+
+    NR-Sprint 32A:
+    - Adds a deploy-only professional campus topology foundation.
     """
 
     _validate_session_id(session_id)
@@ -83,6 +89,12 @@ def generate_session_topology(
     if scenario is not None:
         if scenario["id"] == SR_BASIC_LINK_SCENARIO_ID:
             return _generate_srl_basic_link_topology(
+                session_id=session_id,
+                topology_template=scenario["topology_template"],
+            )
+
+        if scenario["id"] == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
+            return _generate_campus_core_static_routing_topology(
                 session_id=session_id,
                 topology_template=scenario["topology_template"],
             )
@@ -175,6 +187,126 @@ def _generate_srl_basic_link_topology(
     }
 
 
+def _generate_campus_core_static_routing_topology(
+    session_id: str,
+    topology_template: str,
+) -> dict[str, Any]:
+    lab_name = f"autonetlab-{session_id}"
+
+    data: dict[str, Any] = {
+        "name": lab_name,
+        "topology": {
+            "nodes": {
+                "client1": {
+                    "kind": "linux",
+                    "image": NETWORK_CLIENT_IMAGE,
+                },
+                "srl1": {
+                    "kind": "nokia_srlinux",
+                    "type": "ixr-d2l",
+                    "image": SR_LINUX_IMAGE,
+                },
+                "srl3": {
+                    "kind": "nokia_srlinux",
+                    "type": "ixr-d2l",
+                    "image": SR_LINUX_IMAGE,
+                    "startup-delay": 180,
+                },
+                "srl2": {
+                    "kind": "nokia_srlinux",
+                    "type": "ixr-d2l",
+                    "image": SR_LINUX_IMAGE,
+                    "startup-delay": 90,
+                },
+                "client2": {
+                    "kind": "linux",
+                    "image": NETWORK_CLIENT_IMAGE,
+                },
+                "srl4": {
+                    "kind": "nokia_srlinux",
+                    "type": "ixr-d2l",
+                    "image": SR_LINUX_IMAGE,
+                    "startup-delay": 270,
+                },
+            },
+            "links": [
+                {
+                    "endpoints": [
+                        "client1:eth1",
+                        "srl1:e1-1",
+                    ],
+                    "ipv4": [
+                        "10.10.10.10/24",
+                        "10.10.10.1/24",
+                    ],
+                },
+                {
+                    "endpoints": [
+                        "srl1:e1-2",
+                        "srl3:e1-1",
+                    ],
+                    "ipv4": [
+                        "10.10.13.1/30",
+                        "10.10.13.2/30",
+                    ],
+                },
+                {
+                    "endpoints": [
+                        "srl3:e1-2",
+                        "srl2:e1-2",
+                    ],
+                    "ipv4": [
+                        "10.10.23.2/30",
+                        "10.10.23.1/30",
+                    ],
+                },
+                {
+                    "endpoints": [
+                        "srl2:e1-1",
+                        "client2:eth1",
+                    ],
+                    "ipv4": [
+                        "10.10.20.1/24",
+                        "10.10.20.10/24",
+                    ],
+                },
+                {
+                    "endpoints": [
+                        "srl1:e1-3",
+                        "srl4:e1-1",
+                    ],
+                    "ipv4": [
+                        "10.10.14.1/30",
+                        "10.10.14.2/30",
+                    ],
+                },
+                {
+                    "endpoints": [
+                        "srl4:e1-2",
+                        "srl2:e1-3",
+                    ],
+                    "ipv4": [
+                        "10.10.24.2/30",
+                        "10.10.24.1/30",
+                    ],
+                },
+            ],
+        },
+    }
+
+    output_path = _write_generated_topology(
+        session_id=session_id,
+        data=data,
+    )
+
+    return {
+        "topology": _to_topology_model(data),
+        "topology_file": str(output_path),
+        "topology_template": topology_template,
+        "lab_name": lab_name,
+    }
+
+
 def _write_generated_topology(
     session_id: str,
     data: dict[str, Any],
@@ -243,14 +375,16 @@ def _to_topology_model(data: dict[str, Any]) -> Topology:
 
     for node_id, node_config in nodes_data.items():
         node_config = node_config or {}
+        kind = node_config.get("kind", "linux")
 
         nodes.append(
             TopologyNode(
                 id=node_id,
-                label=_make_node_label(node_id=node_id, kind=node_config.get("kind")),
-                kind=node_config.get("kind", "linux"),
+                label=_make_node_label(node_id=node_id, kind=kind),
+                kind=kind,
                 image=node_config.get("image"),
                 mgmt_ipv4=node_config.get("mgmt_ipv4"),
+                role=_infer_node_role(node_id=node_id, kind=kind),
             )
         )
 
@@ -300,3 +434,16 @@ def _make_node_label(node_id: str, kind: str | None = None) -> str:
         return f"Router {node_id[1:]}"
 
     return node_id.upper()
+
+
+def _infer_node_role(node_id: str, kind: str | None = None) -> str | None:
+    if kind == "nokia_srlinux":
+        if node_id in {"srl3", "srl4"}:
+            return "core_router"
+
+        return "edge_router"
+
+    if node_id.startswith("client"):
+        return "client"
+
+    return None
