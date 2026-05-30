@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -16,6 +17,7 @@ from app.services.srlinux_runtime_setup import (
     build_srlinux_runtime_faults,
 )
 from app.services.topology_generator import GENERATED_DIR
+from app.services.validation_service import _run_device_command
 
 
 def _campus_cli_access(session_id: str = "lab-campus-runtime-fault-test") -> list[dict[str, str]]:
@@ -230,3 +232,29 @@ def test_nr_sprint34b_campus_runtime_setup_injects_client2_wrong_gateway_after_g
     assert golden_command in executed_display_commands
     assert injected_command in executed_display_commands
     assert executed_display_commands.index(injected_command) > executed_display_commands.index(golden_command)
+
+
+def test_nr_sprint34b_live_validation_timeout_outputs_are_string_normalized(monkeypatch):
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd=["docker", "exec", "container", "sh", "-lc", "ping"],
+            timeout=20,
+            output=b"partial stdout",
+            stderr=b"partial stderr",
+        )
+
+    monkeypatch.setattr(
+        "app.services.validation_service.subprocess.run",
+        fake_run,
+    )
+
+    observed = _run_device_command(
+        container_name="container",
+        command=["sh", "-lc", "ping"],
+        timeout=1,
+    )
+
+    assert observed["return_code"] is None
+    assert observed["stdout"] == "partial stdout"
+    assert observed["stderr"] == "partial stderr"
+    assert observed["output"] == "partial stdout\\npartial stderr"
