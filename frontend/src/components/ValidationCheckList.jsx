@@ -1,5 +1,32 @@
 import MessageBox from "./MessageBox";
 
+const FOCUS_AREA_RULES = [
+  {
+    label: "Default Gateway",
+    keywords: ["default_gateway", "default gateway", "gateway", "client2_default_gateway"]
+  },
+  {
+    label: "Connectivity",
+    keywords: ["connectivity", "reachability", "ping", "client1_to_client2", "client2_to_client1"]
+  },
+  {
+    label: "Static Routing",
+    keywords: ["static_route", "static route", "route", "routing", "next-hop", "next hop"]
+  },
+  {
+    label: "Interface State",
+    keywords: ["interface", "admin-state", "oper-state", "link state", "link"]
+  },
+  {
+    label: "IP Addressing",
+    keywords: ["address", "ip address", "subnet", "prefix"]
+  },
+  {
+    label: "Network Instance",
+    keywords: ["network_instance", "network instance"]
+  }
+];
+
 function getDisplayValue(value, fallback = "-") {
   if (value === undefined || value === null || value === "") {
     return fallback;
@@ -14,7 +41,7 @@ function getDisplayValue(value, fallback = "-") {
 
 function toReadableLabel(value) {
   return getDisplayValue(value)
-    .replace(/_/g, " ")
+    .replace(/[_-]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase());
@@ -70,8 +97,7 @@ function getCheckTitle(check, index) {
   return (
     check.description ||
     check.message ||
-    check.check_id ||
-    `Validation Check ${index + 1}`
+    toReadableLabel(check.check_id || check.id || `Validation Check ${index + 1}`)
   );
 }
 
@@ -86,70 +112,141 @@ function getCheckPoints(check) {
   return getDisplayValue(points, "0");
 }
 
-function groupChecksByTopic(checks) {
-  return checks.reduce((groups, check) => {
-    const topic = check.topic || check.category || "General";
-    const key = String(topic);
+function getCheckSearchText(check) {
+  return [
+    check?.check_id,
+    check?.id,
+    check?.name,
+    check?.label,
+    check?.topic,
+    check?.category,
+    check?.description,
+    check?.message,
+    check?.hint
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+}
 
-    if (!groups[key]) {
-      groups[key] = [];
+function getFocusArea(check) {
+  const text = getCheckSearchText(check);
+
+  const matchedRule = FOCUS_AREA_RULES.find((rule) =>
+    rule.keywords.some((keyword) => text.includes(keyword))
+  );
+
+  return matchedRule?.label || toReadableLabel(check.topic || check.category || "General Validation");
+}
+
+function getStudentSafeHint(check, status) {
+  if (status === "pass") {
+    return "This check currently matches the expected state.";
+  }
+
+  return (
+    check.hint ||
+    check.message ||
+    "Compare this area with the scenario design guide, update the live configuration, and run validation again."
+  );
+}
+
+function groupChecksByFocusArea(checks) {
+  return checks.reduce((groups, check) => {
+    const focusArea = getFocusArea(check);
+
+    if (!groups[focusArea]) {
+      groups[focusArea] = [];
     }
 
-    groups[key].push(check);
+    groups[focusArea].push(check);
     return groups;
   }, {});
 }
 
-function DebugEvidencePanel({ check }) {
-  const hasDebugData =
-    check.evidence ||
-    check.observed_state ||
-    check.expected_state ||
-    check.failed_command_output;
+function sortChecksForLearning(checks) {
+  return [...checks].sort((left, right) => {
+    const leftStatus = normalizeStatus(left);
+    const rightStatus = normalizeStatus(right);
 
-  if (!hasDebugData) {
-    return null;
-  }
+    if (leftStatus === rightStatus) {
+      return String(left.check_id || "").localeCompare(String(right.check_id || ""));
+    }
+
+    if (leftStatus === "fail") {
+      return -1;
+    }
+
+    if (rightStatus === "fail") {
+      return 1;
+    }
+
+    if (leftStatus === "unknown") {
+      return -1;
+    }
+
+    if (rightStatus === "unknown") {
+      return 1;
+    }
+
+    return 0;
+  });
+}
+
+function ValidationCheckCard({ check, index, compact = false }) {
+  const status = normalizeStatus(check);
+  const focusArea = getFocusArea(check);
 
   return (
-    <details className="debug-evidence-panel">
-      <summary>Debug evidence</summary>
-
-      {check.evidence && (
+    <div
+      className={`list-item check-card validation-check-card-polished ${
+        status === "pass" ? "passed-check-card" : "failed-check-card"
+      } ${compact ? "compact" : ""}`}
+      key={check.check_id || `${focusArea}-${index}`}
+    >
+      <div className="result-title-row validation-check-title-row">
         <div>
-          <span>Evidence</span>
-          <pre>{getDisplayValue(check.evidence)}</pre>
+          <strong>{getCheckTitle(check, index)}</strong>
+          <p className="muted">
+            Check ID: {getDisplayValue(check.check_id || check.id, `check-${index + 1}`)}
+          </p>
         </div>
-      )}
 
-      {check.observed_state && (
-        <div>
-          <span>Observed State</span>
-          <pre>{getDisplayValue(check.observed_state)}</pre>
-        </div>
-      )}
+        <span className={`badge ${getStatusClass(status)}`}>
+          {getStatusLabel(status)}
+        </span>
+      </div>
 
-      {check.expected_state && (
+      <div className="check-detail-grid advanced-check-grid validation-check-grid-polished">
         <div>
-          <span>Expected State</span>
-          <pre>{getDisplayValue(check.expected_state)}</pre>
+          <span>Focus Area</span>
+          <strong>{focusArea}</strong>
         </div>
-      )}
 
-      {check.failed_command_output && (
         <div>
-          <span>Failed Command Output</span>
-          <pre>{getDisplayValue(check.failed_command_output)}</pre>
+          <span>Points</span>
+          <strong>{getCheckPoints(check)}</strong>
         </div>
+
+        <div>
+          <span>Status</span>
+          <strong>{getStatusLabel(status)}</strong>
+        </div>
+
+        <div>
+          <span>Student-Safe Hint</span>
+          <strong>{getStudentSafeHint(check, status)}</strong>
+        </div>
+      </div>
+
+      {check.message && status !== "pass" && (
+        <p className="check-message">{check.message}</p>
       )}
-    </details>
+    </div>
   );
 }
 
-function ValidationCheckList({
-  checks = [],
-  showDebugEvidence = false
-}) {
+function ValidationCheckList({ checks = [] }) {
   if (!checks.length) {
     return (
       <MessageBox
@@ -160,80 +257,77 @@ function ValidationCheckList({
     );
   }
 
-  const groupedChecks = groupChecksByTopic(checks);
+  const groupedChecks = groupChecksByFocusArea(sortChecksForLearning(checks));
 
   return (
-    <div className="validation-topic-list">
-      {Object.entries(groupedChecks).map(([topic, topicChecks]) => (
-        <section className="validation-topic-group" key={topic}>
-          <div className="validation-topic-header">
-            <div>
-              <span className="muted">Topic</span>
-              <h4>{toReadableLabel(topic)}</h4>
+    <div className="validation-topic-list validation-topic-list-polished">
+      {Object.entries(groupedChecks).map(([focusArea, focusChecks], topicIndex) => {
+        const failedOrUnknownChecks = focusChecks.filter((check) => normalizeStatus(check) !== "pass");
+        const passedChecks = focusChecks.filter((check) => normalizeStatus(check) === "pass");
+        const failedCount = failedOrUnknownChecks.length;
+
+        return (
+          <section
+            className={`validation-topic-group validation-topic-group-polished ${
+              failedCount > 0 ? "has-failures" : "all-passed"
+            }`}
+            key={focusArea}
+          >
+            <div className="validation-topic-header">
+              <div>
+                <span className="muted">Focus Area</span>
+                <h4>{focusArea}</h4>
+              </div>
+
+              <div className="validation-topic-badge-row">
+                {failedCount > 0 && (
+                  <span className="badge fail">
+                    {failedCount} failed
+                  </span>
+                )}
+
+                <span className="badge neutral">
+                  {focusChecks.length} {focusChecks.length === 1 ? "check" : "checks"}
+                </span>
+              </div>
             </div>
 
-            <span className="badge neutral">
-              {topicChecks.length} {topicChecks.length === 1 ? "check" : "checks"}
-            </span>
-          </div>
+            {failedOrUnknownChecks.length > 0 && (
+              <div className="result-list validation-priority-checks">
+                {failedOrUnknownChecks.map((check, index) => (
+                  <ValidationCheckCard
+                    check={check}
+                    index={index}
+                    key={check.check_id || `${focusArea}-failed-${index}`}
+                  />
+                ))}
+              </div>
+            )}
 
-          <div className="result-list">
-            {topicChecks.map((check, index) => {
-              const status = normalizeStatus(check);
+            {passedChecks.length > 0 && (
+              <details
+                className="validation-passed-checks-panel"
+                open={failedOrUnknownChecks.length === 0 && topicIndex === 0}
+              >
+                <summary>
+                  {failedOrUnknownChecks.length > 0 ? "Show" : "Review"} {passedChecks.length} passed {passedChecks.length === 1 ? "check" : "checks"}
+                </summary>
 
-              return (
-                <div
-                  className={`list-item check-card ${
-                    status === "pass" ? "passed-check-card" : "failed-check-card"
-                  }`}
-                  key={check.check_id || `${topic}-${index}`}
-                >
-                  <div className="result-title-row">
-                    <div>
-                      <strong>{getCheckTitle(check, index)}</strong>
-                      <p className="muted">
-                        Check ID: {getDisplayValue(check.check_id, `check-${index + 1}`)}
-                      </p>
-                    </div>
-
-                    <span className={`badge ${getStatusClass(status)}`}>
-                      {getStatusLabel(status)}
-                    </span>
-                  </div>
-
-                  <div className="check-detail-grid advanced-check-grid">
-                    <div>
-                      <span>Topic</span>
-                      <strong>{toReadableLabel(check.topic || topic)}</strong>
-                    </div>
-
-                    <div>
-                      <span>Points</span>
-                      <strong>{getCheckPoints(check)}</strong>
-                    </div>
-
-                    <div>
-                      <span>Status</span>
-                      <strong>{getStatusLabel(status)}</strong>
-                    </div>
-
-                    <div>
-                      <span>Hint</span>
-                      <strong>{getDisplayValue(check.hint || check.message, "Review this topic and re-check the device configuration.")}</strong>
-                    </div>
-                  </div>
-
-                  {check.message && (
-                    <p className="check-message">{check.message}</p>
-                  )}
-
-                  {showDebugEvidence && <DebugEvidencePanel check={check} />}
+                <div className="result-list validation-passed-checks-list">
+                  {passedChecks.map((check, index) => (
+                    <ValidationCheckCard
+                      check={check}
+                      index={index}
+                      compact
+                      key={check.check_id || `${focusArea}-passed-${index}`}
+                    />
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+              </details>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
