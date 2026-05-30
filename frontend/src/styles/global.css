@@ -5491,3 +5491,399 @@ html {
     min-width: 1040px;
   }
 }
+
+/* NR-Sprint33B campus scenario guidance frontend polish */
+.scenario-overview-polished {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-design-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.03)),
+    #ffffff;
+}
+
+.scenario-design-hero h4 {
+  margin: 4px 0 8px;
+  font-size: 1.15rem;
+}
+
+.scenario-design-hero p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.scenario-eyebrow {
+  display: inline-flex;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.scenario-meta-grid-enhanced {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.scenario-campus-guidance-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.08), transparent 30%),
+    radial-gradient(circle at 85% 80%, rgba(34, 197, 94, 0.08), transparent 30%),
+    #f8fafc;
+}
+
+.scenario-guidance-summary-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 1.2fr;
+  gap: 12px;
+}
+
+.scenario-guidance-card {
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 14px;
+  min-width: 0;
+}
+
+.scenario-guidance-card > span {
+  display: block;
+  margin-bottom: 10px;
+  color: #1e3a8a;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scenario-guidance-list {
+  display: grid;
+  gap: 10px;
+}
+
+.scenario-guidance-list strong {
+  display: block;
+  color: #0f172a;
+}
+
+.scenario-guidance-list p {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.scenario-role-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.scenario-role-summary-grid div {
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 10px;
+  text-align: center;
+}
+
+.scenario-role-summary-grid strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.scenario-role-summary-grid small {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.scenario-campus-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scenario-campus-flow article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-campus-flow span,
+.scenario-step-number,
+.scenario-task-list-polished span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
+.scenario-campus-flow p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.scenario-detail-grid-polished {
+  gap: 16px;
+}
+
+.scenario-highlight-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.scenario-device-grid-polished {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.scenario-device-card-polished {
+  display: grid;
+  gap: 10px;
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+.scenario-device-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.scenario-role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.24rem 0.52rem;
+  font-size: 0.66rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.scenario-role-badge.client {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.scenario-role-badge.edge,
+.scenario-role-badge.router {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.scenario-role-badge.core {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.scenario-role-badge.device {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.scenario-device-card-polished.role-client {
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+.scenario-device-card-polished.role-edge,
+.scenario-device-card-polished.role-router {
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+.scenario-device-card-polished.role-core {
+  border-color: rgba(124, 58, 237, 0.22);
+}
+
+.scenario-table-scroll-polished {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.scenario-addressing-table {
+  min-width: 880px;
+}
+
+.scenario-addressing-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.scenario-addressing-table td strong,
+.scenario-addressing-table td small {
+  display: block;
+}
+
+.scenario-addressing-table td small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.scenario-addressing-table code {
+  display: inline-flex;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 0.16rem 0.38rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.scenario-network-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #155e75;
+  padding: 0.18rem 0.48rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.scenario-requirement-card-grid,
+.scenario-connectivity-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.scenario-requirement-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-requirement-card strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.scenario-requirement-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.scenario-connectivity-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(22, 163, 74, 0.22);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-connectivity-path {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.scenario-connectivity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scenario-connectivity-meta span {
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 0.18rem 0.48rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.scenario-connectivity-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.scenario-task-list-polished {
+  display: grid;
+  gap: 10px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.scenario-task-list-polished li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-task-list-polished p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.scenario-note-list-polished {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+}
+
+@media (max-width: 1150px) {
+  .scenario-guidance-summary-grid,
+  .scenario-campus-flow,
+  .scenario-meta-grid-enhanced {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .scenario-design-hero {
+    flex-direction: column;
+  }
+
+  .scenario-guidance-summary-grid,
+  .scenario-campus-flow,
+  .scenario-meta-grid-enhanced,
+  .scenario-role-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
