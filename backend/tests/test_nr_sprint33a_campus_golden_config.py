@@ -111,8 +111,23 @@ def test_nr_sprint33a_campus_runtime_setup_applies_golden_state(monkeypatch):
                     return FakeCompletedProcess(stdout=f"address {address} {{\n}}\n")
 
         if "info network-instance default static-routes route" in command_text:
-            prefix = command_text.split("route ", maxsplit=1)[1]
-            return FakeCompletedProcess(stdout=f"route {prefix} {{\n    admin-state enable\n}}\n")
+            if "srl1" in command_text:
+                group = "campus-srl1-to-client2"
+            elif "srl2" in command_text:
+                group = "campus-srl2-to-client1"
+            elif "srl3" in command_text and "10.10.10.0/24" in command_text:
+                group = "campus-srl3-to-client1"
+            elif "srl3" in command_text and "10.10.20.0/24" in command_text:
+                group = "campus-srl3-to-client2"
+            elif "srl4" in command_text and "10.10.10.0/24" in command_text:
+                group = "campus-srl4-to-client1"
+            elif "srl4" in command_text and "10.10.20.0/24" in command_text:
+                group = "campus-srl4-to-client2"
+            else:
+                group = "unknown"
+            return FakeCompletedProcess(
+                stdout=f"admin-state enable\n    static-next-hop-group {group}\n"
+            )
 
         if "info network-instance default" in command_text:
             return FakeCompletedProcess(

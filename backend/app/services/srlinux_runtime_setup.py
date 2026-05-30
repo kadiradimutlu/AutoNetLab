@@ -539,7 +539,7 @@ def _run_campus_golden_verification(
                     containers[device],
                     ["sr_cli", "-ec", f"info network-instance default static-routes route {prefix}"],
                     f"verify {device} static route {prefix}",
-                    prefix,
+                    f"static-next-hop-group {route['group']}",
                 )
             )
 
