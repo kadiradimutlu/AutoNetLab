@@ -1,4 +1,4 @@
-﻿from typing import Literal
+﻿from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,7 @@ RecommendationPriority = Literal["low", "medium", "high"]
 
 class RelatedFailedCheck(BaseModel):
     check_id: str = Field(..., examples=["check_1_ip_address_mismatch"])
-    topic: str = Field(..., examples=["IP Addressing"])
+    topic: str = Field(..., examples=["ip_addressing"])
     message: str = Field(..., examples=["IP Addressing issue still exists on r1."])
 
 
@@ -36,7 +36,10 @@ class RecommendationResponse(BaseModel):
     status: SessionStatus
     score: int | None = Field(default=None, ge=0, le=100)
     passed: bool | None = None
+    scenario_id: str | None = Field(default=None, examples=["campus-core-static-routing"])
+    topology_template: str | None = Field(default=None, examples=["campus-core-static-routing"])
     source: RecommendationSource
     fallback_used: bool
+    topic_performance: list[dict[str, Any]] = Field(default_factory=list)
     recommendations: list[RecommendationItem]
     message: str

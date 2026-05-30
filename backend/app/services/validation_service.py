@@ -11,42 +11,28 @@ from app.services.scenario_catalog import (
     CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
     SR_BASIC_LINK_SCENARIO_ID,
 )
+from app.services.network_topics import (
+    TOPIC_HINTS as NETWORK_TOPIC_HINTS,
+    TOPIC_LABELS as NETWORK_TOPIC_LABELS,
+    normalize_network_topic,
+    network_topic_hint,
+    network_topic_label,
+    topic_for_validation_check,
+)
 
 
-TOPIC_LABELS = {
-    "ip_addressing": "IP Addressing",
-    "subnetting": "Subnetting",
-    "interface_status": "Interface Status",
-    "default_gateway": "Default Gateway",
-    "static_routing": "Static Routing",
-    "vlan_like": "VLAN-like Configuration",
-    "acl_like": "ACL-like Policy",
-    "connectivity": "Connectivity",
-    "routing": "Routing",
-    "unknown": "Unknown",
-}
+TOPIC_LABELS = NETWORK_TOPIC_LABELS
 
 
-TOPIC_HINTS = {
-    "ip_addressing": "Check IP address and subnet mask configuration on the related interface.",
-    "subnetting": "Verify subnet masks, network ranges, and whether both endpoints are in compatible subnets.",
-    "interface_status": "Check whether the required interface is enabled and operational.",
-    "default_gateway": "Verify that the default gateway points to the correct next-hop address.",
-    "static_routing": "Review static route destination networks and next-hop addresses.",
-    "vlan_like": "Check whether VLAN-like interface settings are consistent on both sides.",
-    "acl_like": "Review policy-like rules that may block expected traffic.",
-    "connectivity": "Use layer-by-layer troubleshooting: interface, addressing, routing, and then connectivity.",
-    "routing": "Review route entries and next-hop reachability.",
-    "unknown": "Review the failed validation check and troubleshoot step by step.",
-}
+TOPIC_HINTS = NETWORK_TOPIC_HINTS
 
 
 TOPIC_BY_ERROR_CODE = {
     "IP_ADDRESS_MISMATCH": "ip_addressing",
     "WRONG_SUBNET_MASK_R1": "subnetting",
     "WRONG_SUBNET_MASK": "subnetting",
-    "INTERFACE_DOWN_R2": "interface_status",
-    "INTERFACE_DOWN_R4": "interface_status",
+    "INTERFACE_DOWN_R2": "interface_state",
+    "INTERFACE_DOWN_R4": "interface_state",
     "WRONG_GATEWAY": "default_gateway",
     "WRONG_GATEWAY_R4": "default_gateway",
     "MISSING_ROUTE": "static_routing",
@@ -56,9 +42,9 @@ TOPIC_BY_ERROR_CODE = {
     "ACL_BLOCK_ICMP": "acl_like",
     "ACL_BLOCK_ICMP_R1": "acl_like",
     "ACL_BLOCK_ICMP_R3": "acl_like",
-    "CONNECTIVITY_FAILURE": "connectivity",
-    "CONNECTIVITY_FAILURE_R2_R3": "connectivity",
-    "CONNECTIVITY_FAILURE_R1_R4": "connectivity",
+    "CONNECTIVITY_FAILURE": "connectivity_testing",
+    "CONNECTIVITY_FAILURE_R2_R3": "connectivity_testing",
+    "CONNECTIVITY_FAILURE_R1_R4": "connectivity_testing",
 }
 
 
@@ -91,7 +77,7 @@ SRLINUX_BASIC_LINK_CHECKS: list[dict[str, Any]] = [
     },
     {
         "check_id": "srl_check_2_router_network_instance",
-        "topic": "routing",
+        "topic": "network_instance",
         "device": "srl1",
         "description": "Validate that srl1 ethernet-1/1.0 is attached to the default network-instance.",
         "command": ["sr_cli", "-ec", "info network-instance default"],
@@ -121,7 +107,7 @@ SRLINUX_BASIC_LINK_CHECKS: list[dict[str, Any]] = [
     },
     {
         "check_id": "srl_check_5_gateway_connectivity",
-        "topic": "connectivity",
+        "topic": "connectivity_testing",
         "device": "client1",
         "description": "Validate that client1 can ping the SR Linux gateway.",
         "command": ["sh", "-lc", SRLINUX_PING_RETRY_COMMAND],
@@ -185,7 +171,7 @@ CAMPUS_CORE_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
     },
     {
         "check_id": "campus_check_5_client1_to_client2_connectivity",
-        "topic": "connectivity",
+        "topic": "connectivity_testing",
         "device": "client1",
         "description": "Validate that client1 can reach client2 across the campus core.",
         "command": ["sh", "-lc", _campus_ping_retry_command("10.10.20.10")],
@@ -195,7 +181,7 @@ CAMPUS_CORE_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
     },
     {
         "check_id": "campus_check_6_client2_to_client1_connectivity",
-        "topic": "connectivity",
+        "topic": "connectivity_testing",
         "device": "client2",
         "description": "Validate that client2 can reach client1 across the campus core.",
         "command": ["sh", "-lc", _campus_ping_retry_command("10.10.10.10")],
@@ -205,7 +191,7 @@ CAMPUS_CORE_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
     },
     {
         "check_id": "campus_check_7_srl1_edge_and_core_interfaces",
-        "topic": "ip_addressing",
+        "topic": "interface_state",
         "device": "srl1",
         "description": "Validate that srl1 has the expected client-edge interface address.",
         "command": ["sr_cli", "-ec", "info from state interface ethernet-1/1 subinterface 0 ipv4"],
@@ -215,7 +201,7 @@ CAMPUS_CORE_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
     },
     {
         "check_id": "campus_check_8_srl2_edge_and_core_interfaces",
-        "topic": "ip_addressing",
+        "topic": "interface_state",
         "device": "srl2",
         "description": "Validate that srl2 has the expected client-edge interface address.",
         "command": ["sr_cli", "-ec", "info from state interface ethernet-1/1 subinterface 0 ipv4"],
@@ -381,7 +367,7 @@ def _build_live_validation_unavailable_result(
 ) -> ValidationResult:
     check = ValidationCheck(
         check_id="campus_check_runtime_deployed",
-        topic="connectivity",
+        topic="lab_lifecycle",
         description=f"Validate that {scenario_label} runtime is deployed before live validation.",
         status="failed",
         passed=False,
@@ -443,7 +429,10 @@ def _build_srlinux_validation_check(
     session: dict,
 ) -> ValidationCheck:
     device = str(spec["device"])
-    topic = str(spec["topic"])
+    topic = topic_for_validation_check(
+        check_id=spec.get("check_id"),
+        fallback_topic=spec.get("topic"),
+    )
     topic_label = _topic_label(topic)
     expected_outputs = [
         str(expected)
@@ -467,7 +456,7 @@ def _build_srlinux_validation_check(
             points=0,
             max_points=max_points,
             message=f"{topic_label} validation failed on {device}: runtime container metadata was not found.",
-            hint=str(spec.get("hint") or TOPIC_HINTS.get(topic, TOPIC_HINTS["unknown"])),
+            hint=str(spec.get("hint") or network_topic_hint(topic)),
             evidence={
                 "validation_mode": "srlinux_live_state_check",
                 "device": device,
@@ -512,7 +501,7 @@ def _build_srlinux_validation_check(
         points=points,
         max_points=max_points,
         message=message,
-        hint=str(spec.get("hint") or TOPIC_HINTS.get(topic, TOPIC_HINTS["unknown"])),
+        hint=str(spec.get("hint") or network_topic_hint(topic)),
         evidence={
             "validation_mode": "srlinux_live_state_check",
             "device": device,
@@ -637,7 +626,7 @@ def _build_validation_check(
         points=points,
         max_points=max_points,
         message=evaluation["message"],
-        hint=TOPIC_HINTS.get(topic, TOPIC_HINTS["unknown"]),
+        hint=network_topic_hint(topic),
         evidence=evaluation["evidence"],
     )
 
@@ -930,36 +919,17 @@ def _build_recommendations(checks: list[ValidationCheck]) -> list[str]:
 
 def _topic_from_error_code_or_label(code: str, raw_topic: Any) -> str:
     if code in TOPIC_BY_ERROR_CODE:
-        return TOPIC_BY_ERROR_CODE[code]
+        return normalize_network_topic(TOPIC_BY_ERROR_CODE[code])
 
     return _normalize_topic(raw_topic)
 
 
 def _normalize_topic(value: Any) -> str:
-    if value is None:
-        return "unknown"
-
-    text = str(value).strip().lower()
-    text = re.sub(r"[^a-z0-9]+", "_", text)
-    text = text.strip("_")
-
-    if text == "ip_addressing":
-        return "ip_addressing"
-
-    if text in {"vlan", "vlan_mismatch"}:
-        return "vlan_like"
-
-    if text in {"acl", "access_control"}:
-        return "acl_like"
-
-    if text in {"routing", "static_route", "static_routes"}:
-        return "static_routing"
-
-    return text or "unknown"
+    return normalize_network_topic(value)
 
 
 def _topic_label(topic: str) -> str:
-    return TOPIC_LABELS.get(topic, topic.replace("_", " ").title())
+    return network_topic_label(topic)
 
 
 def _build_check_description(topic: str, device: str) -> str:

@@ -1,110 +1,22 @@
-﻿import re
 from typing import Any
 
-
-TOPIC_LABELS = {
-    "ip_addressing": "IP Addressing",
-    "subnetting": "Subnetting",
-    "interface_status": "Interface Status",
-    "routing": "Routing",
-    "static_routing": "Static Routing",
-    "default_gateway": "Default Gateway",
-    "vlan": "VLAN",
-    "vlan_like": "VLAN-like Configuration",
-    "acl": "ACL",
-    "acl_like": "ACL-like Policy",
-    "connectivity": "Connectivity",
-    "trunk_configuration": "Trunk Configuration",
-    "unknown": "Unknown",
-}
-
-
-TOPIC_NEXT_ACTIONS = {
-    "ip_addressing": [
-        "Review IP address and subnet mask configuration.",
-        "Compare both router interfaces that are connected to the same link.",
-        "Run basic connectivity tests after fixing addressing issues.",
-    ],
-    "subnetting": [
-        "Review subnet boundaries and valid host ranges.",
-        "Check whether both endpoints are in compatible subnets.",
-    ],
-    "interface_status": [
-        "Check whether the required interfaces are enabled.",
-        "Verify interface names and link status before testing connectivity.",
-    ],
-    "routing": [
-        "Review static route or default route configuration.",
-        "Check next-hop addresses and reachable networks.",
-    ],
-    "static_routing": [
-    "Review static route destination networks.",
-    "Check next-hop addresses and reachable networks.",
-    "Verify that return routes exist when testing end-to-end connectivity.",
-    ],
-    "default_gateway": [
-        "Verify the configured default gateway.",
-        "Check whether the gateway address belongs to the correct subnet.",
-    ],
-    "vlan": [
-        "Review VLAN IDs on access ports.",
-        "Check whether both sides use consistent VLAN configuration.",
-    ],
-    "vlan_like": [
-    "Review VLAN-like interface settings on both sides of the link.",
-    "Check whether the same logical segment is expected on connected interfaces.",
-    ],
-    "acl": [
-        "Review ACL rules and their direction.",
-        "Check whether traffic is blocked by an unintended deny rule.",
-    ],
-    "acl_like": [
-    "Review policy-like deny rules and their direction.",
-    "Check whether expected troubleshooting traffic is blocked by an unintended rule.",
-    ],
-    "connectivity": [
-        "Start with ping tests between directly connected devices.",
-        "Work layer by layer: interface, addressing, routing, then policy rules.",
-    ],
-    "trunk_configuration": [
-        "Review allowed VLANs on trunk links.",
-        "Check whether the same VLAN is permitted on both sides of the trunk.",
-    ],
-    "unknown": [
-        "Review the failed validation message carefully.",
-        "Repeat the troubleshooting process step by step.",
-    ],
-}
+from app.services.network_topics import (
+    network_topic_label,
+    network_topic_next_actions,
+    normalize_network_topic,
+)
 
 
 def normalize_topic(value: Any) -> str:
-    if value is None:
-        return "unknown"
-
-    text = str(value).strip().lower()
-    text = re.sub(r"[^a-z0-9]+", "_", text)
-    text = text.strip("_")
-
-    if text in {"routing", "static_route", "static_routes"}:
-        return "static_routing"
-
-    if text in {"vlan", "vlan_mismatch"}:
-        return "vlan_like"
-
-    if text in {"acl", "access_control", "access_control_list"}:
-        return "acl_like"
-
-    return text or "unknown"
+    return normalize_network_topic(value)
 
 
 def topic_label(topic: str) -> str:
-    topic_key = normalize_topic(topic)
-    return TOPIC_LABELS.get(topic_key, str(topic).replace("_", " ").title())
+    return network_topic_label(topic)
 
 
 def topic_next_actions(topic: str) -> list[str]:
-    topic_key = normalize_topic(topic)
-    return TOPIC_NEXT_ACTIONS.get(topic_key, TOPIC_NEXT_ACTIONS["unknown"])
+    return network_topic_next_actions(topic)
 
 
 def build_topic_performance(validation_result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -113,7 +25,7 @@ def build_topic_performance(validation_result: dict[str, Any]) -> list[dict[str,
     topic_stats: dict[str, dict[str, Any]] = {}
 
     for check in checks:
-        topic_key = normalize_topic(check.get("topic", "unknown"))
+        topic_key = normalize_topic(check.get("topic", "general_troubleshooting"))
 
         if topic_key not in topic_stats:
             topic_stats[topic_key] = {
@@ -122,20 +34,25 @@ def build_topic_performance(validation_result: dict[str, Any]) -> list[dict[str,
                 "attempt_count": 0,
                 "passed_count": 0,
                 "fail_count": 0,
+                "score_impact": 0,
                 "failed_checks": [],
             }
 
         topic_stats[topic_key]["attempt_count"] += 1
 
+        points = _coerce_int(check.get("points"), default=0)
+        max_points = _coerce_int(check.get("max_points"), default=0)
+
         if check.get("passed") is True:
             topic_stats[topic_key]["passed_count"] += 1
         else:
             topic_stats[topic_key]["fail_count"] += 1
+            topic_stats[topic_key]["score_impact"] += max(max_points - points, 0)
             topic_stats[topic_key]["failed_checks"].append(
                 {
-                    "check_id": check.get("check_id", "unknown_check"),
-                    "topic": check.get("topic", topic_label(topic_key)),
-                    "message": check.get("message", "Validation check failed."),
+                    "check_id": str(check.get("check_id", "unknown_check")),
+                    "topic": topic_key,
+                    "message": str(check.get("message", "Validation check failed.")),
                 }
             )
 
@@ -154,16 +71,19 @@ def build_topic_performance(validation_result: dict[str, Any]) -> list[dict[str,
                 "topic": stats["topic"],
                 "label": stats["label"],
                 "attempt_count": attempt_count,
+                "attempts": attempt_count,
                 "passed_count": passed_count,
                 "fail_count": fail_count,
+                "failures": fail_count,
                 "failure_rate": failure_rate,
                 "topic_score": topic_score,
+                "score_impact": stats["score_impact"],
                 "failed_checks": stats["failed_checks"],
             }
         )
 
     performance_items.sort(
-        key=lambda item: (item["fail_count"], item["failure_rate"]),
+        key=lambda item: (item["fail_count"], item["failure_rate"], item["score_impact"]),
         reverse=True,
     )
 
@@ -191,3 +111,10 @@ def build_ml_feature_rows(
         )
 
     return rows
+
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default

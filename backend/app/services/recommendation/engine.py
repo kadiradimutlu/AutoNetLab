@@ -3,6 +3,7 @@ from typing import Any
 
 from app.db.repositories import persist_recommendation_snapshot
 from app.schemas.enums import SessionStatus
+from app.services.network_topics import scenario_id_from_session
 from app.services.recommendation.features import (
     build_ml_feature_rows,
     build_topic_performance,
@@ -21,8 +22,11 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
             "status": session.get("status", SessionStatus.created),
             "score": session.get("score"),
             "passed": session.get("passed"),
+            "scenario_id": scenario_id_from_session(session),
+            "topology_template": session.get("topology_template"),
             "source": "rule_based",
             "fallback_used": True,
+            "topic_performance": [],
             "recommendations": [],
             "message": (
                 "No validation result found yet. Run validation before requesting "
@@ -80,8 +84,11 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
         "status": session.get("status", SessionStatus.validated),
         "score": score,
         "passed": passed,
+        "scenario_id": scenario_id_from_session(session),
+        "topology_template": session.get("topology_template"),
         "source": source,
         "fallback_used": fallback_used,
+        "topic_performance": topic_performance,
         "recommendations": recommendations,
         "message": message,
     }
