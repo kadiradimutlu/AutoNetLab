@@ -880,6 +880,46 @@ function sanitizeStudentFeedbackList(value) {
     .filter(Boolean);
 }
 
+
+function normalizeTopicPerformancePayload(value) {
+  if (!value) {
+    return [];
+  }
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "object"
+      ? Object.entries(value).map(([topic, item]) => (
+        item && typeof item === "object"
+          ? { topic, ...item }
+          : { topic, score: item }
+      ))
+      : [];
+
+  return rawItems
+    .filter(Boolean)
+    .map((item, index) => {
+      const safeItem = removeStudentUnsafeFields(
+        item && typeof item === "object" ? item : {}
+      );
+      const topic = safeItem.topic || safeItem.name || safeItem.id || `topic_${index + 1}`;
+
+      return {
+        topic: sanitizeStudentFeedbackText(topic, `topic_${index + 1}`),
+        label: sanitizeStudentFeedbackText(
+          safeItem.label || safeItem.topic_label || String(topic).replace(/_/g, " "),
+          String(topic).replace(/_/g, " ")
+        ),
+        passed_checks: Number(safeItem.passed_checks ?? safeItem.pass_count ?? safeItem.passed ?? 0),
+        failed_checks: Number(safeItem.failed_checks ?? safeItem.fail_count ?? safeItem.failed ?? 0),
+        total_checks: Number(safeItem.total_checks ?? safeItem.attempt_count ?? 0),
+        pass_rate: safeItem.pass_rate ?? safeItem.success_rate ?? null,
+        failure_rate: safeItem.failure_rate ?? safeItem.fail_rate ?? null,
+        status: sanitizeStudentFeedbackText(safeItem.status || safeItem.result || "", "")
+      };
+    });
+}
+
 function removeStudentUnsafeFields(payload) {
   if (!payload || typeof payload !== "object") {
     return payload;
@@ -993,6 +1033,23 @@ function normalizeRecommendationPayload(payload, sessionId = "") {
     status: safePayload.status || "",
     score: safePayload.score ?? null,
     passed: safePayload.passed ?? null,
+    scenario_id: sanitizeStudentFeedbackText(
+      safePayload.scenario_id ||
+        safePayload.scenarioId ||
+        safePayload.scenario?.id ||
+        "",
+      ""
+    ),
+    topology_template: sanitizeStudentFeedbackText(
+      safePayload.topology_template ||
+        safePayload.topologyTemplate ||
+        safePayload.topology?.name ||
+        "",
+      ""
+    ),
+    topic_performance: normalizeTopicPerformancePayload(
+      safePayload.topic_performance || safePayload.topicPerformance
+    ),
     source,
     fallback_used: Boolean(safePayload.fallback_used),
     recommendations,
@@ -1593,6 +1650,17 @@ function normalizeValidationResult(result, recommendationPayload = null) {
     status: safeResult?.status || "",
     score: safeResult?.score ?? computedScore,
     passed: safeResult?.passed ?? passedChecks === totalChecks,
+    scenario_id:
+      safeResult?.scenario_id ||
+      safeResult?.scenarioId ||
+      safeResult?.lab?.scenario_id ||
+      "",
+    topology_template:
+      safeResult?.topology_template ||
+      safeResult?.topologyTemplate ||
+      safeResult?.topology?.name ||
+      "",
+    topic_performance: safeResult?.topic_performance || safeResult?.topicPerformance || [],
     source: safeResult?.source || "rule_based",
     fallback_used: Boolean(safeResult?.fallback_used),
     recommendations: safeResult?.recommendations || safeResult?.recommendation || [],
