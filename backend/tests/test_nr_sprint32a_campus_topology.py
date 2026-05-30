@@ -177,17 +177,19 @@ def test_nr_sprint32a_meta_scenarios_api_includes_campus_scenario():
     )
 
 
-def test_nr_sprint32a_deploy_only_campus_does_not_run_runtime_setup(monkeypatch):
+def test_nr_sprint33a_deploy_only_campus_runs_golden_runtime_setup_without_fault_injection(monkeypatch):
     create_response = client.post(
         "/api/v1/labs",
         json={
-            "student_id": _new_student("nr32a-campus-deploy"),
+            "student_id": _new_student("nr33a-campus-deploy"),
             "difficulty": "easy",
             "scenario_id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
         },
     )
     assert create_response.status_code == 201
     session_id = create_response.json()["session_id"]
+
+    calls = {}
 
     def fake_deploy(session_id: str, topology_file: str):
         return {
@@ -204,11 +206,27 @@ def test_nr_sprint32a_deploy_only_campus_does_not_run_runtime_setup(monkeypatch)
             "suggestion": None,
         }
 
+    def fake_runtime_setup(session: dict):
+        calls["runtime_setup_session_id"] = session["session_id"]
+        return {
+            "success": True,
+            "session_id": session["session_id"],
+            "status": "deployed",
+            "message": "SR Linux campus golden runtime setup applied successfully.",
+            "command": "docker exec SR Linux runtime setup commands",
+            "return_code": 0,
+            "stdout": "golden campus setup ok",
+            "stderr": "",
+            "error_code": None,
+            "detail": None,
+            "suggestion": None,
+        }
+
     def fail_if_called(*args, **kwargs):
-        raise AssertionError("Runtime setup or runtime fault injection should not run for deploy-only campus scenario.")
+        raise AssertionError("Legacy runtime fault injection should not run for campus golden setup.")
 
     monkeypatch.setattr("app.api.routes.labs.containerlab_adapter.deploy", fake_deploy)
-    monkeypatch.setattr("app.api.routes.labs.apply_srlinux_runtime_setup", fail_if_called)
+    monkeypatch.setattr("app.api.routes.labs.apply_srlinux_runtime_setup", fake_runtime_setup)
     monkeypatch.setattr("app.api.routes.labs.apply_runtime_error_injection", fail_if_called)
 
     deploy_response = client.post(f"/api/v1/labs/{session_id}/deploy")
@@ -218,7 +236,10 @@ def test_nr_sprint32a_deploy_only_campus_does_not_run_runtime_setup(monkeypatch)
     payload = deploy_response.json()
     assert payload["success"] is True
     assert payload["status"] == "deployed"
-    assert "foundation mode without runtime fault injection" in payload["message"]
+    assert "SR Linux campus golden runtime setup applied successfully." in payload["message"]
+    assert "foundation mode without runtime fault injection" not in payload["message"]
+    assert payload["stdout"] == "golden campus setup ok"
+    assert calls["runtime_setup_session_id"] == session_id
 
 
 def test_nr_sprint32a_large_topology_uses_extended_deploy_timeout(monkeypatch):

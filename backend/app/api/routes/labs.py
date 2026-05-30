@@ -232,19 +232,25 @@ def deploy_lab(
         )
 
     if result["success"]:
-        if _is_deploy_only_session(session):
+        runtime_result = None
+        runtime_success_message = None
+
+        if _is_srlinux_session(session):
+            runtime_result = apply_srlinux_runtime_setup(session)
+            runtime_success_message = (
+                runtime_result.get("message")
+                or "SR Linux runtime setup applied successfully."
+            )
+        elif _is_deploy_only_session(session):
             result["message"] = (
                 result["message"]
                 + " Scenario deployed in foundation mode without runtime fault injection."
             )
         else:
-            if _is_srlinux_session(session):
-                runtime_result = apply_srlinux_runtime_setup(session)
-                runtime_success_message = "SR Linux runtime setup applied successfully."
-            else:
-                runtime_result = apply_runtime_error_injection(session)
-                runtime_success_message = "Runtime error injection applied successfully."
+            runtime_result = apply_runtime_error_injection(session)
+            runtime_success_message = "Runtime error injection applied successfully."
 
+        if runtime_result is not None:
             if not runtime_result["success"]:
                 runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
                     session=session,
