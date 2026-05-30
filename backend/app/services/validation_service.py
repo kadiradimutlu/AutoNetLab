@@ -527,6 +527,16 @@ def _build_srlinux_validation_check(
     )
 
 
+def _coerce_command_output(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+
+    return str(value)
+
+
 def _run_device_command(
     *,
     container_name: str,
@@ -556,9 +566,9 @@ def _run_device_command(
             "output": str(exc),
         }
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or "Command timed out."
-        output = "\n".join(value for value in [stdout, stderr] if value)
+        stdout = _coerce_command_output(exc.stdout)
+        stderr = _coerce_command_output(exc.stderr, default="Command timed out.")
+        output = "\\n".join(value.strip() for value in [stdout, stderr] if value.strip())
         return {
             "return_code": None,
             "stdout": stdout,

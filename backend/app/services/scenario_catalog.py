@@ -9,9 +9,7 @@ NETWORK_CLIENT_IMAGE = "ghcr.io/srl-labs/network-multitool:latest"
 SR_BASIC_LINK_SCENARIO_ID = "srl-basic-link"
 CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID = "campus-core-static-routing"
 
-DEPLOY_ONLY_SCENARIO_IDS = {
-    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
-}
+DEPLOY_ONLY_SCENARIO_IDS: set[str] = set()
 
 
 _SCENARIOS: dict[str, dict] = {
@@ -111,7 +109,7 @@ _SCENARIOS: dict[str, dict] = {
             "SR Linux core. The golden baseline configures client addressing, SR Linux "
             "routed subinterfaces, network-instance bindings, and static routes."
         ),
-        "runtime_profile": "deploy_only",
+        "runtime_profile": "runtime_fault_injection",
         "devices": [
             {
                 "id": "client1",
@@ -356,7 +354,8 @@ _SCENARIOS: dict[str, dict] = {
         ],
         "student_notes": [
             "This scenario starts from a golden campus static-routing baseline.",
-            "Runtime fault injection and full routing validation are planned for later sprints.",
+            "Runtime fault injection starts the lab with a hidden, fixable client default-gateway issue.",
+            "Validation reads live client and SR Linux state after deployment.",
             "No hidden solution data is exposed in the student response.",
         ],
     },
