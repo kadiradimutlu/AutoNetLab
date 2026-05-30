@@ -1913,6 +1913,24 @@ export function getWebCliUrl({ sessionId, deviceId }) {
   return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/cli/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
 }
 
+export function getWebTerminalUrl({ sessionId, deviceId }) {
+  if (!sessionId) {
+    throw new Error("sessionId is required for Web Terminal.");
+  }
+
+  if (!deviceId) {
+    throw new Error("deviceId is required for Web Terminal.");
+  }
+
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("A login token is required for Web Terminal.");
+  }
+
+  return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/terminal/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
+}
+
 export async function getDatabaseReadiness() {
   if (USE_MOCK_API) {
     await wait();

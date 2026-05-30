@@ -6213,3 +6213,95 @@ html {
     justify-content: flex-start;
   }
 }
+
+
+/* NR-Sprint36B xterm.js real web terminal frontend integration */
+.web-terminal-panel {
+  gap: 16px;
+}
+
+.web-terminal-shell-card {
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 20px;
+  background: #020617;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+}
+
+.web-terminal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  background: linear-gradient(135deg, #0f172a, #111827);
+  color: #e2e8f0;
+  padding: 12px 14px;
+}
+
+.web-terminal-toolbar span,
+.web-terminal-toolbar strong {
+  display: block;
+}
+
+.web-terminal-toolbar .muted {
+  color: #94a3b8;
+}
+
+.xterm-shell-container {
+  min-height: 430px;
+  height: 52vh;
+  max-height: 620px;
+  width: 100%;
+  padding: 12px;
+  background: #020617;
+}
+
+.xterm-shell-container .xterm {
+  height: 100%;
+}
+
+.xterm-shell-container .xterm-viewport {
+  overflow-y: auto;
+}
+
+.xterm-shell-container:focus-within {
+  outline: 3px solid rgba(37, 99, 235, 0.32);
+  outline-offset: -3px;
+}
+
+.web-terminal-panel .web-cli-selected-device {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.web-terminal-panel .web-cli-controls {
+  align-items: end;
+}
+
+@media (max-width: 1050px) {
+  .web-terminal-panel .web-cli-selected-device {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .xterm-shell-container {
+    min-height: 360px;
+    height: 48vh;
+  }
+}
+
+@media (max-width: 700px) {
+  .web-terminal-toolbar,
+  .web-terminal-panel .web-cli-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .web-terminal-panel .web-cli-selected-device {
+    grid-template-columns: 1fr;
+  }
+
+  .xterm-shell-container {
+    min-height: 320px;
+    height: 46vh;
+  }
+}
