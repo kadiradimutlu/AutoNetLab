@@ -43,6 +43,13 @@ class ValidationResult(BaseModel):
     status: SessionStatus
     passed: bool
     score: int = Field(..., ge=0, le=100)
+    score_type: Literal["fault_resolution"] = Field(default="fault_resolution")
+    fault_resolution_score: int | None = Field(default=None, ge=0, le=100)
+    network_health_score: int | None = Field(default=None, ge=0, le=100)
+    affected_topics: list[str] = Field(default_factory=list)
+    failed_topics: list[str] = Field(default_factory=list)
+    resolved_topics: list[str] = Field(default_factory=list)
+    ml_training_sample: dict[str, Any] | None = Field(default=None)
     checks: list[ValidationCheck]
     recommendations: list[str]
 
@@ -76,6 +83,13 @@ class ValidationAttempt(BaseModel):
     attempt_number: int = Field(..., ge=1, examples=[1])
     session_id: str = Field(..., examples=["lab-abc12345"])
     score: int = Field(..., ge=0, le=100, examples=[80])
+    score_type: Literal["fault_resolution"] = Field(default="fault_resolution")
+    fault_resolution_score: int | None = Field(default=None, ge=0, le=100)
+    network_health_score: int | None = Field(default=None, ge=0, le=100)
+    affected_topics: list[str] = Field(default_factory=list)
+    failed_topics: list[str] = Field(default_factory=list)
+    resolved_topics: list[str] = Field(default_factory=list)
+    ml_training_sample: dict[str, Any] | None = Field(default=None)
     passed: bool = Field(..., examples=[False])
     passed_checks: int = Field(..., ge=0, examples=[4])
     failed_checks: int = Field(..., ge=0, examples=[1])
@@ -103,5 +117,12 @@ class StudentValidationResult(BaseModel):
     status: SessionStatus
     passed: bool
     score: int = Field(..., ge=0, le=100)
+    score_type: Literal["fault_resolution"] = Field(default="fault_resolution")
+    fault_resolution_score: int | None = Field(default=None, ge=0, le=100)
+    network_health_score: int | None = Field(default=None, ge=0, le=100)
+    affected_topics: list[str] = Field(default_factory=list)
+    failed_topics: list[str] = Field(default_factory=list)
+    resolved_topics: list[str] = Field(default_factory=list)
+    ml_training_sample: dict[str, Any] | None = Field(default=None)
     checks: list[StudentValidationCheck]
     recommendations: list[str]
