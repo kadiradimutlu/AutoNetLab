@@ -1,3 +1,4 @@
+import hashlib
 import subprocess
 from typing import Any
 
@@ -166,22 +167,30 @@ def build_srlinux_runtime_faults(
     scenario_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Builds deterministic SR Linux runtime faults.
+    Builds deterministic, difficulty-aware SR Linux runtime faults.
 
-    The current backend uses one reliable, fixable runtime fault per supported
-    scenario so validation can prove the lab starts broken and becomes healthy
-    after the student applies the expected live-state fix.
+    NR-Sprint40A:
+    - easy selects 1 fault
+    - medium selects 2 non-conflicting faults
+    - hard selects 3 non-conflicting faults
+    - selection is deterministic for the same session/scenario/difficulty
+    - safe wrong values never equal the expected design value
     """
 
     scenario_key = resolve_scenario_id(scenario_id or SR_BASIC_LINK_SCENARIO_ID)
+    fault_count = _fault_count_for_difficulty(difficulty)
+    catalog = _runtime_fault_catalog_for_scenario(
+        scenario_id=scenario_key,
+        seed=seed,
+    )
 
-    if scenario_key == CAMPUS_CORE_ROUTING_SCENARIO_ID:
-        return [_campus_client2_wrong_gateway_fault()]
-
-    if scenario_key == BRANCH_STATIC_ROUTING_SCENARIO_ID:
-        return [_branch_client2_wrong_gateway_fault()]
-
-    return [_basic_link_client_wrong_gateway_fault()]
+    return _select_faults_from_catalog(
+        catalog=catalog,
+        fault_count=fault_count,
+        seed=seed,
+        scenario_id=scenario_key,
+        difficulty=difficulty,
+    )
 
 
 def _basic_link_client_wrong_gateway_fault() -> dict[str, Any]:
@@ -192,6 +201,8 @@ def _basic_link_client_wrong_gateway_fault() -> dict[str, Any]:
         "description": "client1 has an incorrect default gateway for the SR Linux link.",
         "severity": "medium",
         "variant_id": SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
+        "scenario_id": SR_EDGE_LINK_SCENARIO_ID,
+        "conflict_key": "client1_default_route",
         "interface": "eth1",
         "validation_command": "ip route",
         "expected_outputs": [f"default via {SRLINUX_CLIENT_EXPECTED_GATEWAY}"],
@@ -209,6 +220,8 @@ def _branch_client2_wrong_gateway_fault() -> dict[str, Any]:
         "description": "client2 has an incorrect default gateway for the branch client segment.",
         "severity": "medium",
         "variant_id": BRANCH_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+        "scenario_id": BRANCH_STATIC_ROUTING_SCENARIO_ID,
+        "conflict_key": "client2_default_route",
         "interface": "eth1",
         "validation_command": "ip route",
         "expected_outputs": [f"default via {BRANCH_CLIENT2_EXPECTED_GATEWAY}"],
@@ -226,6 +239,8 @@ def _campus_client2_wrong_gateway_fault() -> dict[str, Any]:
         "description": "client2 has an incorrect default gateway for the campus client segment.",
         "severity": "medium",
         "variant_id": CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+        "scenario_id": CAMPUS_CORE_ROUTING_SCENARIO_ID,
+        "conflict_key": "client2_default_route",
         "interface": "eth1",
         "validation_command": "ip route",
         "expected_outputs": [f"default via {CAMPUS_CLIENT2_EXPECTED_GATEWAY}"],
@@ -233,6 +248,865 @@ def _campus_client2_wrong_gateway_fault() -> dict[str, Any]:
             f"ip route replace default via {CAMPUS_CLIENT2_INJECTED_GATEWAY} dev eth1"
         ],
     }
+
+
+def _fault_count_for_difficulty(difficulty: Any) -> int:
+    value = getattr(difficulty, "value", difficulty)
+    normalized = str(value or "easy").lower()
+
+    return {
+        "easy": 1,
+        "medium": 2,
+        "hard": 3,
+    }.get(normalized, 1)
+
+
+def _runtime_fault_catalog_for_scenario(
+    *,
+    scenario_id: str | None,
+    seed: str,
+) -> list[dict[str, Any]]:
+    scenario_key = resolve_scenario_id(scenario_id or SR_BASIC_LINK_SCENARIO_ID)
+
+    if scenario_key == BRANCH_STATIC_ROUTING_SCENARIO_ID:
+        return _branch_runtime_fault_catalog(seed=seed)
+
+    if scenario_key == CAMPUS_CORE_ROUTING_SCENARIO_ID:
+        return _campus_runtime_fault_catalog(seed=seed)
+
+    return _edge_runtime_fault_catalog(seed=seed)
+
+
+def _edge_runtime_fault_catalog(*, seed: str) -> list[dict[str, Any]]:
+    return [
+        _basic_link_client_wrong_gateway_fault(),
+        _client_missing_default_route_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_client1_missing_default_route",
+            device="client1",
+            interface="eth1",
+            expected_gateway=SRLINUX_CLIENT_EXPECTED_GATEWAY,
+            conflict_key="client1_default_route",
+        ),
+        _client_wrong_ip_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_client1_wrong_ip",
+            seed=seed,
+            device="client1",
+            interface="eth1",
+            expected_ip="10.10.10.10/24",
+            wrong_ip_candidates=["10.10.10.99/24", "10.10.10.200/24", "10.10.11.10/24"],
+            conflict_key="client1_eth1_ip",
+        ),
+        _client_missing_ip_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_client1_missing_ip",
+            device="client1",
+            interface="eth1",
+            expected_ip="10.10.10.10/24",
+            conflict_key="client1_eth1_ip",
+        ),
+        _client_interface_down_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_client1_interface_down",
+            device="client1",
+            interface="eth1",
+            conflict_key="client1_eth1_state",
+        ),
+        _srl_network_instance_unbind_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_srl1_missing_network_instance_binding",
+            device="srl1",
+            interface="ethernet-1/1",
+            conflict_key="srl1_e1_1_ni",
+        ),
+        _srl_wrong_interface_ip_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_srl1_wrong_gateway_ip",
+            seed=seed,
+            device="srl1",
+            interface="ethernet-1/1",
+            expected_ip="10.10.10.1/24",
+            wrong_ip_candidates=["10.10.10.254/24", "10.10.10.99/24", "10.10.11.1/24"],
+            conflict_key="srl1_e1_1_ip",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_srl1_interface_admin_down",
+            device="srl1",
+            interface="ethernet-1/1",
+            conflict_key="srl1_e1_1_state",
+        ),
+        _srl_subinterface_ipv4_disable_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_srl1_subinterface_ipv4_disabled",
+            device="srl1",
+            interface="ethernet-1/1",
+            conflict_key="srl1_e1_1_ipv4_state",
+        ),
+        _client_wrong_ip_fault(
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
+            variant_id="edge_client1_wrong_subnet_mask",
+            seed=seed,
+            device="client1",
+            interface="eth1",
+            expected_ip="10.10.10.10/24",
+            wrong_ip_candidates=["10.10.10.10/25", "10.10.10.10/26", "10.10.10.10/27"],
+            conflict_key="client1_eth1_ip",
+        ),
+    ]
+
+
+def _branch_runtime_fault_catalog(*, seed: str) -> list[dict[str, Any]]:
+    return [
+        _client_wrong_gateway_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client1_wrong_gateway",
+            seed=seed,
+            device="client1",
+            interface="eth1",
+            expected_gateway="10.10.10.1",
+            wrong_gateway_candidates=["10.10.10.254", "10.10.10.99", "10.10.11.1"],
+            conflict_key="client1_default_route",
+        ),
+        _branch_client2_wrong_gateway_fault(),
+        _client_missing_default_route_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client1_missing_default_route",
+            device="client1",
+            interface="eth1",
+            expected_gateway="10.10.10.1",
+            conflict_key="client1_default_route",
+        ),
+        _client_missing_default_route_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client2_missing_default_route",
+            device="client2",
+            interface="eth1",
+            expected_gateway="10.10.20.1",
+            conflict_key="client2_default_route",
+        ),
+        _client_wrong_ip_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client1_wrong_ip",
+            seed=seed,
+            device="client1",
+            interface="eth1",
+            expected_ip="10.10.10.10/24",
+            wrong_ip_candidates=["10.10.10.99/24", "10.10.10.200/24", "10.10.11.10/24"],
+            conflict_key="client1_eth1_ip",
+        ),
+        _client_wrong_ip_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client2_wrong_ip",
+            seed=seed,
+            device="client2",
+            interface="eth1",
+            expected_ip="10.10.20.10/24",
+            wrong_ip_candidates=["10.10.20.99/24", "10.10.20.200/24", "10.10.21.10/24"],
+            conflict_key="client2_eth1_ip",
+        ),
+        _client_interface_down_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client1_interface_down",
+            device="client1",
+            interface="eth1",
+            conflict_key="client1_eth1_state",
+        ),
+        _client_interface_down_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_client2_interface_down",
+            device="client2",
+            interface="eth1",
+            conflict_key="client2_eth1_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl1_lan_interface_down",
+            device="srl1",
+            interface="ethernet-1/1",
+            conflict_key="srl1_e1_1_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl2_lan_interface_down",
+            device="srl2",
+            interface="ethernet-1/1",
+            conflict_key="srl2_e1_1_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl1_transit_interface_down",
+            device="srl1",
+            interface="ethernet-1/2",
+            conflict_key="branch_transit_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl2_transit_interface_down",
+            device="srl2",
+            interface="ethernet-1/2",
+            conflict_key="branch_transit_state",
+        ),
+        _srl_missing_static_route_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl1_missing_route_to_client2",
+            device="srl1",
+            prefix="10.10.20.0/24",
+            expected_output="branch-srl1-to-client2",
+            conflict_key="srl1_to_client2_route",
+        ),
+        _srl_missing_static_route_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl2_missing_route_to_client1",
+            device="srl2",
+            prefix="10.10.10.0/24",
+            expected_output="branch-srl2-to-client1",
+            conflict_key="srl2_to_client1_route",
+        ),
+        _srl_wrong_static_route_next_hop_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl1_wrong_next_hop_to_client2",
+            device="srl1",
+            prefix="10.10.20.0/24",
+            wrong_next_hop="10.10.12.6",
+            expected_output="branch-srl1-to-client2",
+            conflict_key="srl1_to_client2_route",
+        ),
+        _srl_wrong_static_route_next_hop_fault(
+            scenario_id=BRANCH_STATIC_ROUTING_SCENARIO_ID,
+            variant_id="branch_srl2_wrong_next_hop_to_client1",
+            device="srl2",
+            prefix="10.10.10.0/24",
+            wrong_next_hop="10.10.12.5",
+            expected_output="branch-srl2-to-client1",
+            conflict_key="srl2_to_client1_route",
+        ),
+    ]
+
+
+def _campus_runtime_fault_catalog(*, seed: str) -> list[dict[str, Any]]:
+    return [
+        _client_wrong_gateway_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_client1_wrong_gateway",
+            seed=seed,
+            device="client1",
+            interface="eth1",
+            expected_gateway="10.10.10.1",
+            wrong_gateway_candidates=["10.10.10.254", "10.10.10.99", "10.10.11.1"],
+            conflict_key="client1_default_route",
+        ),
+        _campus_client2_wrong_gateway_fault(),
+        _client_missing_default_route_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_client1_missing_default_route",
+            device="client1",
+            interface="eth1",
+            expected_gateway="10.10.10.1",
+            conflict_key="client1_default_route",
+        ),
+        _client_missing_default_route_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_client2_missing_default_route",
+            device="client2",
+            interface="eth1",
+            expected_gateway="10.10.20.1",
+            conflict_key="client2_default_route",
+        ),
+        _client_wrong_ip_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_client1_wrong_ip",
+            seed=seed,
+            device="client1",
+            interface="eth1",
+            expected_ip="10.10.10.10/24",
+            wrong_ip_candidates=["10.10.10.99/24", "10.10.10.200/24", "10.10.11.10/24"],
+            conflict_key="client1_eth1_ip",
+        ),
+        _client_wrong_ip_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_client2_wrong_ip",
+            seed=seed,
+            device="client2",
+            interface="eth1",
+            expected_ip="10.10.20.10/24",
+            wrong_ip_candidates=["10.10.20.99/24", "10.10.20.200/24", "10.10.21.10/24"],
+            conflict_key="client2_eth1_ip",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl1_client_lan_interface_down",
+            device="srl1",
+            interface="ethernet-1/1",
+            conflict_key="srl1_e1_1_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl2_client_lan_interface_down",
+            device="srl2",
+            interface="ethernet-1/1",
+            conflict_key="srl2_e1_1_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl1_upper_core_interface_down",
+            device="srl1",
+            interface="ethernet-1/2",
+            conflict_key="campus_upper_path_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl3_upper_core_interface_down",
+            device="srl3",
+            interface="ethernet-1/1",
+            conflict_key="campus_upper_path_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl1_lower_core_interface_down",
+            device="srl1",
+            interface="ethernet-1/3",
+            conflict_key="campus_lower_path_state",
+        ),
+        _srl_interface_admin_down_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl4_lower_core_interface_down",
+            device="srl4",
+            interface="ethernet-1/1",
+            conflict_key="campus_lower_path_state",
+        ),
+        _srl_missing_static_route_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl1_missing_route_to_client2",
+            device="srl1",
+            prefix="10.10.20.0/24",
+            expected_output="campus-srl1-to-client2",
+            conflict_key="srl1_to_client2_route",
+        ),
+        _srl_missing_static_route_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl2_missing_route_to_client1",
+            device="srl2",
+            prefix="10.10.10.0/24",
+            expected_output="campus-srl2-to-client1",
+            conflict_key="srl2_to_client1_route",
+        ),
+        _srl_missing_static_route_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl3_missing_route_to_client1",
+            device="srl3",
+            prefix="10.10.10.0/24",
+            expected_output="campus-srl3-to-client1",
+            conflict_key="srl3_to_client1_route",
+        ),
+        _srl_missing_static_route_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl3_missing_route_to_client2",
+            device="srl3",
+            prefix="10.10.20.0/24",
+            expected_output="campus-srl3-to-client2",
+            conflict_key="srl3_to_client2_route",
+        ),
+        _srl_wrong_static_route_next_hop_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl1_wrong_next_hop_to_client2",
+            device="srl1",
+            prefix="10.10.20.0/24",
+            wrong_next_hop="10.10.13.6",
+            expected_output="campus-srl1-to-client2",
+            conflict_key="srl1_to_client2_route",
+        ),
+        _srl_wrong_static_route_next_hop_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl2_wrong_next_hop_to_client1",
+            device="srl2",
+            prefix="10.10.10.0/24",
+            wrong_next_hop="10.10.23.6",
+            expected_output="campus-srl2-to-client1",
+            conflict_key="srl2_to_client1_route",
+        ),
+        _srl_wrong_static_route_next_hop_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl3_wrong_next_hop_to_client1",
+            device="srl3",
+            prefix="10.10.10.0/24",
+            wrong_next_hop="10.10.13.6",
+            expected_output="campus-srl3-to-client1",
+            conflict_key="srl3_to_client1_route",
+        ),
+        _srl_wrong_static_route_next_hop_fault(
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
+            variant_id="campus_srl3_wrong_next_hop_to_client2",
+            device="srl3",
+            prefix="10.10.20.0/24",
+            wrong_next_hop="10.10.23.6",
+            expected_output="campus-srl3-to-client2",
+            conflict_key="srl3_to_client2_route",
+        ),
+    ]
+
+
+def _select_faults_from_catalog(
+    *,
+    catalog: list[dict[str, Any]],
+    fault_count: int,
+    seed: str,
+    scenario_id: str | None,
+    difficulty: Any,
+) -> list[dict[str, Any]]:
+    if fault_count <= 0:
+        return []
+
+    selected: list[dict[str, Any]] = []
+    used_conflict_keys: set[str] = set()
+
+    primary_fault = _primary_fault_for_scenario(
+        catalog=catalog,
+        scenario_id=scenario_id,
+    )
+    if primary_fault is not None:
+        _append_fault_if_available(
+            selected=selected,
+            used_conflict_keys=used_conflict_keys,
+            fault=primary_fault,
+        )
+
+    shuffled = sorted(
+        catalog,
+        key=lambda fault: _stable_digest(
+            seed,
+            str(scenario_id or ""),
+            str(getattr(difficulty, "value", difficulty)),
+            str(fault.get("variant_id") or ""),
+        ),
+    )
+
+    for fault in shuffled:
+        if len(selected) >= fault_count:
+            break
+
+        _append_fault_if_available(
+            selected=selected,
+            used_conflict_keys=used_conflict_keys,
+            fault=fault,
+        )
+
+    return selected[:fault_count]
+
+
+def _primary_fault_for_scenario(
+    *,
+    catalog: list[dict[str, Any]],
+    scenario_id: str | None,
+) -> dict[str, Any] | None:
+    primary_variant_by_scenario = {
+        SR_EDGE_LINK_SCENARIO_ID: SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
+        BRANCH_STATIC_ROUTING_SCENARIO_ID: BRANCH_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+        CAMPUS_CORE_ROUTING_SCENARIO_ID: CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+    }
+    primary_variant_id = primary_variant_by_scenario.get(resolve_scenario_id(scenario_id))
+
+    for fault in catalog:
+        if fault.get("variant_id") == primary_variant_id:
+            return fault
+
+    return None
+
+
+def _append_fault_if_available(
+    *,
+    selected: list[dict[str, Any]],
+    used_conflict_keys: set[str],
+    fault: dict[str, Any],
+) -> None:
+    variant_id = str(fault.get("variant_id") or "")
+
+    if any(item.get("variant_id") == variant_id for item in selected):
+        return
+
+    conflict_key = str(fault.get("conflict_key") or variant_id)
+
+    if conflict_key in used_conflict_keys:
+        return
+
+    selected.append(fault)
+    used_conflict_keys.add(conflict_key)
+
+
+def _client_wrong_gateway_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    seed: str,
+    device: str,
+    interface: str,
+    expected_gateway: str,
+    wrong_gateway_candidates: list[str],
+    conflict_key: str,
+) -> dict[str, Any]:
+    wrong_gateway = _stable_choice(
+        seed,
+        variant_id,
+        candidates=[
+            candidate
+            for candidate in wrong_gateway_candidates
+            if candidate != expected_gateway
+        ],
+    )
+
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="default_gateway",
+        device=device,
+        description=f"{device} has an incorrect default gateway.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command="ip route",
+        expected_outputs=[f"default via {expected_gateway}"],
+        injection_commands=[
+            f"ip route replace default via {wrong_gateway} dev {interface}"
+        ],
+    )
+
+
+def _client_missing_default_route_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    interface: str,
+    expected_gateway: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="default_gateway",
+        device=device,
+        description=f"{device} is missing the expected default route.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command="ip route",
+        expected_outputs=[f"default via {expected_gateway}"],
+        injection_commands=["ip route del default || true"],
+    )
+
+
+def _client_wrong_ip_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    seed: str,
+    device: str,
+    interface: str,
+    expected_ip: str,
+    wrong_ip_candidates: list[str],
+    conflict_key: str,
+) -> dict[str, Any]:
+    wrong_ip = _stable_choice(
+        seed,
+        variant_id,
+        candidates=[
+            candidate
+            for candidate in wrong_ip_candidates
+            if candidate != expected_ip
+        ],
+    )
+
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="ip_addressing",
+        device=device,
+        description=f"{device} has an incorrect IPv4 address or prefix on {interface}.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"ip -4 addr show dev {interface}",
+        expected_outputs=[expected_ip],
+        injection_commands=[
+            f"ip addr flush dev {interface} || true && ip addr add {wrong_ip} dev {interface} && ip link set {interface} up"
+        ],
+    )
+
+
+def _client_missing_ip_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    interface: str,
+    expected_ip: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="ip_addressing",
+        device=device,
+        description=f"{device} is missing the expected IPv4 address on {interface}.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"ip -4 addr show dev {interface}",
+        expected_outputs=[expected_ip],
+        injection_commands=[
+            f"ip addr flush dev {interface} || true && ip link set {interface} up"
+        ],
+    )
+
+
+def _client_interface_down_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    interface: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="interface_state",
+        device=device,
+        description=f"{device} interface {interface} is administratively down.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"ip link show dev {interface}",
+        expected_outputs=["state UP"],
+        injection_commands=[f"ip link set {interface} down"],
+    )
+
+
+def _srl_network_instance_unbind_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    interface: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    subinterface = _subinterface_name(interface)
+
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="network_instance",
+        device=device,
+        description=f"{device} {subinterface} is missing from the default network-instance.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command="info network-instance default",
+        expected_outputs=[f"interface {subinterface}"],
+        injection_commands=[
+            _srl_cli_config_command([
+                f"delete network-instance default interface {subinterface}",
+            ])
+        ],
+    )
+
+
+def _srl_wrong_interface_ip_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    seed: str,
+    device: str,
+    interface: str,
+    expected_ip: str,
+    wrong_ip_candidates: list[str],
+    conflict_key: str,
+) -> dict[str, Any]:
+    wrong_ip = _stable_choice(
+        seed,
+        variant_id,
+        candidates=[
+            candidate
+            for candidate in wrong_ip_candidates
+            if candidate != expected_ip
+        ],
+    )
+
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="ip_addressing",
+        device=device,
+        description=f"{device} {interface}.0 has an incorrect IPv4 address.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"info from state interface {interface} subinterface 0 ipv4",
+        expected_outputs=[expected_ip],
+        injection_commands=[
+            _srl_cli_config_command([
+                f"delete interface {interface} subinterface 0 ipv4 address {expected_ip}",
+                f"set interface {interface} subinterface 0 ipv4 address {wrong_ip}",
+            ])
+        ],
+    )
+
+
+def _srl_interface_admin_down_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    interface: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="interface_state",
+        device=device,
+        description=f"{device} {interface} is administratively disabled.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"info from state interface {interface}",
+        expected_outputs=["admin-state enable"],
+        injection_commands=[
+            _srl_cli_config_command([
+                f"set interface {interface} admin-state disable",
+            ])
+        ],
+    )
+
+
+def _srl_subinterface_ipv4_disable_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    interface: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="interface_state",
+        device=device,
+        description=f"{device} {interface}.0 IPv4 is administratively disabled.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"info from state interface {interface} subinterface 0 ipv4",
+        expected_outputs=["admin-state enable"],
+        injection_commands=[
+            _srl_cli_config_command([
+                f"set interface {interface} subinterface 0 ipv4 admin-state disable",
+            ])
+        ],
+    )
+
+
+def _srl_missing_static_route_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    prefix: str,
+    expected_output: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="static_routing",
+        device=device,
+        description=f"{device} is missing the expected static route for {prefix}.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"info network-instance default static-routes route {prefix}",
+        expected_outputs=[expected_output],
+        injection_commands=[
+            _srl_cli_config_command([
+                f"delete network-instance default static-routes route {prefix}",
+            ])
+        ],
+    )
+
+
+def _srl_wrong_static_route_next_hop_fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    device: str,
+    prefix: str,
+    wrong_next_hop: str,
+    expected_output: str,
+    conflict_key: str,
+) -> dict[str, Any]:
+    broken_group = f"{variant_id}-broken"
+
+    return _fault(
+        scenario_id=scenario_id,
+        variant_id=variant_id,
+        topic="static_routing",
+        device=device,
+        description=f"{device} static route for {prefix} points to an incorrect next-hop.",
+        severity="medium",
+        conflict_key=conflict_key,
+        validation_command=f"info network-instance default static-routes route {prefix}",
+        expected_outputs=[expected_output],
+        injection_commands=[
+            _srl_cli_config_command([
+                "set network-instance default static next-hop 99 ip-address " + wrong_next_hop,
+                f"set network-instance default static next-hop-group {broken_group} next-hop 99",
+                f"set network-instance default static-routes route {prefix} static-next-hop-group {broken_group}",
+            ])
+        ],
+    )
+
+
+def _fault(
+    *,
+    scenario_id: str,
+    variant_id: str,
+    topic: str,
+    device: str,
+    description: str,
+    severity: str,
+    conflict_key: str,
+    validation_command: str,
+    expected_outputs: list[str],
+    injection_commands: list[str],
+) -> dict[str, Any]:
+    return {
+        "code": variant_id.upper(),
+        "topic": topic,
+        "device": device,
+        "description": description,
+        "severity": severity,
+        "variant_id": variant_id,
+        "scenario_id": scenario_id,
+        "conflict_key": conflict_key,
+        "validation_command": validation_command,
+        "expected_outputs": expected_outputs,
+        "injection_commands": injection_commands,
+    }
+
+
+def _srl_cli_config_command(commands: list[str]) -> str:
+    quoted_lines = [
+        "'enter candidate'",
+        *[repr(command) for command in commands],
+        "'commit now'",
+        "'quit'",
+    ]
+
+    return "printf '%s\\n' " + " ".join(quoted_lines) + " | sr_cli"
+
+
+def _stable_choice(seed: str, variant_id: str, candidates: list[str]) -> str:
+    if not candidates:
+        raise ValueError(f"No safe candidates were provided for {variant_id}.")
+
+    index = int(_stable_digest(seed, variant_id), 16) % len(candidates)
+    return candidates[index]
+
+
+def _stable_digest(*parts: str) -> str:
+    payload = "::".join(str(part) for part in parts)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
@@ -1178,21 +2052,14 @@ def _srlinux_faults_for_session(session: dict[str, Any]) -> list[dict[str, Any]]
     faults: list[dict[str, Any]] = []
 
     for fault in _normalized_errors(session.get("injected_errors")):
-        code = str(fault.get("code") or "")
         variant_id = str(fault.get("variant_id") or "")
+        commands = [
+            str(command)
+            for command in fault.get("injection_commands", [])
+            if str(command).strip()
+        ]
 
-        if (
-            code in {
-                SRLINUX_WRONG_CLIENT_GATEWAY_CODE,
-                BRANCH_WRONG_CLIENT2_GATEWAY_CODE,
-                CAMPUS_WRONG_CLIENT2_GATEWAY_CODE,
-            }
-            or variant_id in {
-                SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
-                BRANCH_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
-                CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
-            }
-        ):
+        if variant_id and commands:
             faults.append(fault)
 
     return faults
