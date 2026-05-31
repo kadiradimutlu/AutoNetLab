@@ -1992,8 +1992,8 @@ button:disabled,
   }
 }
 
-/* Sprint 16 database readiness */
-.demo-readiness-grid {
+/* Database readiness */
+.readiness-overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(360px, 1fr));
   gap: 16px;
@@ -2048,7 +2048,7 @@ button:disabled,
 }
 
 @media (max-width: 1100px) {
-  .demo-readiness-grid {
+  .readiness-overview-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -6780,4 +6780,231 @@ html {
   .network-health-check-card {
     flex-direction: column;
   }
+}
+
+
+/* NR-Sprint41B student list containment */
+.instructor-student-list-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 140px);
+  overflow: hidden;
+}
+
+.instructor-student-list-card > .section-title-row {
+  flex-shrink: 0;
+}
+
+.instructor-student-list-card .analytics-empty-state,
+.instructor-student-list-card > .muted {
+  flex-shrink: 0;
+}
+
+.student-list {
+  overflow-y: auto;
+  padding-right: 4px;
+  max-height: min(560px, calc(100vh - 260px));
+}
+
+.session-scenario-line {
+  margin: 4px 0;
+  font-weight: 700;
+  color: #374151;
+}
+
+@media (max-width: 900px) {
+  .instructor-student-list-card {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .student-list {
+    max-height: 420px;
+  }
+}
+
+
+/* NR-Sprint41B session table readability */
+.session-title-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.session-title-cell strong {
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.session-title-cell span {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.table-action-button {
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+
+
+/* NR-Sprint41B session review panel */
+.session-review-panel {
+  margin-top: 16px;
+}
+
+.session-review-grid,
+.session-review-metric-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.session-review-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.session-review-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.session-review-grid > div,
+.session-review-metric-grid > div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.session-review-grid span,
+.session-review-metric-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.session-review-grid strong,
+.session-review-metric-grid strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.session-review-topic-section {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.session-review-topic-section > div,
+.session-review-section {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.session-review-topic-section h4,
+.session-review-section h4 {
+  margin: 0 0 10px;
+}
+
+.topic-pill-list.compact {
+  margin: 0;
+}
+
+.session-review-attempt-list,
+.session-review-check-list {
+  display: grid;
+  gap: 12px;
+}
+
+.session-review-attempt-card,
+.session-review-check-card {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.session-review-check-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.session-review-check-card strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.session-review-check-card p {
+  margin: 5px 0 0;
+}
+
+@media (max-width: 900px) {
+  .session-review-grid,
+  .session-review-metric-grid,
+  .session-review-topic-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* NR-Sprint41B analytics readability cleanup */
+.analytics-summary-metric {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  min-height: 96px;
+  padding: 14px 16px;
+}
+
+.analytics-summary-metric-label {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+.analytics-summary-metric-value {
+  color: #111827;
+  font-size: 26px;
+  font-weight: 850;
+  line-height: 1.05;
+}
+
+.analytics-summary-metric-helper {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.scenario-performance-title-block {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scenario-performance-title-block strong {
+  display: block;
+  color: #111827;
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.scenario-performance-title-block p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.scenario-performance-context {
+  font-weight: 700;
 }

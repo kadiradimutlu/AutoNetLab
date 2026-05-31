@@ -77,9 +77,9 @@ function AnalyticsSummaryCards({ summary }) {
       helper: "Completed sessions with PASS result"
     },
     {
-      title: "Average Score",
+      title: "Average Fault Score",
       value: formatScore(summary?.average_score),
-      helper: "Score range: 0-100"
+      helper: "Fault resolution score range: 0-100"
     },
     {
       title: "Pass Rate",
@@ -104,7 +104,7 @@ function AnalyticsSummaryCards({ summary }) {
         <div>
           <h3>Analytics Summary</h3>
           <p className="muted">
-            Class-level session, scenario, score, pass-rate, and cleanup overview.
+            Class-level session, scenario, fault-score, pass-rate, and cleanup overview.
           </p>
         </div>
       </div>
@@ -112,9 +112,9 @@ function AnalyticsSummaryCards({ summary }) {
       <div className="analytics-summary-metric-grid analytics-summary-metric-grid-v2">
         {cards.map((card) => (
           <div className="analytics-summary-metric" key={card.title}>
-            <span className="muted">{card.title}</span>
-            <strong>{card.value}</strong>
-            <p className="muted">{card.helper}</p>
+            <span className="analytics-summary-metric-label">{card.title}</span>
+            <strong className="analytics-summary-metric-value">{card.value}</strong>
+            <p className="muted analytics-summary-metric-helper">{card.helper}</p>
           </div>
         ))}
       </div>

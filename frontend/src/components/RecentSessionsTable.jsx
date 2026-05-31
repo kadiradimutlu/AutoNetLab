@@ -141,7 +141,7 @@ function RecentSessionsTable({ sessions }) {
           <table className="analytics-table analytics-table-wide">
             <thead>
               <tr>
-                <th>Session ID</th>
+                <th>Session</th>
                 <th>Student</th>
                 <th>Scenario</th>
                 <th>Topology</th>

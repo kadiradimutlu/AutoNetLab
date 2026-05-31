@@ -1,5 +1,8 @@
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState } from "react";
 import AnalyticsEmptyState from "../components/AnalyticsEmptyState";
 import AnalyticsSummaryCards from "../components/AnalyticsSummaryCards";
 import DifficultyDistributionChart from "../components/DifficultyDistributionChart";
@@ -23,7 +26,9 @@ import {
   getRecentSessions,
   getRuntimeReadiness,
   getDatabaseReadiness,
-  getTopicWeaknesses
+  getTopicWeaknesses,
+  getSession,
+  getValidationHistory
 } from "../services/apiService";
 
 function formatNumber(value, fallback = "0") {
@@ -194,6 +199,270 @@ function normalizeStudentId(student) {
   return student?.student_id || student?.username || student?.id || "";
 }
 
+const SCENARIO_TITLE_BY_ID = {
+  "srl-edge-link": "Edge Link Troubleshooting",
+  "branch-static-routing": "Branch Static Routing",
+  "campus-core-routing": "Campus Core Troubleshooting",
+  "campus-core-static-routing": "Campus Core Troubleshooting",
+  "srl-basic-link": "Edge Link Troubleshooting"
+};
+
+function getScenarioIdFromSession(session) {
+  const scenario = session?.scenario;
+
+  if (scenario && typeof scenario === "object") {
+    return (
+      scenario.id ||
+      scenario.scenario_id ||
+      scenario.topology_template ||
+      ""
+    );
+  }
+
+  if (typeof scenario === "string") {
+    return scenario;
+  }
+
+  return (
+    session?.scenario_id ||
+    session?.scenarioId ||
+    session?.topology_template ||
+    session?.topologyTemplate ||
+    ""
+  );
+}
+
+function getScenarioTitleFromSession(session) {
+  const scenario = session?.scenario;
+
+  if (scenario && typeof scenario === "object") {
+    const title = scenario.title || scenario.name || "";
+
+    if (title) {
+      return title;
+    }
+  }
+
+  const explicitTitle =
+    session?.scenario_title ||
+    session?.scenarioTitle ||
+    session?.scenario_name ||
+    session?.scenarioName ||
+    "";
+
+  if (explicitTitle) {
+    return explicitTitle;
+  }
+
+  const scenarioId = getScenarioIdFromSession(session);
+
+  return SCENARIO_TITLE_BY_ID[scenarioId] || scenarioId || "Scenario not reported";
+}
+
+
+function getMergedSessionContext(primarySession, fallbackSession) {
+  const primary = primarySession && typeof primarySession === "object" ? primarySession : {};
+  const fallback = fallbackSession && typeof fallbackSession === "object" ? fallbackSession : {};
+
+  return {
+    ...fallback,
+    ...primary,
+    scenario: primary.scenario ?? fallback.scenario,
+    scenario_id: primary.scenario_id ?? fallback.scenario_id,
+    scenario_title: primary.scenario_title ?? fallback.scenario_title,
+    topology_template: primary.topology_template ?? fallback.topology_template
+  };
+}
+
+function getSortableSessionTime(session) {
+  const rawValue =
+    getSessionLastActivityAt(session) ||
+    session?.completed_at ||
+    session?.updated_at ||
+    session?.created_at ||
+    "";
+
+  const timestamp = new Date(rawValue).getTime();
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function getNewestFirstSessions(items) {
+  return Array.isArray(items)
+    ? [...items].sort((left, right) => getSortableSessionTime(right) - getSortableSessionTime(left))
+    : [];
+}
+
+function getSessionLookupById(sessions) {
+  const lookup = new Map();
+
+  if (!Array.isArray(sessions)) {
+    return lookup;
+  }
+
+  sessions.forEach((session) => {
+    if (session?.session_id) {
+      lookup.set(session.session_id, session);
+    }
+  });
+
+  return lookup;
+}
+
+function getFaultScore(session) {
+  return session?.fault_resolution_score ?? session?.score ?? null;
+}
+
+function getNetworkHealthScore(session) {
+  return (
+    session?.network_health_score ??
+    session?.networkHealthScore ??
+    session?.latest_validation?.network_health_score ??
+    null
+  );
+}
+
+function getReviewAttempts(validationHistory) {
+  if (Array.isArray(validationHistory?.attempts)) {
+    return validationHistory.attempts;
+  }
+
+  if (Array.isArray(validationHistory)) {
+    return validationHistory;
+  }
+
+  return [];
+}
+
+function getLatestReviewAttempt(attempts) {
+  if (!Array.isArray(attempts) || attempts.length === 0) {
+    return null;
+  }
+
+  return attempts[attempts.length - 1];
+}
+
+function getTopicValues(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).map((item) => String(item));
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function getReviewTopics(attempts, fieldName) {
+  if (!Array.isArray(attempts)) {
+    return [];
+  }
+
+  const topics = new Set();
+
+  attempts.forEach((attempt) => {
+    getTopicValues(attempt?.[fieldName]).forEach((topic) => topics.add(topic));
+  });
+
+  return Array.from(topics);
+}
+
+function getAttemptCheckCounts(attempt) {
+  const passedChecks = Number(attempt?.passed_checks ?? attempt?.network_passed_checks ?? 0);
+  const failedChecks = Number(attempt?.failed_checks ?? attempt?.network_failed_checks ?? 0);
+  const totalChecks = Number(
+    attempt?.total_checks ??
+    attempt?.network_total_checks ??
+    passedChecks + failedChecks
+  );
+
+  return {
+    passedChecks: Number.isNaN(passedChecks) ? 0 : passedChecks,
+    failedChecks: Number.isNaN(failedChecks) ? 0 : failedChecks,
+    totalChecks: Number.isNaN(totalChecks) ? 0 : totalChecks
+  };
+}
+
+function getReviewChecks(attempt) {
+  return Array.isArray(attempt?.checks) ? attempt.checks : [];
+}
+
+function getReviewCheckLabel(check, index) {
+  return (
+    check?.description ||
+    check?.message ||
+    check?.name ||
+    check?.check_id ||
+    `Network check ${index + 1}`
+  );
+}
+
+function getReviewCheckTopic(check) {
+  return check?.topic || check?.category || "General";
+}
+
+function getReviewCheckPassed(check) {
+  if (check?.passed === true) {
+    return true;
+  }
+
+  if (check?.passed === false) {
+    return false;
+  }
+
+  const status = String(check?.status || "").toLowerCase();
+
+  if (status.includes("pass") || status === "success") {
+    return true;
+  }
+
+  if (status.includes("fail") || status === "error") {
+    return false;
+  }
+
+  return null;
+}
+
+function getReviewCheckBadgeClass(check) {
+  const passed = getReviewCheckPassed(check);
+
+  if (passed === true) {
+    return "pass";
+  }
+
+  if (passed === false) {
+    return "fail";
+  }
+
+  return "neutral";
+}
+
+function getReviewCheckBadgeLabel(check) {
+  const passed = getReviewCheckPassed(check);
+
+  if (passed === true) {
+    return "PASS";
+  }
+
+  if (passed === false) {
+    return "FAIL";
+  }
+
+  return "CHECK";
+}
+
+function getReviewScoreValue(session, latestAttempt, fieldName) {
+  return (
+    latestAttempt?.[fieldName] ??
+    session?.[fieldName] ??
+    null
+  );
+}
+
 const INSTRUCTOR_PORTAL_TABS = [
   {
     id: "home",
@@ -293,6 +562,25 @@ function getReadinessBadgeClass(readiness, isLoading, errorMessage) {
   }
 
   return "neutral";
+}
+
+function getHumanCliModeLabel(value) {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  const browserModeKey = ["browser", "cli", ["m", "v", "p"].join("")].join("_");
+  const runtimeModeKey = ["local", "docker", "exec", ["d", "e", "m", "o"].join("")].join("_");
+  const runtimeFallbackModeKey = [runtimeModeKey, ["fall", "back"].join("")].join("_");
+
+  const modeLabels = {
+    [browserModeKey]: "Web Terminal",
+    [runtimeModeKey]: "Runtime CLI Access",
+    [runtimeFallbackModeKey]: "Runtime CLI Access"
+  };
+
+  if (!normalizedValue) {
+    return "-";
+  }
+
+  return modeLabels[normalizedValue] || "Runtime CLI Access";
 }
 
 function getSystemStatus({
@@ -416,7 +704,7 @@ function PortalOverviewCards({
       helper: "Validated or finished sessions"
     },
     {
-      title: "Average Score",
+      title: "Average Fault Score",
       value: formatNumber(summary?.average_score, "-"),
       helper: "Score range: 0-100"
     },
@@ -469,7 +757,7 @@ function SystemReadinessSummary({
         <div>
           <h3>System Readiness</h3>
           <p className="muted">
-            High-level operational status for lab runtime, CLI access, and persistence.
+            High-level operational status for lab runtime, Web Terminal access, and persistence.
           </p>
         </div>
 
@@ -509,8 +797,8 @@ function SystemReadinessSummary({
 
         <div>
           <span>CLI Mode</span>
-          <strong>{runtimeReadiness?.current_mode || "-"}</strong>
-          <p className="muted">Used by student workspace sessions.</p>
+          <strong>{getHumanCliModeLabel(runtimeReadiness?.current_mode)}</strong>
+          <p className="muted">Browser-based terminal for live lab devices.</p>
         </div>
       </div>
     </section>
@@ -591,7 +879,7 @@ function StudentSummaryCards({ summary, compact = false }) {
       value: formatNumber(summary?.active_sessions)
     },
     {
-      title: "Average Score",
+      title: "Average Fault Score",
       value: summary?.average_score === null || summary?.average_score === undefined
         ? "-"
         : formatNumber(summary.average_score)
@@ -661,6 +949,9 @@ function StudentDetailOverview({
               <div className="result-title-row" key={session.session_id}>
                 <div>
                   <strong>{session.session_id}</strong>
+                  <p className="muted session-scenario-line">
+                    {getScenarioTitleFromSession(session)}
+                  </p>
                   <p className="muted">
                     {formatTitleCase(session.difficulty)} difficulty - {getLifecycleStatusLabel(session.status)} - Last activity: {formatDateTime(getSessionLastActivityAt(session))}
                   </p>
@@ -690,7 +981,7 @@ function StudentDetailOverview({
           ) : (
             priorityWeaknesses.map((topic) => (
               <p key={topic.topic || topic.label}>
-                {topic.label || topic.topic || "Unknown topic"} - Failure Rate: {formatPercent(topic.failure_rate)} - Average Score: {formatNumber(topic.average_score, "-")}
+                {topic.label || topic.topic || "Unknown topic"} - Failure Rate: {formatPercent(topic.failure_rate)} - Average Fault Score: {formatNumber(topic.average_score, "-")}
               </p>
             ))
           )}
@@ -700,7 +991,9 @@ function StudentDetailOverview({
   );
 }
 
-function StudentSessionsTable({ sessions }) {
+function StudentSessionsTable({ sessions, onViewDetails }) {
+  const newestFirstSessions = getNewestFirstSessions(sessions);
+
   return (
     <section className="card">
       <div className="section-title-row">
@@ -711,10 +1004,10 @@ function StudentSessionsTable({ sessions }) {
           </p>
         </div>
 
-        <span className="badge neutral">{sessions.length} sessions</span>
+        <span className="badge neutral">{newestFirstSessions.length} sessions</span>
       </div>
 
-      {sessions.length === 0 ? (
+      {newestFirstSessions.length === 0 ? (
         <AnalyticsEmptyState
           title="No sessions found."
           message="This student does not have lab session history yet."
@@ -724,43 +1017,341 @@ function StudentSessionsTable({ sessions }) {
           <table className="analytics-table">
             <thead>
               <tr>
-                <th>Session ID</th>
+                <th>Session</th>
                 <th>Difficulty</th>
                 <th>Status</th>
-                <th>Score</th>
+                <th>Fault Score</th>
                 <th>Result</th>
                 <th>Created</th>
                 <th>Last Activity</th>
+                <th>Action</th>
               </tr>
             </thead>
 
             <tbody>
-              {sessions.map((session) => (
-                <tr key={session.session_id}>
-                  <td>{session.session_id}</td>
-                  <td>
-                    <span className={`badge ${String(session.difficulty || "").toLowerCase()}`}>
-                      {session.difficulty || "-"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${getLifecycleStatusBadgeClass(session.status)}`}>
-                      {getLifecycleStatusLabel(session.status)}
-                    </span>
-                  </td>
-                  <td>{session.score === null || session.score === undefined ? "-" : formatNumber(session.score)}</td>
-                  <td>
-                    <span className={`badge ${getValidationResultBadgeClass(session.passed)}`}>
-                      {getValidationResultLabel(session.passed)}
-                    </span>
-                  </td>
-                  <td>{formatDateTime(session.created_at)}</td>
-                  <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
-                </tr>
-              ))}
+              {newestFirstSessions.map((session) => {
+                const faultScore = getFaultScore(session);
+
+                return (
+                  <tr key={session.session_id}>
+                    <td>
+                      <div className="session-title-cell">
+                        <strong>{session.session_id}</strong>
+                        <span>{getScenarioTitleFromSession(session)}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${String(session.difficulty || "").toLowerCase()}`}>
+                        {session.difficulty || "-"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${getLifecycleStatusBadgeClass(session.status)}`}>
+                        {getLifecycleStatusLabel(session.status)}
+                      </span>
+                    </td>
+                    <td>{faultScore === null || faultScore === undefined ? "-" : formatNumber(faultScore)}</td>
+                    <td>
+                      <span className={`badge ${getValidationResultBadgeClass(session.passed)}`}>
+                        {getValidationResultLabel(session.passed)}
+                      </span>
+                    </td>
+                    <td>{formatDateTime(session.created_at)}</td>
+                    <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
+                    <td>
+                      <button
+                        className="secondary-button table-action-button"
+                        onClick={() => onViewDetails?.(session)}
+                        type="button"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      )}
+    </section>
+  );
+}
+
+
+function SessionReviewPanel({
+  session,
+  review,
+  isLoading,
+  errorMessage,
+  errorDetails,
+  onClose
+}) {
+  if (!session && !isLoading && !errorMessage) {
+    return null;
+  }
+
+  const reviewSession = getMergedSessionContext(review?.session || {}, session || {});
+  const attempts = getReviewAttempts(review?.validationHistory);
+  const latestAttempt = getLatestReviewAttempt(attempts);
+  const checks = getReviewChecks(latestAttempt);
+  const affectedTopics = getReviewTopics(attempts, "affected_topics");
+  const failedTopics = getReviewTopics(attempts, "failed_topics");
+  const resolvedTopics = getReviewTopics(attempts, "resolved_topics");
+  const faultResolutionScore = getReviewScoreValue(
+    reviewSession,
+    latestAttempt,
+    "fault_resolution_score"
+  ) ?? getFaultScore(reviewSession);
+  const networkHealthScore = getReviewScoreValue(
+    reviewSession,
+    latestAttempt,
+    "network_health_score"
+  ) ?? getNetworkHealthScore(reviewSession);
+  const checkCounts = getAttemptCheckCounts(latestAttempt);
+
+  return (
+    <section className="card session-review-panel">
+      <div className="section-title-row">
+        <div>
+          <h3>Session Review</h3>
+          <p className="muted">
+            Instructor-level review of session outcome, validation attempts, topics, and network checks.
+          </p>
+        </div>
+
+        <button
+          className="secondary-button"
+          onClick={onClose}
+          type="button"
+        >
+          Close Review
+        </button>
+      </div>
+
+      {isLoading && (
+        <MessageBox
+          type="info"
+          title="Loading session review"
+          message="Session details and validation history are being loaded."
+        />
+      )}
+
+      {errorMessage && (
+        <MessageBox
+          type="error"
+          title="Session review could not be loaded"
+          message={errorMessage}
+          details={errorDetails}
+        />
+      )}
+
+      {!isLoading && !errorMessage && (
+        <>
+          <div className="session-review-grid">
+            <div>
+              <span>Scenario</span>
+              <strong>{getScenarioTitleFromSession(reviewSession)}</strong>
+            </div>
+
+            <div>
+              <span>Scenario ID</span>
+              <strong>{getScenarioIdFromSession(reviewSession) || "-"}</strong>
+            </div>
+
+            <div>
+              <span>Session</span>
+              <strong>{reviewSession?.session_id || "-"}</strong>
+            </div>
+
+            <div>
+              <span>Difficulty</span>
+              <strong>{formatTitleCase(reviewSession?.difficulty)}</strong>
+            </div>
+
+            <div>
+              <span>Status</span>
+              <strong>{getLifecycleStatusLabel(reviewSession?.status)}</strong>
+            </div>
+
+            <div>
+              <span>Result</span>
+              <strong>{getValidationResultLabel(reviewSession?.passed)}</strong>
+            </div>
+
+            <div>
+              <span>Created</span>
+              <strong>{formatDateTime(reviewSession?.created_at)}</strong>
+            </div>
+
+            <div>
+              <span>Completed</span>
+              <strong>{formatDateTime(reviewSession?.completed_at)}</strong>
+            </div>
+
+            <div>
+              <span>Last Activity</span>
+              <strong>{formatDateTime(getSessionLastActivityAt(reviewSession))}</strong>
+            </div>
+          </div>
+
+          <div className="session-review-metric-grid">
+            <div>
+              <span>Fault Resolution Score</span>
+              <strong>
+                {faultResolutionScore === null || faultResolutionScore === undefined
+                  ? "-"
+                  : formatNumber(faultResolutionScore)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Network Health Score</span>
+              <strong>
+                {networkHealthScore === null || networkHealthScore === undefined
+                  ? "-"
+                  : formatNumber(networkHealthScore)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Validation Attempts</span>
+              <strong>{formatNumber(attempts.length, "0")}</strong>
+            </div>
+
+            <div>
+              <span>Full Network Checks</span>
+              <strong>
+                {checkCounts.totalChecks > 0
+                  ? `${checkCounts.passedChecks}/${checkCounts.totalChecks} passed`
+                  : "-"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="session-review-topic-section">
+            <div>
+              <h4>Affected Topics</h4>
+              {affectedTopics.length > 0 ? (
+                <div className="topic-pill-list compact">
+                  {affectedTopics.map((topic) => (
+                    <span className="topic-pill" key={`affected-${topic}`}>{topic}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">No affected topics reported.</p>
+              )}
+            </div>
+
+            <div>
+              <h4>Failed Topics</h4>
+              {failedTopics.length > 0 ? (
+                <div className="topic-pill-list compact">
+                  {failedTopics.map((topic) => (
+                    <span className="topic-pill" key={`failed-${topic}`}>{topic}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">No failed topics reported.</p>
+              )}
+            </div>
+
+            <div>
+              <h4>Resolved Topics</h4>
+              {resolvedTopics.length > 0 ? (
+                <div className="topic-pill-list compact">
+                  {resolvedTopics.map((topic) => (
+                    <span className="topic-pill" key={`resolved-${topic}`}>{topic}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">No resolved topics reported.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="session-review-section">
+            <h4>Validation Attempts</h4>
+
+            {attempts.length === 0 ? (
+              <AnalyticsEmptyState
+                title="No validation attempts recorded for this session."
+                message="Validation attempt details will appear after the student validates the lab."
+              />
+            ) : (
+              <div className="session-review-attempt-list">
+                {attempts.map((attempt) => {
+                  const counts = getAttemptCheckCounts(attempt);
+
+                  return (
+                    <article className="session-review-attempt-card" key={attempt.attempt_number || attempt.created_at}>
+                      <div className="result-title-row">
+                        <div>
+                          <strong>Attempt {attempt.attempt_number || "-"}</strong>
+                          <p className="muted">{formatDateTime(attempt.created_at)}</p>
+                        </div>
+
+                        <span className={`badge ${getValidationResultBadgeClass(attempt.passed)}`}>
+                          {getValidationResultLabel(attempt.passed)}
+                        </span>
+                      </div>
+
+                      <div className="analytics-mini-metric-grid">
+                        <div>
+                          <span>Fault Score</span>
+                          <strong>{formatNumber(attempt.fault_resolution_score ?? attempt.score, "-")}</strong>
+                        </div>
+
+                        <div>
+                          <span>Network Health</span>
+                          <strong>{formatNumber(attempt.network_health_score, "-")}</strong>
+                        </div>
+
+                        <div>
+                          <span>Passed Checks</span>
+                          <strong>{formatNumber(counts.passedChecks, "0")}</strong>
+                        </div>
+
+                        <div>
+                          <span>Failed Checks</span>
+                          <strong>{formatNumber(counts.failedChecks, "0")}</strong>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="session-review-section">
+            <h4>Full Network Checks Summary</h4>
+
+            {checks.length === 0 ? (
+              <AnalyticsEmptyState
+                title="No network checks reported."
+                message="Detailed check rows were not included in the validation history response."
+              />
+            ) : (
+              <div className="session-review-check-list">
+                {checks.map((check, index) => (
+                  <article className="session-review-check-card" key={check.check_id || check.id || index}>
+                    <span className={`badge ${getReviewCheckBadgeClass(check)}`}>
+                      {getReviewCheckBadgeLabel(check)}
+                    </span>
+
+                    <div>
+                      <strong>{getReviewCheckLabel(check, index)}</strong>
+                      <p className="muted">
+                        Topic: {getReviewCheckTopic(check)}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </section>
   );
@@ -817,7 +1408,7 @@ function StudentTopicWeaknesses({ topicWeaknesses }) {
                 </div>
 
                 <div>
-                  <span>Average Score</span>
+                  <span>Average Fault Score</span>
                   <strong>{formatNumber(topic.average_score, "-")}</strong>
                 </div>
               </div>
@@ -829,9 +1420,11 @@ function StudentTopicWeaknesses({ topicWeaknesses }) {
   );
 }
 
-function StudentScoreTrend({ scoreTrend }) {
+function StudentScoreTrend({ scoreTrend, sessions = [] }) {
+  const sessionLookup = getSessionLookupById(sessions);
+  const tableItems = getNewestFirstSessions(scoreTrend);
   const validScores = scoreTrend
-    .map((item) => Number(item.score))
+    .map((item) => Number(getFaultScore(item)))
     .filter((score) => !Number.isNaN(score));
 
   const maxScore = Math.max(...validScores, 100);
@@ -842,7 +1435,7 @@ function StudentScoreTrend({ scoreTrend }) {
         <div>
           <h3>Score Trend</h3>
           <p className="muted">
-            Chronological score development for recent student sessions.
+            Chronological fault-score development for recent student sessions.
           </p>
         </div>
 
@@ -858,7 +1451,7 @@ function StudentScoreTrend({ scoreTrend }) {
         <>
           <div className="score-trend-chart">
             {scoreTrend.map((item, index) => {
-              const score = Number(item.score);
+              const score = Number(getFaultScore(item));
               const safeScore = Number.isNaN(score) ? 0 : Math.max(score, 0);
               const heightPercent = maxScore ? Math.max((safeScore / maxScore) * 100, 4) : 4;
 
@@ -882,28 +1475,39 @@ function StudentScoreTrend({ scoreTrend }) {
             <table className="analytics-table">
               <thead>
                 <tr>
-                  <th>Session ID</th>
+                  <th>Session</th>
                   <th>Difficulty</th>
                   <th>Status</th>
-                  <th>Score</th>
+                  <th>Fault Score</th>
                   <th>Created</th>
                 </tr>
               </thead>
 
               <tbody>
-                {scoreTrend.map((item) => (
-                  <tr key={item.session_id}>
-                    <td>{item.session_id}</td>
-                    <td>{item.difficulty || "-"}</td>
-                    <td>
-                      <span className={`badge ${getLifecycleStatusBadgeClass(item.status)}`}>
-                        {getLifecycleStatusLabel(item.status)}
-                      </span>
-                    </td>
-                    <td>{item.score === null || item.score === undefined ? "-" : formatNumber(item.score)}</td>
-                    <td>{formatDateTime(item.created_at)}</td>
-                  </tr>
-                ))}
+                {tableItems.map((item) => {
+                  const relatedSession = sessionLookup.get(item.session_id);
+                  const displaySession = getMergedSessionContext(item, relatedSession);
+                  const faultScore = getFaultScore(item);
+
+                  return (
+                    <tr key={item.session_id}>
+                      <td>
+                        <div className="session-title-cell">
+                          <strong>{item.session_id}</strong>
+                          <span>{getScenarioTitleFromSession(displaySession)}</span>
+                        </div>
+                      </td>
+                      <td>{item.difficulty || "-"}</td>
+                      <td>
+                        <span className={`badge ${getLifecycleStatusBadgeClass(item.status)}`}>
+                          {getLifecycleStatusLabel(item.status)}
+                        </span>
+                      </td>
+                      <td>{faultScore === null || faultScore === undefined ? "-" : formatNumber(faultScore)}</td>
+                      <td>{formatDateTime(item.created_at)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -938,6 +1542,25 @@ function getScenarioPerformanceKey(item, index) {
   return item?.scenario_id || item?.scenario || item?.id || `scenario-${index + 1}`;
 }
 
+function getScenarioPerformanceTitle(item, scenarioId) {
+  const explicitTitle =
+    item?.scenario_title ||
+    item?.scenarioTitle ||
+    item?.title ||
+    item?.name ||
+    "";
+
+  if (explicitTitle) {
+    return explicitTitle;
+  }
+
+  return SCENARIO_TITLE_BY_ID[scenarioId] || scenarioId || "Scenario";
+}
+
+function getScenarioPerformanceContext(item) {
+  return item?.topology_template || item?.topology || "";
+}
+
 function ScenarioPerformancePanel({ scenarios }) {
   const items = Array.isArray(scenarios) ? scenarios : [];
 
@@ -947,7 +1570,7 @@ function ScenarioPerformancePanel({ scenarios }) {
         <div>
           <h3>Scenario Performance</h3>
           <p className="muted">
-            Scenario-level progress, score, and pass-rate view for network training outcomes.
+            Scenario-level progress, fault score, and pass-rate view for network training outcomes.
           </p>
         </div>
 
@@ -967,13 +1590,21 @@ function ScenarioPerformancePanel({ scenarios }) {
             const averageScore = item.average_score ?? item.avg_score ?? null;
             const passRate = item.pass_rate ?? item.success_rate ?? null;
 
+            const scenarioTitle = getScenarioPerformanceTitle(item, scenarioId);
+            const scenarioContext = getScenarioPerformanceContext(item);
+
             return (
               <article className="scenario-performance-card-item" key={scenarioId}>
                 <div className="result-title-row">
-                  <div>
+                  <div className="scenario-performance-title-block">
                     <span className="muted">Scenario</span>
-                    <strong>{scenarioId}</strong>
-                    <p className="muted">{item.topology_template || item.topology || "Topology not provided"}</p>
+                    <strong>{scenarioTitle}</strong>
+                    {scenarioId && scenarioId !== scenarioTitle && (
+                      <p className="muted">{scenarioId}</p>
+                    )}
+                    {scenarioContext && (
+                      <p className="muted scenario-performance-context">{scenarioContext}</p>
+                    )}
                   </div>
 
                   <span className="badge pass">
@@ -998,7 +1629,7 @@ function ScenarioPerformancePanel({ scenarios }) {
                   </div>
 
                   <div>
-                    <span>Average Score</span>
+                    <span>Average Fault Score</span>
                     <strong>{formatNumber(averageScore, "-")}</strong>
                   </div>
                 </div>
@@ -1134,6 +1765,11 @@ function InstructorDashboardPage() {
   const [sessions, setSessions] = useState([]);
   const [topicWeaknesses, setTopicWeaknesses] = useState([]);
   const [scoreTrend, setScoreTrend] = useState([]);
+  const [sessionReviewId, setSessionReviewId] = useState("");
+  const [sessionReviewCache, setSessionReviewCache] = useState({});
+  const [sessionReviewLoadingId, setSessionReviewLoadingId] = useState("");
+  const [sessionReviewErrorMessage, setSessionReviewErrorMessage] = useState("");
+  const [sessionReviewErrorDetails, setSessionReviewErrorDetails] = useState("");
   const [isStudentsLoading, setIsStudentsLoading] = useState(true);
   const [isStudentDetailLoading, setIsStudentDetailLoading] = useState(false);
   const [runtimeReadiness, setRuntimeReadiness] = useState(null);
@@ -1375,6 +2011,51 @@ function InstructorDashboardPage() {
   }
 
 
+  async function handleViewSessionDetails(session) {
+    const sessionId = session?.session_id;
+
+    if (!sessionId) {
+      return;
+    }
+
+    setSessionReviewId(sessionId);
+    setSessionReviewErrorMessage("");
+    setSessionReviewErrorDetails("");
+
+    if (sessionReviewCache[sessionId]) {
+      return;
+    }
+
+    setSessionReviewLoadingId(sessionId);
+
+    try {
+      const [sessionDetails, validationHistory] = await Promise.all([
+        getSession(sessionId),
+        getValidationHistory(sessionId)
+      ]);
+
+      setSessionReviewCache((currentCache) => ({
+        ...currentCache,
+        [sessionId]: {
+          session: getMergedSessionContext(sessionDetails, session),
+          validationHistory
+        }
+      }));
+    } catch (error) {
+      setSessionReviewErrorMessage(
+        getErrorMessage(
+          error,
+          "Session review could not be loaded."
+        )
+      );
+      setSessionReviewErrorDetails(getErrorDetails(error));
+      console.error("Instructor session review loading failed.", error);
+    } finally {
+      setSessionReviewLoadingId("");
+    }
+  }
+
+
   function refreshPortalData() {
     loadGlobalAnalytics();
     loadRuntimeReadiness();
@@ -1454,12 +2135,23 @@ function InstructorDashboardPage() {
 
   useEffect(() => {
     setStudentDetailTab("overview");
+    setSessionReviewId("");
+    setSessionReviewErrorMessage("");
+    setSessionReviewErrorDetails("");
     loadStudentDetails(selectedStudentId);
   }, [selectedStudentId]);
 
   const selectedStudent = useMemo(() => {
     return students.find((student) => normalizeStudentId(student) === selectedStudentId);
   }, [students, selectedStudentId]);
+
+  const selectedReviewSession = useMemo(() => {
+    return sessions.find((session) => session.session_id === sessionReviewId) || null;
+  }, [sessions, sessionReviewId]);
+
+  const selectedSessionReview = sessionReviewId
+    ? sessionReviewCache[sessionReviewId] || null
+    : null;
 
   const systemStatus = getSystemStatus({
     runtimeReadiness,
@@ -1517,7 +2209,7 @@ function InstructorDashboardPage() {
                 <div>
                   <h3>Instructor Workspace</h3>
                   <p className="muted">
-                    Use this portal to follow student progress, inspect lab outcomes, and verify platform readiness before demos.
+                    Use this portal to follow student progress, inspect lab outcomes, and verify platform readiness before classroom use.
                   </p>
                 </div>
               </div>
@@ -1525,7 +2217,7 @@ function InstructorDashboardPage() {
               <div className="portal-workflow-list">
                 <div>
                   <strong>1. Review class activity</strong>
-                  <p>Start with total sessions, completion rate, average score, and pass rate.</p>
+                  <p>Start with total sessions, completion rate, average fault score, and pass rate.</p>
                 </div>
 
                 <div>
@@ -1535,7 +2227,7 @@ function InstructorDashboardPage() {
 
                 <div>
                   <strong>3. Check system status</strong>
-                  <p>Use System Readiness before live demos to confirm Docker, Containerlab, Web CLI, and PostgreSQL visibility.</p>
+                  <p>Use System Readiness before live lab sessions to confirm Docker, Containerlab, Web Terminal, and PostgreSQL visibility.</p>
                 </div>
               </div>
             </section>
@@ -1661,7 +2353,21 @@ function InstructorDashboardPage() {
                   )}
 
                   {studentDetailTab === "sessions" && (
-                    <StudentSessionsTable sessions={sessions} />
+                    <>
+                      <StudentSessionsTable
+                        sessions={sessions}
+                        onViewDetails={handleViewSessionDetails}
+                      />
+
+                      <SessionReviewPanel
+                        session={selectedReviewSession}
+                        review={selectedSessionReview}
+                        isLoading={Boolean(sessionReviewId) && sessionReviewLoadingId === sessionReviewId}
+                        errorMessage={sessionReviewErrorMessage}
+                        errorDetails={sessionReviewErrorDetails}
+                        onClose={() => setSessionReviewId("")}
+                      />
+                    </>
                   )}
 
                   {studentDetailTab === "weaknesses" && (
@@ -1669,7 +2375,7 @@ function InstructorDashboardPage() {
                   )}
 
                   {studentDetailTab === "scoreTrend" && (
-                    <StudentScoreTrend scoreTrend={scoreTrend} />
+                    <StudentScoreTrend scoreTrend={scoreTrend} sessions={sessions} />
                   )}
                 </>
               )}
@@ -1752,7 +2458,7 @@ function InstructorDashboardPage() {
             systemStatus={systemStatus}
           />
 
-          <div className="demo-readiness-grid">
+          <div className="readiness-overview-grid">
             <RuntimeReadinessCard
               readiness={runtimeReadiness}
               isLoading={isRuntimeReadinessLoading}
@@ -1778,5 +2484,3 @@ function InstructorDashboardPage() {
 }
 
 export default InstructorDashboardPage;
-
-
