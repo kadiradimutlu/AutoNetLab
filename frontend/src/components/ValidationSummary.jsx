@@ -6,7 +6,7 @@ import {
   getValidationStatusLabel
 } from "../utils/formatters";
 
-const CAMPUS_SCENARIO_ID = "campus-core-static-routing";
+const CAMPUS_SCENARIO_ID = "campus-core-routing";
 
 const FOCUS_AREA_RULES = [
   {

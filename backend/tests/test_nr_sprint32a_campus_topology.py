@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.schemas.enums import Difficulty
 from app.services.scenario_catalog import (
-    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    CAMPUS_CORE_ROUTING_SCENARIO_ID,
     get_scenario,
     is_deploy_only_scenario,
     list_scenarios,
@@ -24,17 +24,17 @@ def _new_student(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:8]}"
 
 
-def test_nr_sprint32a_catalog_exposes_campus_core_static_routing():
+def test_nr_sprint32a_catalog_exposes_campus_core_routing():
     scenarios = list_scenarios()
     scenario_by_id = {scenario["id"]: scenario for scenario in scenarios}
 
-    scenario = scenario_by_id[CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID]
+    scenario = scenario_by_id[CAMPUS_CORE_ROUTING_SCENARIO_ID]
 
-    assert scenario["title"] == "Campus Core Static Routing"
-    assert scenario["topology_template"] == "campus-core-static-routing"
+    assert scenario["title"] == "Campus Core Troubleshooting"
+    assert scenario["topology_template"] == "campus-core-routing"
     assert scenario["router_os"] == "Nokia SR Linux"
     assert scenario["runtime_profile"] == "runtime_fault_injection"
-    assert is_deploy_only_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID) is False
+    assert is_deploy_only_scenario(CAMPUS_CORE_ROUTING_SCENARIO_ID) is False
 
     devices = {device["id"]: device for device in scenario["devices"]}
     assert set(devices) == {"client1", "client2", "srl1", "srl2", "srl3", "srl4"}
@@ -59,14 +59,14 @@ def test_nr_sprint32a_generate_campus_topology_file():
         result = generate_session_topology(
             session_id=session_id,
             difficulty=Difficulty.easy,
-            topology_template="campus-core-static-routing",
-            scenario_id=CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+            topology_template="campus-core-routing",
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
         )
 
         topology = result["topology"]
         topology_file = Path(result["topology_file"])
 
-        assert result["topology_template"] == "campus-core-static-routing"
+        assert result["topology_template"] == "campus-core-routing"
         assert topology_file.exists()
         assert len(topology.nodes) == 6
         assert len(topology.links) == 6
@@ -112,7 +112,7 @@ def test_nr_sprint32a_create_lab_returns_student_safe_campus_contract():
         json={
             "student_id": _new_student("nr32a-campus"),
             "difficulty": "easy",
-            "scenario_id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+            "scenario_id": CAMPUS_CORE_ROUTING_SCENARIO_ID,
         },
     )
 
@@ -121,8 +121,8 @@ def test_nr_sprint32a_create_lab_returns_student_safe_campus_contract():
     payload = response.json()
 
     assert payload["success"] is True
-    assert payload["scenario"]["id"] == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID
-    assert payload["scenario"]["title"] == "Campus Core Static Routing"
+    assert payload["scenario"]["id"] == CAMPUS_CORE_ROUTING_SCENARIO_ID
+    assert payload["scenario"]["title"] == "Campus Core Troubleshooting"
     assert payload["topology_summary"]["node_count"] == 6
     assert payload["topology_summary"]["link_count"] == 6
     assert payload["topology_summary"]["devices"] == [
@@ -171,9 +171,9 @@ def test_nr_sprint32a_meta_scenarios_api_includes_campus_scenario():
     payload = response.json()
     scenario_by_id = {scenario["id"]: scenario for scenario in payload["scenarios"]}
 
-    assert CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID in scenario_by_id
-    assert scenario_by_id[CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID]["title"] == (
-        "Campus Core Static Routing"
+    assert CAMPUS_CORE_ROUTING_SCENARIO_ID in scenario_by_id
+    assert scenario_by_id[CAMPUS_CORE_ROUTING_SCENARIO_ID]["title"] == (
+        "Campus Core Troubleshooting"
     )
 
 
@@ -183,7 +183,7 @@ def test_nr_sprint33a_deploy_only_campus_runs_golden_runtime_setup_without_fault
         json={
             "student_id": _new_student("nr33a-campus-deploy"),
             "difficulty": "easy",
-            "scenario_id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+            "scenario_id": CAMPUS_CORE_ROUTING_SCENARIO_ID,
         },
     )
     assert create_response.status_code == 201
@@ -312,7 +312,7 @@ def test_nr_sprint32a_deploy_timeout_cleans_partial_runtime(monkeypatch):
         json={
             "student_id": _new_student("nr32a-campus-timeout-cleanup"),
             "difficulty": "easy",
-            "scenario_id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+            "scenario_id": CAMPUS_CORE_ROUTING_SCENARIO_ID,
         },
     )
     assert create_response.status_code == 201

@@ -29,6 +29,7 @@ from app.services.topology_generator import GENERATED_DIR, generate_session_topo
 from app.services.recommendation.features import build_topic_performance
 from app.services.scenario_catalog import (
     CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    DEFAULT_SCENARIO_ID,
     SR_BASIC_LINK_SCENARIO_ID,
     get_scenario,
     is_deploy_only_scenario,
@@ -97,7 +98,7 @@ def create_lab_session(
             detail=_build_blocking_lab_create_detail(blocking_session),
         )
 
-    scenario_id = request.scenario_id or SR_BASIC_LINK_SCENARIO_ID
+    scenario_id = request.scenario_id or DEFAULT_SCENARIO_ID
     scenario = get_scenario(scenario_id)
     topology_template = (
         scenario.get("topology_template")
@@ -609,11 +610,17 @@ def update_session_validation_result(session_id: str, validation_result) -> dict
     result_payload["created_at"] = attempt_payload["created_at"]
     result_payload["passed_checks"] = attempt_payload["passed_checks"]
     result_payload["failed_checks"] = attempt_payload["failed_checks"]
+    result_payload.setdefault("score_type", "fault_resolution")
+    result_payload.setdefault("fault_resolution_score", result_payload.get("score"))
+    result_payload.setdefault("network_health_score", result_payload.get("score"))
 
     session["status"] = SessionStatus.validated
     session["validation_result"] = result_payload
     session["validation_attempts"] = validation_attempts
     session["score"] = result_payload.get("score")
+    session["score_type"] = result_payload.get("score_type")
+    session["fault_resolution_score"] = result_payload.get("fault_resolution_score")
+    session["network_health_score"] = result_payload.get("network_health_score")
     session["passed"] = result_payload.get("passed")
     session["topic_performance"] = build_topic_performance(result_payload)
     session["completed_at"] = attempt_payload["created_at"]
@@ -946,16 +953,29 @@ def _build_validation_attempt_payload(
     failed_checks = sum(1 for check in checks if check.get("passed") is False)
     previous_attempts = list(session.get("validation_attempts") or [])
 
-    return {
+    attempt_payload = {
         "attempt_number": len(previous_attempts) + 1,
         "session_id": session["session_id"],
         "score": int(result_payload.get("score", 0)),
+        "score_type": str(result_payload.get("score_type") or "fault_resolution"),
+        "fault_resolution_score": result_payload.get("fault_resolution_score"),
+        "network_health_score": result_payload.get("network_health_score"),
+        "affected_topics": list(result_payload.get("affected_topics") or []),
+        "failed_topics": list(result_payload.get("failed_topics") or []),
+        "resolved_topics": list(result_payload.get("resolved_topics") or []),
+        "ml_training_sample": result_payload.get("ml_training_sample"),
         "passed": bool(result_payload.get("passed", False)),
         "passed_checks": passed_checks,
         "failed_checks": failed_checks,
         "created_at": _utc_now_iso(),
         "checks": checks,
     }
+
+    if isinstance(attempt_payload["ml_training_sample"], dict):
+        attempt_payload["ml_training_sample"]["attempt_number"] = attempt_payload["attempt_number"]
+        attempt_payload["ml_training_sample"]["created_at"] = attempt_payload["created_at"]
+
+    return attempt_payload
 
 
 def _student_safe_check_payload(check) -> dict:
@@ -1088,6 +1108,9 @@ def _save_session_metadata(session: dict) -> None:
         "validation_attempts": session.get("validation_attempts", []),
         "topic_performance": session.get("topic_performance"),
         "score": session.get("score"),
+        "score_type": session.get("score_type"),
+        "fault_resolution_score": session.get("fault_resolution_score"),
+        "network_health_score": session.get("network_health_score"),
         "passed": session.get("passed"),
         "runtime_cleanup_history": session.get("runtime_cleanup_history", []),
     }
@@ -1166,10 +1189,14 @@ def _load_session_metadata(session_id: str) -> dict | None:
 
 
 def _scenario_from_topology_template(topology_template: str | None) -> dict | None:
-    if str(topology_template or "") == SR_BASIC_LINK_SCENARIO_ID:
-        return get_scenario(SR_BASIC_LINK_SCENARIO_ID)
+    if not topology_template:
+        return None
 
-    return None
+    try:
+        return get_scenario(topology_template)
+    except HTTPException:
+        return None
+
 
 
 def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:

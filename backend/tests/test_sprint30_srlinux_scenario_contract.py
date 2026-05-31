@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.schemas.enums import Difficulty, SessionStatus
 from app.services.scenario_catalog import (
-    SR_BASIC_LINK_SCENARIO_ID,
+    SR_EDGE_LINK_SCENARIO_ID,
     get_scenario,
     is_srlinux_scenario,
     list_scenarios,
@@ -14,21 +14,21 @@ from app.services.scenario_catalog import (
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 
 
-def test_scenario_catalog_exposes_srlinux_basic_link():
+def test_scenario_catalog_exposes_edge_link():
     scenarios = list_scenarios()
 
     scenario = next(
         item
         for item in scenarios
-        if item["id"] == SR_BASIC_LINK_SCENARIO_ID
+        if item["id"] == SR_EDGE_LINK_SCENARIO_ID
     )
 
     assert scenario["router_os"] == "Nokia SR Linux"
-    assert scenario["topology_template"] == "srl-basic-link"
+    assert scenario["topology_template"] == "srl-edge-link"
     assert scenario["addressing_table"]
     assert scenario["routing_requirements"]
     assert scenario["expected_connectivity"]
-    assert is_srlinux_scenario(SR_BASIC_LINK_SCENARIO_ID) is True
+    assert is_srlinux_scenario(SR_EDGE_LINK_SCENARIO_ID) is True
 
 
 def test_unknown_scenario_rejected():
@@ -41,7 +41,7 @@ def test_unknown_scenario_rejected():
         raise AssertionError("Unknown scenario_id should raise HTTPException.")
 
 
-def test_generate_srlinux_basic_link_topology_file():
+def test_generate_edge_link_topology_file():
     session_id = "lab-sprint30-srl-test"
     generated_dir = GENERATED_DIR / session_id
 
@@ -52,14 +52,14 @@ def test_generate_srlinux_basic_link_topology_file():
         result = generate_session_topology(
             session_id=session_id,
             difficulty=Difficulty.easy,
-            topology_template="basic-two-router",
-            scenario_id=SR_BASIC_LINK_SCENARIO_ID,
+            topology_template="srl-edge-link",
+            scenario_id=SR_EDGE_LINK_SCENARIO_ID,
         )
 
         topology = result["topology"]
         topology_file = Path(result["topology_file"])
 
-        assert result["topology_template"] == "srl-basic-link"
+        assert result["topology_template"] == "srl-edge-link"
         assert topology_file.exists()
 
         node_by_id = {
@@ -77,14 +77,14 @@ def test_generate_srlinux_basic_link_topology_file():
         assert payload["topology"]["nodes"]["srl1"]["kind"] == "nokia_srlinux"
         assert payload["topology"]["nodes"]["srl1"]["type"] == "ixr-d2l"
         assert payload["topology"]["nodes"]["client1"]["kind"] == "linux"
-        assert payload["topology"]["links"][0]["endpoints"] == [
+        assert set(payload["topology"]["links"][0]["endpoints"]) == {
             "srl1:e1-1",
             "client1:eth1",
-        ]
-        assert payload["topology"]["links"][0]["ipv4"] == [
+        }
+        assert set(payload["topology"]["links"][0]["ipv4"]) == {
             "10.10.10.1/24",
             "10.10.10.10/24",
-        ]
+        }
     finally:
         if generated_dir.exists():
             shutil.rmtree(generated_dir)
@@ -110,16 +110,16 @@ def test_meta_scenarios_api_exposes_srlinux_catalog():
         for scenario in payload["scenarios"]
     }
 
-    scenario = scenario_by_id[SR_BASIC_LINK_SCENARIO_ID]
+    scenario = scenario_by_id[SR_EDGE_LINK_SCENARIO_ID]
 
-    assert scenario["title"] == "SR Linux Basic Link Troubleshooting"
+    assert scenario["title"] == "Edge Link Troubleshooting"
     assert scenario["router_os"] == "Nokia SR Linux"
     assert scenario["addressing_table"]
     assert scenario["routing_requirements"]
     assert scenario["expected_connectivity"]
 
 
-def test_create_lab_with_srlinux_scenario_returns_student_safe_contract():
+def test_create_lab_with_edge_link_scenario_returns_student_safe_contract():
     from uuid import uuid4
 
     from fastapi.testclient import TestClient
@@ -134,7 +134,7 @@ def test_create_lab_with_srlinux_scenario_returns_student_safe_contract():
         json={
             "student_id": student_id,
             "difficulty": "easy",
-            "scenario_id": SR_BASIC_LINK_SCENARIO_ID,
+            "scenario_id": SR_EDGE_LINK_SCENARIO_ID,
         },
     )
 
@@ -145,7 +145,7 @@ def test_create_lab_with_srlinux_scenario_returns_student_safe_contract():
     generated_dir = GENERATED_DIR / session_id
 
     try:
-        assert payload["scenario"]["id"] == SR_BASIC_LINK_SCENARIO_ID
+        assert payload["scenario"]["id"] == SR_EDGE_LINK_SCENARIO_ID
         assert payload["scenario"]["addressing_table"]
         assert payload["scenario"]["routing_requirements"]
         assert payload["scenario"]["expected_connectivity"]
@@ -183,7 +183,7 @@ def test_srlinux_runtime_setup_applies_client_ip_gateway_and_network_instance(mo
 
     session = {
         "session_id": "lab-runtime-setup-test",
-        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "scenario": {"id": SR_EDGE_LINK_SCENARIO_ID},
         "cli_access": [
             {
                 "device_id": "srl1",
@@ -262,7 +262,7 @@ def test_srlinux_runtime_setup_fails_when_gateway_ping_fails(monkeypatch):
 
     session = {
         "session_id": "lab-runtime-setup-fail-test",
-        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "scenario": {"id": SR_EDGE_LINK_SCENARIO_ID},
         "cli_access": [
             {
                 "device_id": "srl1",
@@ -326,8 +326,8 @@ def test_srlinux_validation_passes_when_live_state_matches(monkeypatch):
     session = {
         "session_id": "lab-srl-validation-pass",
         "status": SessionStatus.deployed,
-        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
-        "topology_template": "srl-basic-link",
+        "scenario": {"id": SR_EDGE_LINK_SCENARIO_ID},
+        "topology_template": "srl-edge-link",
         "cli_access": [
             {
                 "device_id": "srl1",
@@ -398,8 +398,8 @@ def test_srlinux_validation_fails_when_client_default_gateway_is_wrong(monkeypat
     session = {
         "session_id": "lab-srl-validation-fail",
         "status": SessionStatus.deployed,
-        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
-        "topology_template": "srl-basic-link",
+        "scenario": {"id": SR_EDGE_LINK_SCENARIO_ID},
+        "topology_template": "srl-edge-link",
         "cli_access": [
             {
                 "device_id": "srl1",
@@ -507,7 +507,7 @@ def test_create_srlinux_session_stores_internal_runtime_fault_metadata():
         json={
             "student_id": student_id,
             "difficulty": "easy",
-            "scenario_id": SR_BASIC_LINK_SCENARIO_ID,
+            "scenario_id": SR_EDGE_LINK_SCENARIO_ID,
         },
     )
 
@@ -550,7 +550,7 @@ def test_srlinux_runtime_setup_injects_wrong_client_gateway_after_baseline(monke
 
     session = {
         "session_id": "lab-runtime-fault-injection-test",
-        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
+        "scenario": {"id": SR_EDGE_LINK_SCENARIO_ID},
         "injected_errors": build_srlinux_runtime_faults(
             difficulty=Difficulty.easy,
             seed="lab-runtime-fault-injection-test",
@@ -627,8 +627,8 @@ def test_srlinux_validation_fails_only_default_gateway_when_wrong_gateway_is_on_
     session = {
         "session_id": "lab-srl-validation-realistic-fail",
         "status": SessionStatus.deployed,
-        "scenario": {"id": SR_BASIC_LINK_SCENARIO_ID},
-        "topology_template": "srl-basic-link",
+        "scenario": {"id": SR_EDGE_LINK_SCENARIO_ID},
+        "topology_template": "srl-edge-link",
         "cli_access": [
             {
                 "device_id": "srl1",

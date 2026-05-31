@@ -1,6 +1,6 @@
 from app.schemas.enums import SessionStatus
 from app.services.scenario_catalog import (
-    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    CAMPUS_CORE_ROUTING_SCENARIO_ID,
     get_scenario,
     is_srlinux_scenario,
 )
@@ -17,15 +17,15 @@ def _campus_cli_access(session_id: str = "lab-campus-golden-test") -> list[dict[
     ]
 
 
-def test_nr_sprint33a_catalog_exposes_campus_golden_static_routing_metadata():
-    scenario = get_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID)
+def test_nr_sprint33a_catalog_exposes_campus_golden_routing_metadata():
+    scenario = get_scenario(CAMPUS_CORE_ROUTING_SCENARIO_ID)
 
     assert scenario["runtime_profile"] == "runtime_fault_injection"
-    assert is_srlinux_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID) is True
+    assert is_srlinux_scenario(CAMPUS_CORE_ROUTING_SCENARIO_ID) is True
 
     static_routes = {
         (item["device"], item["destination"]): item["next_hop"]
-        for item in scenario["static_routing_table"]
+        for item in scenario["expected_network_state"]["static_routing_table"]
     }
 
     assert static_routes[("srl1", "10.10.20.0/24")] == "10.10.13.2"
@@ -49,7 +49,7 @@ def test_nr_sprint33a_campus_runtime_setup_applies_golden_state(monkeypatch):
     session_id = "lab-campus-golden-test"
     session = {
         "session_id": session_id,
-        "scenario": {"id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID},
+        "scenario": {"id": CAMPUS_CORE_ROUTING_SCENARIO_ID},
         "injected_errors": [],
         "cli_access": _campus_cli_access(session_id),
     }

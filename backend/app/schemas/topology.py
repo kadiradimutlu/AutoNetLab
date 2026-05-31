@@ -21,6 +21,6 @@ class TopologyLink(BaseModel):
 
 
 class Topology(BaseModel):
-    name: str = Field(..., examples=["srl-basic-link"])
+    name: str = Field(..., examples=["srl-edge-link"])
     nodes: list[TopologyNode]
     links: list[TopologyLink]

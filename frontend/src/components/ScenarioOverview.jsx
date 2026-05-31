@@ -5,7 +5,7 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
-const CAMPUS_SCENARIO_ID = "campus-core-static-routing";
+const CAMPUS_SCENARIO_ID = "campus-core-routing";
 const CAMPUS_NODE_IDS = ["client1", "client2", "srl1", "srl2", "srl3", "srl4"];
 
 const DEFAULT_TOPIC_LABELS = {

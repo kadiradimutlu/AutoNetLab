@@ -29,7 +29,7 @@ def test_create_lab_medium_returns_success():
         json={
             "student_id": "pytest-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -51,7 +51,7 @@ def test_get_lab_default_response_is_student_safe():
         json={
             "student_id": "pytest-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -81,7 +81,7 @@ def test_get_lab_debug_response_includes_injected_errors():
         json={
             "student_id": "pytest-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -100,7 +100,7 @@ def test_get_lab_debug_response_includes_injected_errors():
     assert data["success"] is True
     assert data["session_id"] == session_id
     assert "injected_errors" in data
-    assert len(data["injected_errors"]) == 1
+    assert len(data["injected_errors"]) == 2
     assert data["injected_errors"][0]["device"] == "client1"
     assert "hints" in data
 
@@ -133,7 +133,7 @@ def test_invalid_difficulty_returns_standard_error():
         json={
             "student_id": "pytest-student",
             "difficulty": "impossible",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -151,7 +151,7 @@ def test_validate_created_lab_returns_validation_result():
         json={
             "student_id": "pytest-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -216,7 +216,7 @@ def test_instructor_analytics_endpoints_after_validation():
         json={
             "student_id": "analytics-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -281,7 +281,7 @@ def test_recommendations_endpoint_before_validation_returns_empty_state():
         json={
             "student_id": "recommendation-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -308,7 +308,7 @@ def test_recommendations_endpoint_after_validation_returns_explanatory_items():
         json={
             "student_id": "recommendation-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -350,7 +350,7 @@ def test_validation_persists_topic_performance_for_ml_ready_history():
         json={
             "student_id": "ml-ready-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -382,7 +382,7 @@ def test_sprint8_validation_checks_include_advanced_fields():
         json={
             "student_id": "sprint8-validation-student",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -452,7 +452,7 @@ def test_sprint8_cli_access_response_includes_mode_info():
         json={
             "student_id": "sprint8-cli-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -601,7 +601,7 @@ def test_sprint9_debug_lab_endpoint_requires_instructor_role():
         json={
             "student_id": "sprint9-debug-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -656,7 +656,7 @@ def test_sprint10_instructor_student_detail_endpoints_return_student_history():
         json={
             "student_id": student_id,
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -743,7 +743,7 @@ def test_sprint11_web_cli_requires_auth_token():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -766,7 +766,7 @@ def test_sprint11_web_cli_blocks_student_from_other_students_session():
         json={
             "student_id": "another-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -791,7 +791,7 @@ def test_sprint11_web_cli_requires_deployed_lab_before_runtime_shell():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -816,7 +816,7 @@ def test_sprint11_web_cli_rejects_unknown_device():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -846,7 +846,7 @@ def test_sprint11_web_cli_context_allows_own_deployed_student_session():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -874,7 +874,7 @@ def test_sprint12_web_cli_readiness_requires_auth_token():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -893,7 +893,7 @@ def test_sprint12_web_cli_readiness_reports_not_deployed_state():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -926,7 +926,7 @@ def test_sprint12_web_cli_device_readiness_rejects_unknown_device():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -951,7 +951,7 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1173,7 +1173,7 @@ def test_sprint19_hard_topology_returns_srlinux_scenario_and_cli_access():
         json={
             "student_id": "sprint19-hard-student",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1182,7 +1182,7 @@ def test_sprint19_hard_topology_returns_srlinux_scenario_and_cli_access():
     data = response.json()
     assert data["success"] is True
     assert data["difficulty"] == "hard"
-    assert data["scenario"]["id"] == "srl-basic-link"
+    assert data["scenario"]["id"] == "srl-edge-link"
     assert "injected_errors" not in data
     assert "expected_fix" not in data
     assert "solution" not in data
@@ -1195,18 +1195,20 @@ def test_sprint19_hard_topology_returns_srlinux_scenario_and_cli_access():
         for node in topology["nodes"]
     ]
 
-    assert node_ids == ["srl1", "client1"]
+    assert set(node_ids) == {"srl1", "client1"}
 
     link_pairs = {
-        (
-            link["source"]["node"],
-            link["target"]["node"],
+        frozenset(
+            {
+                link["source"]["node"],
+                link["target"]["node"],
+            }
         )
         for link in topology["links"]
     }
 
     assert link_pairs == {
-        ("srl1", "client1"),
+        frozenset({"srl1", "client1"}),
     }
 
     cli_by_device = {
@@ -1253,7 +1255,7 @@ def test_sprint19_hard_validation_and_metadata_follow_srlinux_scenario():
         json={
             "student_id": "sprint19-validation-student",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1286,14 +1288,14 @@ def test_sprint19_hard_validation_and_metadata_follow_srlinux_scenario():
         assert "evidence" not in check
 
     session = get_lab_session(session_id)
-    assert session["topology_template"] == "srl-basic-link"
+    assert session["topology_template"] == "srl-edge-link"
 
     topology_file = GENERATED_DIR / session_id / "lab.clab.yml"
     assert topology_file.exists()
     assert "nokia_srlinux" in topology_file.read_text(encoding="utf-8")
 
     injected_errors = session["injected_errors"]
-    assert len(injected_errors) == 1
+    assert len(injected_errors) == 3
 
     fault = (
         injected_errors[0].model_dump()
@@ -1424,7 +1426,7 @@ def test_sprint20_student_ownership_and_my_labs():
         json={
             "student_id": "spoofed-student-id-should-not-win",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1577,7 +1579,7 @@ def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
         json={
             "student_id": "spoofed-student-id-should-not-win",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1656,7 +1658,7 @@ def test_sprint21_ownership_forbidden_error_code_is_stable():
         json={
             "student_id": "spoofed-student-id-should-not-win",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1685,7 +1687,7 @@ def test_nr_sprint36a_terminal_context_resolves_trusted_command_from_cli_metadat
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "scenario_id": "srl-basic-link",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1735,7 +1737,7 @@ def test_nr_sprint36a_terminal_ws_endpoint_uses_separate_pty_mode(monkeypatch):
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "scenario_id": "srl-basic-link",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1824,7 +1826,7 @@ def test_nr_sprint37a_terminal_ws_supports_concurrent_devices(monkeypatch):
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "scenario_id": "campus-core-static-routing",
+            "scenario_id": "campus-core-routing",
         },
     )
 
@@ -1925,7 +1927,7 @@ def test_nr_sprint37a_terminal_ws_allows_same_device_parallel_sessions(monkeypat
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "scenario_id": "campus-core-static-routing",
+            "scenario_id": "campus-core-routing",
         },
     )
 
@@ -1997,7 +1999,7 @@ def test_nr_sprint36a_terminal_ws_reuses_web_cli_authz_guardrails():
         json={
             "student_id": "another-student",
             "difficulty": "easy",
-            "scenario_id": "srl-basic-link",
+            "scenario_id": "srl-edge-link",
         },
     )
 

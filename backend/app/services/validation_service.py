@@ -8,8 +8,12 @@ from app.schemas.enums import SessionStatus
 from app.schemas.validation import ValidationCheck, ValidationResult
 from app.services.validation_rules import get_live_validation_rule
 from app.services.scenario_catalog import (
+    BRANCH_STATIC_ROUTING_SCENARIO_ID,
+    CAMPUS_CORE_ROUTING_SCENARIO_ID,
     CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
     SR_BASIC_LINK_SCENARIO_ID,
+    SR_EDGE_LINK_SCENARIO_ID,
+    resolve_scenario_id,
 )
 from app.services.network_topics import (
     TOPIC_HINTS as NETWORK_TOPIC_HINTS,
@@ -126,6 +130,90 @@ def _campus_ping_retry_command(ip_address: str) -> str:
         "done; "
         f"ping -c 3 -W 2 {ip_address}"
     )
+
+
+BRANCH_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
+    {
+        "check_id": "branch_check_1_client1_address",
+        "topic": "ip_addressing",
+        "device": "client1",
+        "description": "Validate that client1 eth1 has the expected branch IPv4 address.",
+        "command": ["sh", "-lc", "ip -4 addr show dev eth1"],
+        "expected_outputs": ["10.10.10.10/24"],
+        "max_points": 10,
+        "hint": "Check client1 eth1 addressing against the branch addressing table.",
+    },
+    {
+        "check_id": "branch_check_2_client1_default_gateway",
+        "topic": "default_gateway",
+        "device": "client1",
+        "description": "Validate that client1 uses srl1 as its default gateway.",
+        "command": ["sh", "-lc", "ip route"],
+        "expected_outputs": ["default via 10.10.10.1"],
+        "max_points": 10,
+        "hint": "Check whether client1 default route points to 10.10.10.1.",
+    },
+    {
+        "check_id": "branch_check_3_client2_address",
+        "topic": "ip_addressing",
+        "device": "client2",
+        "description": "Validate that client2 eth1 has the expected branch IPv4 address.",
+        "command": ["sh", "-lc", "ip -4 addr show dev eth1"],
+        "expected_outputs": ["10.10.20.10/24"],
+        "max_points": 10,
+        "hint": "Check client2 eth1 addressing against the branch addressing table.",
+    },
+    {
+        "check_id": "branch_check_4_client2_default_gateway",
+        "topic": "default_gateway",
+        "device": "client2",
+        "description": "Validate that client2 uses srl2 as its default gateway.",
+        "command": ["sh", "-lc", "ip route"],
+        "expected_outputs": ["default via 10.10.20.1"],
+        "max_points": 10,
+        "hint": "Check whether client2 default route points to 10.10.20.1.",
+    },
+    {
+        "check_id": "branch_check_5_client1_to_client2_connectivity",
+        "topic": "connectivity_testing",
+        "device": "client1",
+        "description": "Validate that client1 can reach client2 through the branch routers.",
+        "command": ["sh", "-lc", _campus_ping_retry_command("10.10.20.10")],
+        "expected_outputs": ["bytes from 10.10.20.10"],
+        "max_points": 10,
+        "hint": "Check client addressing, default gateways, static routes, and branch transit reachability.",
+    },
+    {
+        "check_id": "branch_check_6_client2_to_client1_connectivity",
+        "topic": "connectivity_testing",
+        "device": "client2",
+        "description": "Validate that client2 can reach client1 through the branch routers.",
+        "command": ["sh", "-lc", _campus_ping_retry_command("10.10.10.10")],
+        "expected_outputs": ["bytes from 10.10.10.10"],
+        "max_points": 10,
+        "hint": "Check the return path from client2 toward client1.",
+    },
+    {
+        "check_id": "branch_check_7_srl1_route_to_client2",
+        "topic": "static_routing",
+        "device": "srl1",
+        "description": "Validate that srl1 has a static route toward the client2 network.",
+        "command": ["sr_cli", "-ec", "info network-instance default static-routes route 10.10.20.0/24"],
+        "expected_outputs": ["branch-srl1-to-client2"],
+        "max_points": 10,
+        "hint": "Check srl1 route to 10.10.20.0/24 through srl2.",
+    },
+    {
+        "check_id": "branch_check_8_srl2_route_to_client1",
+        "topic": "static_routing",
+        "device": "srl2",
+        "description": "Validate that srl2 has a static route toward the client1 network.",
+        "command": ["sr_cli", "-ec", "info network-instance default static-routes route 10.10.10.0/24"],
+        "expected_outputs": ["branch-srl2-to-client1"],
+        "max_points": 10,
+        "hint": "Check srl2 route to 10.10.10.0/24 through srl1.",
+    },
+]
 
 
 CAMPUS_CORE_STATIC_ROUTING_CHECKS: list[dict[str, Any]] = [
@@ -256,6 +344,9 @@ def validate_session(session: dict) -> ValidationResult:
     if _is_campus_core_static_routing_session(session):
         return _validate_campus_core_static_routing_session(session)
 
+    if _is_branch_static_routing_session(session):
+        return _validate_branch_static_routing_session(session)
+
     if _is_srlinux_basic_link_session(session):
         return _validate_srlinux_basic_link_session(session)
 
@@ -276,19 +367,10 @@ def validate_session(session: dict) -> ValidationResult:
         )
         checks.append(check)
 
-    earned_points = sum(check.points for check in checks)
-    max_points = sum(check.max_points for check in checks)
-
-    score = int((earned_points / max_points) * 100) if max_points else 100
-    overall_passed = score == 100
-
     recommendations = _build_recommendations(checks)
 
-    return ValidationResult(
-        session_id=session["session_id"],
-        status=SessionStatus.validated,
-        passed=overall_passed,
-        score=score,
+    return _build_scored_validation_result(
+        session=session,
         checks=checks,
         recommendations=recommendations,
     )
@@ -310,12 +392,45 @@ def _scenario_id_for_session(session: dict) -> str | None:
     return None
 
 
+def _canonical_scenario_id_for_session(session: dict) -> str | None:
+    return resolve_scenario_id(_scenario_id_for_session(session))
+
+
 def _is_srlinux_basic_link_session(session: dict) -> bool:
-    return _scenario_id_for_session(session) == SR_BASIC_LINK_SCENARIO_ID
+    return _canonical_scenario_id_for_session(session) == SR_EDGE_LINK_SCENARIO_ID
+
+
+def _is_branch_static_routing_session(session: dict) -> bool:
+    return _canonical_scenario_id_for_session(session) == BRANCH_STATIC_ROUTING_SCENARIO_ID
 
 
 def _is_campus_core_static_routing_session(session: dict) -> bool:
-    return _scenario_id_for_session(session) == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID
+    return _canonical_scenario_id_for_session(session) == CAMPUS_CORE_ROUTING_SCENARIO_ID
+
+
+def _validate_branch_static_routing_session(session: dict) -> ValidationResult:
+    if not _runtime_status_allows_live_validation(session):
+        return _build_live_validation_unavailable_result(
+            session=session,
+            scenario_label="Branch static routing",
+        )
+
+    checks = [
+        _build_srlinux_validation_check(
+            index=index,
+            spec=spec,
+            session=session,
+        )
+        for index, spec in enumerate(BRANCH_STATIC_ROUTING_CHECKS, start=1)
+    ]
+
+    recommendations = _build_recommendations(checks)
+
+    return _build_scored_validation_result(
+        session=session,
+        checks=checks,
+        recommendations=recommendations,
+    )
 
 
 def _validate_campus_core_static_routing_session(session: dict) -> ValidationResult:
@@ -334,18 +449,10 @@ def _validate_campus_core_static_routing_session(session: dict) -> ValidationRes
         for index, spec in enumerate(CAMPUS_CORE_STATIC_ROUTING_CHECKS, start=1)
     ]
 
-    earned_points = sum(check.points for check in checks)
-    max_points = sum(check.max_points for check in checks)
-
-    score = int((earned_points / max_points) * 100) if max_points else 100
-    overall_passed = score == 100
     recommendations = _build_recommendations(checks)
 
-    return ValidationResult(
-        session_id=session["session_id"],
-        status=SessionStatus.validated,
-        passed=overall_passed,
-        score=score,
+    return _build_scored_validation_result(
+        session=session,
         checks=checks,
         recommendations=recommendations,
     )
@@ -390,6 +497,21 @@ def _build_live_validation_unavailable_result(
         status=SessionStatus.validated,
         passed=False,
         score=0,
+        score_type="fault_resolution",
+        fault_resolution_score=0,
+        network_health_score=0,
+        affected_topics=["lab_lifecycle"],
+        failed_topics=["lab_lifecycle"],
+        resolved_topics=[],
+        ml_training_sample=_build_ml_training_sample(
+            session=session,
+            fault_resolution_score=0,
+            network_health_score=0,
+            passed=False,
+            affected_topics=["lab_lifecycle"],
+            failed_topics=["lab_lifecycle"],
+            resolved_topics=[],
+        ),
         checks=[check],
         recommendations=["Deploy the lab runtime before running live validation."],
     )
@@ -405,21 +527,230 @@ def _validate_srlinux_basic_link_session(session: dict) -> ValidationResult:
         for index, spec in enumerate(SRLINUX_BASIC_LINK_CHECKS, start=1)
     ]
 
-    earned_points = sum(check.points for check in checks)
-    max_points = sum(check.max_points for check in checks)
-
-    score = int((earned_points / max_points) * 100) if max_points else 100
-    overall_passed = score == 100
     recommendations = _build_recommendations(checks)
+
+    return _build_scored_validation_result(
+        session=session,
+        checks=checks,
+        recommendations=recommendations,
+    )
+
+
+
+def _build_scored_validation_result(
+    *,
+    session: dict,
+    checks: list[ValidationCheck],
+    recommendations: list[str],
+) -> ValidationResult:
+    network_health_score = _score_from_checks(checks)
+    fault_summary = _build_fault_resolution_summary(
+        session=session,
+        checks=checks,
+        network_health_score=network_health_score,
+    )
+
+    fault_resolution_score = fault_summary["fault_resolution_score"]
+    overall_passed = fault_resolution_score == 100
 
     return ValidationResult(
         session_id=session["session_id"],
         status=SessionStatus.validated,
         passed=overall_passed,
-        score=score,
+        score=fault_resolution_score,
+        score_type="fault_resolution",
+        fault_resolution_score=fault_resolution_score,
+        network_health_score=network_health_score,
+        affected_topics=fault_summary["affected_topics"],
+        failed_topics=fault_summary["failed_topics"],
+        resolved_topics=fault_summary["resolved_topics"],
+        ml_training_sample=_build_ml_training_sample(
+            session=session,
+            fault_resolution_score=fault_resolution_score,
+            network_health_score=network_health_score,
+            passed=overall_passed,
+            affected_topics=fault_summary["affected_topics"],
+            failed_topics=fault_summary["failed_topics"],
+            resolved_topics=fault_summary["resolved_topics"],
+        ),
         checks=checks,
         recommendations=recommendations,
     )
+
+
+def _score_from_checks(checks: list[ValidationCheck]) -> int:
+    earned_points = sum(check.points for check in checks)
+    max_points = sum(check.max_points for check in checks)
+
+    return int((earned_points / max_points) * 100) if max_points else 100
+
+
+def _build_fault_resolution_summary(
+    *,
+    session: dict,
+    checks: list[ValidationCheck],
+    network_health_score: int,
+) -> dict[str, Any]:
+    faults = _normalized_injected_errors_from_session(session)
+    failed_topics = _unique_topics(
+        check.topic
+        for check in checks
+        if check.passed is False
+    )
+
+    if not faults:
+        return {
+            "fault_resolution_score": network_health_score,
+            "affected_topics": [],
+            "failed_topics": failed_topics,
+            "resolved_topics": [
+                topic
+                for topic in _unique_topics(check.topic for check in checks)
+                if topic not in failed_topics
+            ],
+        }
+
+    fault_results: list[dict[str, Any]] = []
+
+    for fault in faults:
+        topic = normalize_network_topic(fault.get("topic", "general_troubleshooting"))
+        related_checks = _checks_related_to_fault(
+            fault=fault,
+            checks=checks,
+        )
+
+        if related_checks:
+            resolved = all(check.passed for check in related_checks)
+        else:
+            # Some runtime faults, such as transit interface issues, are observed
+            # through downstream reachability checks. In that case the network
+            # health score is the safest fallback signal.
+            resolved = network_health_score == 100
+
+        fault_results.append(
+            {
+                "topic": topic,
+                "resolved": resolved,
+            }
+        )
+
+    resolved_count = sum(1 for item in fault_results if item["resolved"])
+    fault_resolution_score = int((resolved_count / len(fault_results)) * 100) if fault_results else network_health_score
+
+    return {
+        "fault_resolution_score": fault_resolution_score,
+        "affected_topics": _unique_topics(item["topic"] for item in fault_results),
+        "failed_topics": failed_topics,
+        "resolved_topics": _unique_topics(
+            item["topic"]
+            for item in fault_results
+            if item["resolved"]
+        ),
+    }
+
+
+def _checks_related_to_fault(
+    *,
+    fault: dict[str, Any],
+    checks: list[ValidationCheck],
+) -> list[ValidationCheck]:
+    fault_device = str(fault.get("device") or "")
+    fault_topic = normalize_network_topic(fault.get("topic", "general_troubleshooting"))
+    fault_expected_outputs = [
+        str(expected)
+        for expected in fault.get("expected_outputs", [])
+        if str(expected).strip()
+    ]
+
+    related: list[ValidationCheck] = []
+
+    for check in checks:
+        evidence = check.evidence or {}
+        check_device = str(evidence.get("device") or "")
+        check_expected_state = evidence.get("expected_state")
+        check_expected_outputs = _expected_state_values(check_expected_state)
+
+        same_device = bool(fault_device and check_device == fault_device)
+        same_topic = normalize_network_topic(check.topic) == fault_topic
+        expected_overlap = bool(
+            set(fault_expected_outputs)
+            & set(check_expected_outputs)
+        )
+
+        if same_device and (same_topic or expected_overlap):
+            related.append(check)
+        elif expected_overlap:
+            related.append(check)
+
+    return related
+
+
+def _expected_state_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+
+    if isinstance(value, list):
+        return [
+            str(item)
+            for item in value
+            if str(item).strip()
+        ]
+
+    return [str(value)] if str(value).strip() else []
+
+
+def _normalized_injected_errors_from_session(session: dict) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+
+    for error in session.get("injected_errors", []) or []:
+        if hasattr(error, "model_dump"):
+            payload = error.model_dump()
+        elif isinstance(error, dict):
+            payload = dict(error)
+        else:
+            continue
+
+        if payload.get("variant_id") or payload.get("code"):
+            normalized.append(payload)
+
+    return normalized
+
+
+def _unique_topics(values) -> list[str]:
+    result: list[str] = []
+
+    for value in values:
+        topic = normalize_network_topic(value)
+
+        if topic not in result:
+            result.append(topic)
+
+    return result
+
+
+def _build_ml_training_sample(
+    *,
+    session: dict,
+    fault_resolution_score: int,
+    network_health_score: int,
+    passed: bool,
+    affected_topics: list[str],
+    failed_topics: list[str],
+    resolved_topics: list[str],
+) -> dict[str, Any]:
+    return {
+        "schema_version": "nr_sprint40a_v1",
+        "scenario_id": _canonical_scenario_id_for_session(session),
+        "topology_template": session.get("topology_template"),
+        "difficulty": str(getattr(session.get("difficulty"), "value", session.get("difficulty"))),
+        "affected_topics": affected_topics,
+        "failed_topics": failed_topics,
+        "resolved_topics": resolved_topics,
+        "score_type": "fault_resolution",
+        "fault_resolution_score": fault_resolution_score,
+        "network_health_score": network_health_score,
+        "passed": passed,
+    }
 
 
 def _build_srlinux_validation_check(
