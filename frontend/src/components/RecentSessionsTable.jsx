@@ -67,11 +67,19 @@ function getLifecycleStatusClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
 
   if (normalizedStatus === "error") {
-    return "fail";
+    return "status-error";
   }
 
-  if (["created", "deployed", "active", "validated"].includes(normalizedStatus)) {
-    return "medium";
+  if (normalizedStatus === "created") {
+    return "status-created";
+  }
+
+  if (["deployed", "active"].includes(normalizedStatus)) {
+    return "status-active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "status-validated";
   }
 
   if (normalizedStatus === "finished") {
@@ -99,14 +107,14 @@ function getResultLabel(passed) {
 
 function getResultClass(passed) {
   if (passed === true) {
-    return "pass";
+    return "result-pass";
   }
 
   if (passed === false) {
-    return "fail";
+    return "result-fail";
   }
 
-  return "neutral";
+  return "result-pending";
 }
 
 function getLastActivityAt(session) {
@@ -117,11 +125,55 @@ function getScenarioValue(session) {
   return session.scenario_id || session.scenario || session.scenario_name || "-";
 }
 
+const SCENARIO_TITLE_BY_ID = {
+  "srl-edge-link": "Edge Link Troubleshooting",
+  "branch-static-routing": "Branch Static Routing",
+  "campus-core-routing": "Campus Core Troubleshooting",
+  "campus-core-static-routing": "Campus Core Troubleshooting",
+  "srl-basic-link": "Edge Link Troubleshooting"
+};
+
+function getScenarioDisplayTitle(session) {
+  const rawValue = getScenarioValue(session);
+
+  return SCENARIO_TITLE_BY_ID[rawValue] || rawValue || "Scenario not reported";
+}
+
+function getScenarioTitleLines(title) {
+  const normalizedTitle = String(title || "").trim();
+
+  const fixedLines = {
+    "Edge Link Troubleshooting": ["Edge Link", "Troubleshooting"],
+    "Branch Static Routing": ["Branch Static", "Routing"],
+    "Campus Core Troubleshooting": ["Campus Core", "Troubleshooting"]
+  };
+
+  if (fixedLines[normalizedTitle]) {
+    return fixedLines[normalizedTitle];
+  }
+
+  if (!normalizedTitle) {
+    return ["Scenario not reported"];
+  }
+
+  return [normalizedTitle];
+}
+
+function ScenarioTitleLines({ title }) {
+  return (
+    <>
+      {getScenarioTitleLines(title).map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </>
+  );
+}
+
 function getFaultScore(session) {
   return session.fault_resolution_score ?? session.score ?? null;
 }
 
-function RecentSessionsTable({ sessions }) {
+function RecentSessionsTable({ sessions, onViewDetails }) {
   const items = Array.isArray(sessions) ? sessions : [];
 
   return (
@@ -133,6 +185,8 @@ function RecentSessionsTable({ sessions }) {
             Latest student lab sessions with scenario context.
           </p>
         </div>
+
+        <span className="badge neutral">{items.length} sessions</span>
       </div>
 
       {items.length === 0 ? (
@@ -141,29 +195,31 @@ function RecentSessionsTable({ sessions }) {
           message="Recent sessions will appear after students create lab sessions."
         />
       ) : (
-        <div className="analytics-table-wrapper">
-          <table className="analytics-table analytics-table-wide">
+        <div className="analytics-table-wrapper analytics-recent-sessions-scroll">
+          <table className="analytics-table analytics-table-wide analytics-recent-sessions-table">
             <thead>
               <tr>
                 <th>Session</th>
                 <th>Student</th>
-                <th>Scenario</th>
                 <th>Difficulty</th>
                 <th>Status</th>
                 <th>Fault Score</th>
                 <th>Result</th>
                 <th>Last Activity</th>
+                <th>Action</th>
               </tr>
             </thead>
 
             <tbody>
               {items.map((session) => (
                 <tr key={session.session_id}>
-                  <td>{session.session_id}</td>
-                  <td>{session.student_id || "-"}</td>
                   <td>
-                    <span className="analytics-code-pill">{getScenarioValue(session)}</span>
+                    <div className="session-title-cell">
+                      <strong>{session.session_id || "-"}</strong>
+                      <ScenarioTitleLines title={getScenarioDisplayTitle(session)} />
+                    </div>
                   </td>
+                  <td>{session.student_id || "-"}</td>
                   <td>
                     <span className={`badge ${session.difficulty}`}>
                       {formatDifficultyLabel(session.difficulty)}
@@ -181,6 +237,17 @@ function RecentSessionsTable({ sessions }) {
                     </span>
                   </td>
                   <td>{formatDate(getLastActivityAt(session))}</td>
+                  <td>
+                    <button
+                      className="secondary-button table-action-button table-action-button-stacked"
+                      onClick={() => onViewDetails?.(session)}
+                      type="button"
+                      aria-label={`View details for ${session.session_id}`}
+                    >
+                      <span>View</span>
+                      <span>Details</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,8 +1,5 @@
 
-import {
-  useEffect,
-  useMemo,
-  useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AnalyticsEmptyState from "../components/AnalyticsEmptyState";
 import AnalyticsSummaryCards from "../components/AnalyticsSummaryCards";
 import DifficultyDistributionChart from "../components/DifficultyDistributionChart";
@@ -123,11 +120,19 @@ function getLifecycleStatusBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
 
   if (normalizedStatus === "error") {
-    return "fail";
+    return "status-error";
   }
 
-  if (["created", "deployed", "active", "validated"].includes(normalizedStatus)) {
-    return "medium";
+  if (normalizedStatus === "created") {
+    return "status-created";
+  }
+
+  if (["deployed", "active"].includes(normalizedStatus)) {
+    return "status-active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "status-validated";
   }
 
   if (normalizedStatus === "finished") {
@@ -155,14 +160,14 @@ function getValidationResultLabel(passed) {
 
 function getValidationResultBadgeClass(passed) {
   if (passed === true) {
-    return "pass";
+    return "result-pass";
   }
 
   if (passed === false) {
-    return "fail";
+    return "result-fail";
   }
 
-  return "neutral";
+  return "result-pending";
 }
 
 function getSessionLastActivityAt(session) {
@@ -1797,6 +1802,7 @@ function CleanupIncidentPanel({ incidents }) {
 
 function InstructorDashboardPage() {
   const sessionReviewPanelRef = useRef(null);
+  const sessionReviewReturnTargetRef = useRef(null);
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [summary, setSummary] = useState(null);
@@ -2062,12 +2068,35 @@ function InstructorDashboardPage() {
     });
   }, [sessionReviewId, sessionReviewLoadingId]);
 
+  function handleCloseSessionReview() {
+    const returnTarget = sessionReviewReturnTargetRef.current;
+
+    setSessionReviewId("");
+    setSessionReviewErrorMessage("");
+    setSessionReviewErrorDetails("");
+
+    if (returnTarget) {
+      window.requestAnimationFrame(() => {
+        returnTarget.scrollIntoView({
+          behavior: "smooth",
+          block: "center"
+        });
+        returnTarget.focus?.({ preventScroll: true });
+      });
+    }
+  }
+
   async function handleViewSessionDetails(session) {
     const sessionId = session?.session_id;
 
     if (!sessionId) {
       return;
     }
+
+    sessionReviewReturnTargetRef.current =
+      typeof HTMLElement !== "undefined" && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
 
     setSessionReviewId(sessionId);
     setSessionReviewErrorMessage("");
@@ -2197,8 +2226,12 @@ function InstructorDashboardPage() {
   }, [students, selectedStudentId]);
 
   const selectedReviewSession = useMemo(() => {
-    return sessions.find((session) => session.session_id === sessionReviewId) || null;
-  }, [sessions, sessionReviewId]);
+    return (
+      sessions.find((session) => session.session_id === sessionReviewId) ||
+      recentSessions.find((session) => session.session_id === sessionReviewId) ||
+      null
+    );
+  }, [sessions, recentSessions, sessionReviewId]);
 
   const selectedSessionReview = sessionReviewId
     ? sessionReviewCache[sessionReviewId] || null
@@ -2417,7 +2450,7 @@ function InstructorDashboardPage() {
                         errorMessage={sessionReviewErrorMessage}
                         errorDetails={sessionReviewErrorDetails}
                         panelRef={sessionReviewPanelRef}
-                        onClose={() => setSessionReviewId("")}
+                        onClose={handleCloseSessionReview}
                       />
                     </>
                   )}
@@ -2488,7 +2521,22 @@ function InstructorDashboardPage() {
             )}
 
             {analyticsDetailTab === "recentSessions" && (
-              <RecentSessionsTable sessions={recentSessions} />
+              <>
+                <RecentSessionsTable
+                  sessions={recentSessions}
+                  onViewDetails={handleViewSessionDetails}
+                />
+
+                <SessionReviewPanel
+                  session={selectedReviewSession}
+                  review={selectedSessionReview}
+                  isLoading={Boolean(sessionReviewId) && sessionReviewLoadingId === sessionReviewId}
+                  errorMessage={sessionReviewErrorMessage}
+                  errorDetails={sessionReviewErrorDetails}
+                  panelRef={sessionReviewPanelRef}
+                  onClose={handleCloseSessionReview}
+                />
+              </>
             )}
 
             {analyticsDetailTab === "incidents" && (
