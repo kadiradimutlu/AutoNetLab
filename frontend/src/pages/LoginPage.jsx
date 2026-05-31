@@ -11,15 +11,15 @@ const DEMO_ACCOUNTS = [
     role: "Student",
     username: "student",
     password: "student123",
-    title: "Use Demo Student",
-    description: "Fill in the student demo credentials for lab creation, My Labs, Web CLI, validation, and recommendations."
+    title: "Use Student Profile",
+    description: "Fill in the student credentials for lab creation, My Labs, Web CLI, validation, and recommendations."
   },
   {
     role: "Instructor",
     username: "instructor",
     password: "instructor123",
-    title: "Use Demo Instructor",
-    description: "Fill in the instructor demo credentials for analytics, student progress, and system readiness views."
+    title: "Use Instructor Profile",
+    description: "Fill in the instructor credentials for analytics, student progress, and system readiness views."
   }
 ];
 
@@ -195,8 +195,8 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
 
         <div className="demo-account-section">
           <div className="demo-account-heading">
-            <strong>Demo credentials</strong>
-            <span>Choose a demo profile to fill the form, then press Sign in.</span>
+            <strong>Quick sign-in profiles</strong>
+            <span>Choose a profile to fill the form, then press Sign in.</span>
           </div>
 
           <div className="demo-account-grid">

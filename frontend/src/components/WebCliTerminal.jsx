@@ -297,6 +297,7 @@ function TerminalPane({
   const terminalRef = useRef(null);
   const fitAddonRef = useRef(null);
   const terminalContainerRef = useRef(null);
+  const pasteBufferRef = useRef(null);
   const dataDisposableRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const activeRef = useRef(active);
@@ -395,13 +396,7 @@ function TerminalPane({
     }
 
     dataDisposableRef.current = terminal.onData((data) => {
-      const socket = socketRef.current;
-
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      socket.send(TERMINAL_ENCODER.encode(data));
+      sendTerminalInput(data);
     });
 
     terminalRef.current = terminal;
@@ -539,6 +534,102 @@ function TerminalPane({
     }));
   }
 
+  function sendTerminalInput(data) {
+    if (!data) {
+      return;
+    }
+
+    const socket = socketRef.current;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(TERMINAL_ENCODER.encode(data));
+  }
+
+  function focusPasteBufferForKeyboardPaste() {
+    const pasteBuffer = pasteBufferRef.current;
+
+    if (!pasteBuffer) {
+      terminalRef.current?.focus();
+      return;
+    }
+
+    pasteBuffer.value = "";
+    pasteBuffer.focus();
+
+    window.setTimeout(() => {
+      const bufferedText = pasteBuffer.value;
+      pasteBuffer.value = "";
+
+      if (bufferedText) {
+        sendTerminalInput(bufferedText);
+      }
+
+      terminalRef.current?.focus();
+    }, 0);
+  }
+
+  function handleBufferedPaste(event) {
+    const pastedText = event.clipboardData?.getData("text/plain") || "";
+
+    if (!pastedText) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    sendTerminalInput(pastedText);
+    event.currentTarget.value = "";
+    terminalRef.current?.focus();
+  }
+
+  function handleTerminalKeyDown(event) {
+    const key = String(event.key || "").toLowerCase();
+    const isPasteShortcut = (event.ctrlKey || event.metaKey) && !event.altKey && key === "v";
+
+    if (!isPasteShortcut) {
+      return;
+    }
+
+    event.stopPropagation();
+
+    if (
+      typeof window !== "undefined" &&
+      window.isSecureContext &&
+      navigator.clipboard?.readText
+    ) {
+      event.preventDefault();
+
+      navigator.clipboard.readText()
+        .then((clipboardText) => {
+          if (clipboardText) {
+            sendTerminalInput(clipboardText);
+          }
+        })
+        .catch(() => {
+          terminalRef.current?.focus();
+        });
+
+      return;
+    }
+
+    focusPasteBufferForKeyboardPaste();
+  }
+
+  function handleTerminalPaste(event) {
+    const pastedText = event.clipboardData?.getData("text/plain") || "";
+
+    if (!pastedText) {
+      return;
+    }
+
+    event.preventDefault();
+    sendTerminalInput(pastedText);
+    terminalRef.current?.focus();
+  }
+
   function disconnectWebTerminal({ writeMessage = true } = {}) {
     const socket = socketRef.current;
 
@@ -672,8 +763,7 @@ function TerminalPane({
 
       disconnectWebTerminal({ writeMessage: false });
 
-      clearTerminal();
-      writeTerminalLine(`[system] Connecting to ${deviceId}...`);
+      writeTerminalLine(`\r\n[system] Connecting to ${deviceId}...`);
 
       const socket = new WebSocket(webTerminalUrl);
       socket.binaryType = "arraybuffer";
@@ -774,8 +864,26 @@ function TerminalPane({
           className="xterm-shell-container multi-terminal-xterm-container"
           ref={terminalContainerRef}
           onClick={() => terminalRef.current?.focus()}
+          onPaste={handleTerminalPaste}
+          onKeyDownCapture={handleTerminalKeyDown}
           role="application"
           aria-label={`Interactive Web Terminal for ${deviceLabel}`}
+        />
+
+        <textarea
+          ref={pasteBufferRef}
+          className="terminal-paste-buffer"
+          aria-hidden="true"
+          tabIndex={-1}
+          onPaste={handleBufferedPaste}
+          style={{
+            position: "fixed",
+            left: "-1000px",
+            top: "0",
+            width: "1px",
+            height: "1px",
+            opacity: 0
+          }}
         />
       </div>
 

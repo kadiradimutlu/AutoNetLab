@@ -59,9 +59,15 @@ function getSafeNumber(value, fallback = 0) {
   return numericValue;
 }
 
-function getScore(validationResult, checks) {
-  if (validationResult.score !== undefined && validationResult.score !== null) {
-    return getSafeNumber(validationResult.score);
+function clampScore(value, fallback = 0) {
+  const numericValue = getSafeNumber(value, fallback);
+
+  return Math.min(Math.max(Math.round(numericValue), 0), 100);
+}
+
+function getNetworkHealthScore(validationResult, checks) {
+  if (validationResult.network_health_score !== undefined && validationResult.network_health_score !== null) {
+    return clampScore(validationResult.network_health_score);
   }
 
   const earnedPoints = checks.reduce(
@@ -77,7 +83,47 @@ function getScore(validationResult, checks) {
     return 0;
   }
 
-  return Math.round((earnedPoints / maxPoints) * 100);
+  return clampScore((earnedPoints / maxPoints) * 100);
+}
+
+function getFaultResolutionScore(validationResult, checks) {
+  if (validationResult.fault_resolution_score !== undefined && validationResult.fault_resolution_score !== null) {
+    return clampScore(validationResult.fault_resolution_score);
+  }
+
+  if (validationResult.score !== undefined && validationResult.score !== null) {
+    return clampScore(validationResult.score);
+  }
+
+  return getNetworkHealthScore(validationResult, checks);
+}
+
+function normalizeTopicList(value) {
+  if (!value) {
+    return [];
+  }
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "object"
+      ? Object.values(value)
+      : [value];
+
+  return rawItems
+    .map((item) => {
+      if (!item) {
+        return "";
+      }
+
+      if (typeof item === "object") {
+        return item.label || item.topic || item.name || item.id || "";
+      }
+
+      return String(item);
+    })
+    .filter(Boolean)
+    .map((item) => String(item).replace(/_/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 }
 
 function getCheckSearchText(check) {
@@ -260,8 +306,14 @@ function ValidationSummary({
   const failedCheckItems = checks.filter((check) => !isCheckPassed(check));
   const allChecksPassed =
     validationResult.passed === true || (totalChecks > 0 && failedChecks === 0);
-  const score = getScore(validationResult, checks);
-  const safeScore = Math.min(Math.max(score, 0), 100);
+  const faultResolutionScore = getFaultResolutionScore(validationResult, checks);
+  const networkHealthScore = getNetworkHealthScore(validationResult, checks);
+  const affectedTopics = normalizeTopicList(validationResult.affected_topics || validationResult.affectedTopics);
+  const failedTopics = normalizeTopicList(validationResult.failed_topics || validationResult.failedTopics);
+  const resolvedTopics = normalizeTopicList(validationResult.resolved_topics || validationResult.resolvedTopics);
+  const affectedTopicCount = validationResult.affected_topic_count ?? affectedTopics.length;
+  const resolvedTopicCount = validationResult.resolved_topic_count ?? resolvedTopics.length;
+  const failedTopicCount = validationResult.failed_topic_count ?? failedTopics.length;
   const isCampus = isCampusValidation(validationResult, checks);
   const failedAreas = buildAreaSummary(failedCheckItems);
   const guidanceMessage = getGuidanceMessage({
@@ -285,7 +337,7 @@ function ValidationSummary({
         <div>
           <h3>{t("validationSummary")}</h3>
           <p className="muted">
-            Validation result, failed areas, check grouping, and student-safe learning guidance for the current lab session.
+            Fault resolution, network health, affected topics, and network diagnostics for the current lab session.
           </p>
         </div>
 
@@ -308,30 +360,88 @@ function ValidationSummary({
         </div>
 
         <div className="validation-score-panel">
-          <span>Score</span>
-          <strong>{safeScore}/100</strong>
+          <span>Fault Resolution Score</span>
+          <strong>{faultResolutionScore}/100</strong>
           <div className="score-progress">
             <div
               className="score-progress-fill"
-              style={{ width: `${safeScore}%` }}
+              style={{ width: `${faultResolutionScore}%` }}
             />
           </div>
         </div>
       </div>
 
-      <div className="validation-metrics validation-metrics-polished">
+      <div className="validation-metrics validation-metrics-polished validation-contract-metrics">
+        <div className="metric-card metric-pass">
+          <span>Network Health Score</span>
+          <strong>{networkHealthScore}/100</strong>
+        </div>
+
         <div className="metric-card">
-          <span>{t("totalChecks")}</span>
+          <span>Affected Topics</span>
+          <strong>{affectedTopicCount}</strong>
+        </div>
+
+        <div className="metric-card metric-pass">
+          <span>Resolved Topics</span>
+          <strong>{resolvedTopicCount}</strong>
+        </div>
+
+        <div className="metric-card metric-fail">
+          <span>Topics Needing Review</span>
+          <strong>{failedTopicCount}</strong>
+        </div>
+      </div>
+
+      {(affectedTopics.length > 0 || failedTopics.length > 0 || resolvedTopics.length > 0) && (
+        <div className="validation-focus-panel validation-topic-progress-panel">
+          <div className="section-title-row compact">
+            <div>
+              <h4>Injected Fault Progress</h4>
+              <p className="muted">
+                These topics represent the fault-focused validation contract. Full network checks are listed separately below.
+              </p>
+            </div>
+          </div>
+
+          <div className="validation-focus-grid">
+            {affectedTopics.map((topic) => (
+              <article className="validation-focus-card" key={`affected-${topic}`}>
+                <strong>{topic}</strong>
+                <span>Affected topic</span>
+              </article>
+            ))}
+
+            {resolvedTopics.map((topic) => (
+              <article className="validation-focus-card" key={`resolved-${topic}`}>
+                <strong>{topic}</strong>
+                <span>Resolved</span>
+              </article>
+            ))}
+
+            {failedTopics.map((topic) => (
+              <article className="validation-focus-card" key={`failed-${topic}`}>
+                <strong>{topic}</strong>
+                <span>Needs review</span>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="validation-metrics validation-metrics-polished validation-network-check-metrics">
+        <div className="metric-card">
+          <span>Network Checks</span>
           <strong>{totalChecks}</strong>
         </div>
 
         <div className="metric-card metric-pass">
-          <span>{t("passedChecks")}</span>
+          <span>Passed Network Checks</span>
           <strong>{passedChecks}</strong>
         </div>
 
         <div className="metric-card metric-fail">
-          <span>{t("failedChecks")}</span>
+          <span>Failed Network Checks</span>
           <strong>{failedChecks}</strong>
         </div>
       </div>
@@ -362,7 +472,7 @@ function ValidationSummary({
         <div>
           <h4>{allChecksPassed ? "Completion Guidance" : "Recommended Next Steps"}</h4>
           <p className="muted">
-            Guidance is based on student-safe validation status and does not expose hidden runtime details.
+            Guidance is based on validation status and avoids hidden runtime details.
           </p>
         </div>
 

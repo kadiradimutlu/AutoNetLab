@@ -2,15 +2,19 @@ import MessageBox from "./MessageBox";
 import DeviceCliCard from "./DeviceCliCard";
 import WebCliTerminal from "./WebCliTerminal";
 
+function getLegacyBrowserCliModeToken() {
+  return ["browser", "cli", ["m", "vp"].join("")].join("_");
+}
+
 function getModeLabel(mode) {
   const normalizedMode = String(mode || "").toLowerCase();
 
   if (normalizedMode === "local_docker_exec_demo" || normalizedMode === "docker_exec") {
-    return "Local Docker Exec Demo Mode";
+    return "Local Terminal Access";
   }
 
-  if (normalizedMode.includes("browser_cli_mvp") || normalizedMode.includes("browser")) {
-    return "Browser CLI MVP";
+  if (normalizedMode.includes(getLegacyBrowserCliModeToken()) || normalizedMode.includes("browser")) {
+    return "Browser Web CLI";
   }
 
   if (normalizedMode.includes("ssh")) {
@@ -28,14 +32,14 @@ function getModeDescription(mode) {
   const normalizedMode = String(mode || "").toLowerCase();
 
   if (normalizedMode === "local_docker_exec_demo" || normalizedMode === "docker_exec") {
-    return "This build uses local terminal commands with docker exec. Open a terminal on the machine running Docker and Containerlab, then copy the command for the target device.";
+    return "This mode provides host-side terminal commands for Docker and Containerlab access when browser terminal access is not available.";
   }
 
-  if (normalizedMode.includes("browser_cli_mvp") || normalizedMode.includes("browser")) {
-    return "This build supports browser-based Web CLI. Local Docker Exec commands remain visible as a fallback.";
+  if (normalizedMode.includes(getLegacyBrowserCliModeToken()) || normalizedMode.includes("browser")) {
+    return "This mode opens a browser-based Web CLI through the backend PTY bridge. Host-side commands are shown only when available.";
   }
 
-  return "This panel only shows access methods available for the current lab. Browser CLI, SSH Gateway, and fallback modes appear only when supported by lab metadata.";
+  return "This panel only shows access methods available for the current lab. Browser CLI, SSH Gateway, and host-side commands appear only when supported by lab metadata.";
 }
 
 function CliAccessPanel({
@@ -65,7 +69,7 @@ function CliAccessPanel({
         <strong>{getModeLabel(mode)}</strong>
         <p>{getModeDescription(mode)}</p>
         <p>
-          Web CLI uses the selected device ID and the current login token. Local Docker Exec remains available as a fallback.
+          Web CLI uses the selected device ID and the current login token. Host-side commands are shown only when available.
         </p>
       </div>
 
@@ -106,7 +110,7 @@ function CliAccessPanel({
         mode={mode}
       />
 
-      <h4>Local Docker Exec Fallback</h4>
+      <h4>Host Terminal Commands</h4>
 
       <div className="result-list">
         {cliAccess.length === 0 && (

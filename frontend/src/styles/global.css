@@ -6605,3 +6605,179 @@ html {
     grid-template-columns: 1fr;
   }
 }
+
+/* NR-Sprint41A Network Health tab polish */
+.network-health-details {
+  display: grid;
+  gap: 1rem;
+}
+
+.network-health-details-card {
+  background: #ffffff;
+  border: 1px solid #dfe7f3;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.05);
+}
+
+.network-health-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.95fr);
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.network-health-hero h3 {
+  margin: 0.8rem 0 0.45rem;
+  font-size: 1.35rem;
+}
+
+.network-health-hero p {
+  margin: 0;
+  color: #526074;
+  line-height: 1.55;
+}
+
+.network-health-hero.pass {
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.network-health-hero.fail {
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7f7 100%);
+}
+
+.network-health-hero-score-grid,
+.network-health-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.network-health-hero-score-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.network-health-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.network-health-score-card,
+.network-health-metric-card {
+  border: 1px solid #dfe7f3;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.network-health-score-card span,
+.network-health-metric-card span,
+.network-health-check-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.network-health-score-card strong,
+.network-health-metric-card strong {
+  display: block;
+  color: #07111f;
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.network-health-score-card p,
+.network-health-metric-card p {
+  margin: 0.5rem 0 0;
+  color: #526074;
+  line-height: 1.45;
+}
+
+.network-health-metric-card.pass {
+  border-color: #bbf7d0;
+  background: #f7fef9;
+}
+
+.network-health-metric-card.fail {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.network-health-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.network-health-chip {
+  border: 1px solid #d7e3f8;
+  border-radius: 999px;
+  background: #f7fbff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+}
+
+.network-health-check-list {
+  display: grid;
+  gap: 0.8rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.network-health-check-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  border: 1px solid #dfe7f3;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.network-health-check-card strong {
+  display: block;
+  color: #07111f;
+  font-size: 1rem;
+  word-break: break-word;
+}
+
+.network-health-check-card p {
+  margin: 0.45rem 0 0;
+  color: #526074;
+  line-height: 1.5;
+}
+
+.network-health-check-card.pass {
+  border-color: #bbf7d0;
+  background: #fbfffc;
+}
+
+.network-health-check-card.fail {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.network-health-check-card .badge {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .network-health-hero,
+  .network-health-hero-score-grid,
+  .network-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-health-check-card {
+    flex-direction: column;
+  }
+}

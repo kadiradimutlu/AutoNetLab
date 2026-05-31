@@ -440,7 +440,175 @@ const MOCK_SCENARIOS = {
         "Use the scenario design requirements as the expected network state."
       ]
     }
-  ],
+  ,
+
+    {
+      id: "branch-static-routing",
+      title: "Branch Static Routing",
+      summary: "Troubleshoot static routing and gateway behavior across a small branch topology.",
+      topology_template: "branch-static-routing",
+      platform: "containerlab",
+      router_os: "Nokia SR Linux",
+      supported_difficulties: ["easy", "medium", "hard"],
+      difficulty_profiles: {
+        easy: { hidden_fault_count: 1 },
+        medium: { hidden_fault_count: 2 },
+        hard: { hidden_fault_count: 3 }
+      },
+      objective: "Restore expected branch connectivity by comparing live device state with the routing requirements.",
+      devices: [
+        {
+          id: "client1",
+          label: "Client 1",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        },
+        {
+          id: "srl1",
+          label: "Branch Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl2",
+          label: "Branch Router 2",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "client2",
+          label: "Client 2",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        }
+      ],
+      addressing_table: [
+        {
+          device: "client1",
+          interface: "eth1",
+          ip_address: "10.10.10.10/24",
+          default_gateway: "10.10.10.1",
+          role: "branch client subnet"
+        },
+        {
+          device: "client2",
+          interface: "eth1",
+          ip_address: "10.10.20.10/24",
+          default_gateway: "10.10.20.1",
+          role: "remote branch client subnet"
+        }
+      ],
+      routing_requirements: [
+        "Client subnets must use the expected default gateways.",
+        "Branch routers must have static routes for remote client networks.",
+        "End-to-end client connectivity must be restored before validation."
+      ],
+      expected_connectivity: [
+        "client1 can reach client2",
+        "client2 can reach client1"
+      ],
+      student_tasks: [
+        "Inspect client addressing and default gateways.",
+        "Review SR Linux static routes.",
+        "Test connectivity between both client networks.",
+        "Repair the live network state and validate the lab."
+      ]
+    },
+
+    {
+      id: "campus-core-routing",
+      title: "Campus Core Troubleshooting",
+      summary: "Troubleshoot a six-node campus topology with clients, edge routers, and a routed core.",
+      topology_template: "campus-core-routing",
+      platform: "containerlab",
+      router_os: "Nokia SR Linux",
+      supported_difficulties: ["easy", "medium", "hard"],
+      difficulty_profiles: {
+        easy: { hidden_fault_count: 1 },
+        medium: { hidden_fault_count: 2 },
+        hard: { hidden_fault_count: 3 }
+      },
+      objective: "Restore campus connectivity by matching the live network state to the expected campus design.",
+      devices: [
+        {
+          id: "client1",
+          label: "Client 1",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        },
+        {
+          id: "client2",
+          label: "Client 2",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        },
+        {
+          id: "srl1",
+          label: "Campus Edge Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl2",
+          label: "Campus Edge Router 2",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl3",
+          label: "Campus Core Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl4",
+          label: "Campus Core Router 2",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        }
+      ],
+      addressing_table: [
+        {
+          device: "client1",
+          interface: "eth1",
+          ip_address: "10.10.10.10/24",
+          default_gateway: "10.10.10.1",
+          role: "campus client subnet"
+        },
+        {
+          device: "client2",
+          interface: "eth1",
+          ip_address: "10.10.20.10/24",
+          default_gateway: "10.10.20.1",
+          role: "campus client subnet"
+        }
+      ],
+      routing_requirements: [
+        "client1 must use gateway 10.10.10.1.",
+        "client2 must use gateway 10.10.20.1.",
+        "SR Linux routers must provide static routing between campus client subnets."
+      ],
+      expected_connectivity: [
+        "client1 can reach client2",
+        "client2 can reach client1"
+      ],
+      student_tasks: [
+        "Compare live client gateway state with the addressing table.",
+        "Inspect SR Linux interface and route state.",
+        "Restore expected end-to-end campus connectivity.",
+        "Run validation and review learning guidance."
+      ]
+    }],
   message: "MOCK: Scenario catalog retrieved successfully."
 };
 
@@ -843,7 +1011,11 @@ const STUDENT_FEEDBACK_BLOCKLIST = [
   /injection[_\s-]*commands?/i,
   /failed[_\s-]*command[_\s-]*output/i,
   /expected[_\s-]*outputs?/i,
-  /ip\s+route\s+replace/i
+  /ip\s+route\s+replace/i,
+  /rule[_\s-]*based/i,
+  /ml[_\s-]*prototype/i,
+  /fallback[_\s-]*used/i,
+  /student[_\s-]*safe/i
 ];
 
 const STUDENT_UNSAFE_FIELDS = [
@@ -1627,10 +1799,118 @@ function normalizeValidationCheck(check, index) {
   return removeStudentUnsafeFields(normalizedCheck);
 }
 
+function getNullableNumber(value, fallback = null) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const numericValue = Number(value);
+
+  if (Number.isNaN(numericValue)) {
+    return fallback;
+  }
+
+  return numericValue;
+}
+
+function clampScore(value, fallback = 0) {
+  const numericValue = getNullableNumber(value, fallback);
+
+  if (numericValue === null || numericValue === undefined) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(Math.round(numericValue), 0), 100);
+}
+
+function normalizeTopicNameList(value) {
+  if (!value) {
+    return [];
+  }
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "object"
+      ? Object.values(value)
+      : [value];
+
+  return rawItems
+    .map((item) => {
+      if (!item) {
+        return "";
+      }
+
+      if (typeof item === "object") {
+        return sanitizeStudentFeedbackText(
+          item.topic || item.label || item.name || item.id || "",
+          ""
+        );
+      }
+
+      return sanitizeStudentFeedbackText(item, "");
+    })
+    .filter(Boolean);
+}
+
+function normalizeValidationScoreFields(safeResult, computedNetworkHealthScore) {
+  const rawFaultResolutionScore = getNullableNumber(
+    safeResult.fault_resolution_score ??
+      safeResult.faultResolutionScore ??
+      safeResult.score,
+    null
+  );
+  const rawNetworkHealthScore = getNullableNumber(
+    safeResult.network_health_score ??
+      safeResult.networkHealthScore ??
+      computedNetworkHealthScore,
+    computedNetworkHealthScore
+  );
+  const faultResolutionScore = clampScore(
+    rawFaultResolutionScore ?? computedNetworkHealthScore,
+    computedNetworkHealthScore
+  );
+  const networkHealthScore = clampScore(rawNetworkHealthScore, computedNetworkHealthScore);
+  const affectedTopics = normalizeTopicNameList(
+    safeResult.affected_topics || safeResult.affectedTopics
+  );
+  const failedTopics = normalizeTopicNameList(
+    safeResult.failed_topics || safeResult.failedTopics
+  );
+  const resolvedTopics = normalizeTopicNameList(
+    safeResult.resolved_topics || safeResult.resolvedTopics
+  );
+
+  return {
+    score_type: safeResult.score_type || safeResult.scoreType || "fault_resolution",
+    score: faultResolutionScore,
+    fault_resolution_score: faultResolutionScore,
+    network_health_score: networkHealthScore,
+    affected_topics: affectedTopics,
+    failed_topics: failedTopics,
+    resolved_topics: resolvedTopics,
+    affected_topic_count: getNullableNumber(
+      safeResult.affected_topic_count ?? safeResult.affectedTopicCount,
+      affectedTopics.length
+    ),
+    failed_topic_count: getNullableNumber(
+      safeResult.failed_topic_count ?? safeResult.failedTopicCount,
+      failedTopics.length
+    ),
+    resolved_topic_count: getNullableNumber(
+      safeResult.resolved_topic_count ?? safeResult.resolvedTopicCount,
+      resolvedTopics.length
+    )
+  };
+}
+
 function normalizeValidationResult(result, recommendationPayload = null) {
   const safeResult = removeStudentUnsafeFields(
     result && typeof result === "object" ? result : {}
   );
+
+  delete safeResult.ml_training_sample;
+  delete safeResult.mlTrainingSample;
+
   const checks = Array.isArray(safeResult?.checks)
     ? safeResult.checks.map((check, index) => normalizeValidationCheck(check, index))
     : [];
@@ -1644,15 +1924,19 @@ function normalizeValidationResult(result, recommendationPayload = null) {
     (total, check) => total + Number(check.points || 0),
     0
   );
-  const computedScore = computedScoreMax
+  const computedNetworkHealthScore = computedScoreMax
     ? Math.round((computedScoreValue / computedScoreMax) * 100)
     : 0;
+  const scoreFields = normalizeValidationScoreFields(
+    safeResult,
+    computedNetworkHealthScore
+  );
 
   const fallbackRecommendationPayload = {
     success: true,
     session_id: safeResult?.session_id || "",
     status: safeResult?.status || "",
-    score: safeResult?.score ?? computedScore,
+    score: scoreFields.fault_resolution_score,
     passed: safeResult?.passed ?? passedChecks === totalChecks,
     scenario_id:
       safeResult?.scenario_id ||
@@ -1665,8 +1949,6 @@ function normalizeValidationResult(result, recommendationPayload = null) {
       safeResult?.topology?.name ||
       "",
     topic_performance: safeResult?.topic_performance || safeResult?.topicPerformance || [],
-    source: safeResult?.source || API_RECOMMENDATION_DEFAULT_SOURCE,
-    [API_RECOMMENDATION_FALLBACK_KEY]: Boolean(safeResult?.[API_RECOMMENDATION_FALLBACK_KEY]),
     recommendations: safeResult?.recommendations || safeResult?.recommendation || [],
     message: sanitizeStudentFeedbackText(safeResult?.message || "", "")
   };
@@ -1678,16 +1960,18 @@ function normalizeValidationResult(result, recommendationPayload = null) {
 
   return {
     ...safeResult,
+    ...scoreFields,
     message: sanitizeStudentFeedbackText(safeResult?.message || "", ""),
     passed: safeResult?.passed ?? passedChecks === totalChecks,
-    score: safeResult?.score ?? computedScore,
     checks,
     passed_checks: safeResult?.passed_checks ?? passedChecks,
+    failed_checks: safeResult?.failed_checks ?? Math.max(totalChecks - passedChecks, 0),
     total_checks: safeResult?.total_checks ?? totalChecks,
+    network_passed_checks: passedChecks,
+    network_failed_checks: Math.max(totalChecks - passedChecks, 0),
+    network_total_checks: totalChecks,
     recommendations: normalizedRecommendationPayload.recommendations,
     recommendation_payload: normalizedRecommendationPayload,
-    recommendation_source: normalizedRecommendationPayload.source,
-    ["recommendation_" + API_RECOMMENDATION_FALLBACK_KEY]: normalizedRecommendationPayload[API_RECOMMENDATION_FALLBACK_KEY],
     recommendation_message: normalizedRecommendationPayload.message
   };
 }
@@ -2256,14 +2540,30 @@ function normalizeValidationAttempt(item, index) {
   const failedChecks =
     safeItem.failed_checks ??
     Math.max(totalChecks - passedChecks, 0);
+  const computedNetworkHealthScore = totalChecks
+    ? Math.round((passedChecks / totalChecks) * 100)
+    : 0;
+  const scoreFields = normalizeValidationScoreFields(
+    safeItem,
+    computedNetworkHealthScore
+  );
 
   return {
     attempt_number: safeItem.attempt_number ?? safeItem.attemptNumber ?? index + 1,
-    score: safeItem.score ?? null,
+    score: scoreFields.fault_resolution_score,
+    score_type: scoreFields.score_type,
+    fault_resolution_score: scoreFields.fault_resolution_score,
+    network_health_score: scoreFields.network_health_score,
+    affected_topics: scoreFields.affected_topics,
+    failed_topics: scoreFields.failed_topics,
+    resolved_topics: scoreFields.resolved_topics,
     passed: safeItem.passed ?? false,
     passed_checks: passedChecks,
     failed_checks: failedChecks,
     total_checks: totalChecks,
+    network_passed_checks: passedChecks,
+    network_failed_checks: failedChecks,
+    network_total_checks: totalChecks,
     created_at: safeItem.created_at || safeItem.createdAt || safeItem.timestamp || "",
     checks
   };

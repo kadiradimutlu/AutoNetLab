@@ -19,8 +19,8 @@ const CAMPUS_SCENARIO_ID = "campus-core-routing";
 
 const FALLBACK_SRL_SCENARIO = {
   id: DEFAULT_SCENARIO_ID,
-  title: "SR Linux Basic Link Troubleshooting",
-  summary: "A professional router-client starter scenario using Nokia SR Linux and a Linux client.",
+  title: "Edge Link Troubleshooting",
+  summary: "A focused edge-link troubleshooting scenario using an SR Linux router and a Linux client.",
   topology_template: "srl-edge-link",
   router_os: "Nokia SR Linux",
   devices: [
@@ -65,21 +65,21 @@ const FALLBACK_SRL_SCENARIO = {
 
 const DIFFICULTY_PREVIEWS = {
   easy: {
-    title: "Guided gateway repair",
+    title: "Focused edge-link troubleshooting",
     topology: "SR Linux router + Linux client",
     summary: "A focused starter challenge for addressing, default gateway, and direct connectivity.",
     topics: ["Default gateway", "IP addressing", "ICMP connectivity"]
   },
   medium: {
-    title: "Intermediate live troubleshooting",
+    title: "Intermediate contract troubleshooting",
     topology: "SR Linux router + Linux client",
     summary: "A broader SR Linux practice mode with live validation and careful state comparison.",
     topics: ["Addressing table", "Routing requirements", "Connectivity validation"]
   },
   hard: {
-    title: "Advanced SR Linux practice",
+    title: "Advanced multi-fault troubleshooting",
     topology: "SR Linux router + Linux client",
-    summary: "A higher challenge level for validating the same professional network realism scenario under stricter expectations.",
+    summary: "A higher challenge level with three hidden faults and stricter validation expectations.",
     topics: ["Live device state", "Gateway repair", "End-to-end reasoning"]
   }
 };
@@ -342,7 +342,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
           <div>
             <h2>Create Lab</h2>
             <p className="muted">
-              Select a network realism scenario and difficulty level.
+              Select a scenario and difficulty level.
               The lab session will open in your workspace. Start the environment there when you are ready.
             </p>
           </div>
@@ -470,7 +470,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
             <div>
               <h3>Choose Difficulty</h3>
               <p className="muted">
-                Difficulty controls the expected challenge level and validation behavior.
+                Difficulty controls the number of hidden faults: easy has one, medium has two, and hard has three.
               </p>
             </div>
           </div>
