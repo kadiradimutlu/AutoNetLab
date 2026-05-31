@@ -11,7 +11,7 @@ function getAccessMethodLabel(method) {
   const normalizedMethod = String(method || "").toLowerCase();
 
   if (normalizedMethod === "local_docker_exec_demo" || normalizedMethod === "docker_exec") {
-    return "Local Docker Exec Demo Mode";
+    return "Local Terminal Access";
   }
 
   if (normalizedMethod.includes("ssh")) {
@@ -93,7 +93,7 @@ function DeviceCliCard({
 
       {dockerCommand && (
         <div className="command-section">
-          <p className="muted">Docker Exec Command</p>
+          <p className="muted">Host Command</p>
 
           <div className="command-row">
             <code className="command-box">{dockerCommand}</code>
@@ -135,4 +135,3 @@ function DeviceCliCard({
 }
 
 export default DeviceCliCard;
-

@@ -111,7 +111,7 @@ function getScenarioDescription(labSession) {
     return "This medium scenario includes more than one issue area. Use the topology, CLI access, and general hints to narrow down the problem.";
   }
 
-  return "This scenario focuses on basic troubleshooting steps and safe validation feedback.";
+  return "This scenario focuses on basic troubleshooting steps and validation feedback.";
 }
 
 function getSafeText(value, fallback = "-") {
@@ -609,7 +609,7 @@ function ScenarioOverview({ labSession, t }) {
               <div className="section-title-row compact">
                 <div>
                   <h4>Devices</h4>
-                  <p className="muted">Student-safe device roles and operating systems.</p>
+                  <p className="muted">Device roles and operating systems for this scenario.</p>
                 </div>
               </div>
 

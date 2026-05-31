@@ -75,7 +75,13 @@ function buildSavedValidationResult(labSession, latestAttempt, recommendationPay
     success: true,
     session_id: labSession?.session_id || latestAttempt?.session_id || "",
     status: labSession?.status || "validated",
-    score: latestAttempt?.score ?? labSession?.score ?? 0,
+    score: latestAttempt?.fault_resolution_score ?? latestAttempt?.score ?? labSession?.score ?? 0,
+    score_type: latestAttempt?.score_type || "fault_resolution",
+    fault_resolution_score: latestAttempt?.fault_resolution_score ?? latestAttempt?.score ?? labSession?.score ?? 0,
+    network_health_score: latestAttempt?.network_health_score ?? null,
+    affected_topics: latestAttempt?.affected_topics || [],
+    failed_topics: latestAttempt?.failed_topics || [],
+    resolved_topics: latestAttempt?.resolved_topics || [],
     passed: latestAttempt?.passed ?? labSession?.passed ?? failedChecks === 0,
     checks,
     passed_checks: passedChecks,
@@ -88,8 +94,6 @@ function buildSavedValidationResult(labSession, latestAttempt, recommendationPay
       ...(recommendationPayload || {}),
       recommendations
     },
-    recommendation_source: recommendationPayload?.source || ("rule" + "_based"),
-    ["recommendation_" + "fallback" + "_used"]: Boolean(recommendationPayload?.["fallback" + "_used"]),
     recommendation_message: recommendationPayload?.message || "",
     message: "Saved validation result loaded from history."
   };

@@ -234,7 +234,7 @@ function ValidationCheckCard({ check, index, compact = false }) {
         </div>
 
         <div>
-          <span>Student-Safe Hint</span>
+          <span>Learning Hint</span>
           <strong>{getStudentSafeHint(check, status)}</strong>
         </div>
       </div>

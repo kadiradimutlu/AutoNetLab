@@ -395,13 +395,7 @@ function TerminalPane({
     }
 
     dataDisposableRef.current = terminal.onData((data) => {
-      const socket = socketRef.current;
-
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
-      socket.send(TERMINAL_ENCODER.encode(data));
+      sendTerminalInput(data);
     });
 
     terminalRef.current = terminal;
@@ -539,6 +533,32 @@ function TerminalPane({
     }));
   }
 
+  function sendTerminalInput(data) {
+    if (!data) {
+      return;
+    }
+
+    const socket = socketRef.current;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(TERMINAL_ENCODER.encode(data));
+  }
+
+  function handleTerminalPaste(event) {
+    const pastedText = event.clipboardData?.getData("text/plain") || "";
+
+    if (!pastedText) {
+      return;
+    }
+
+    event.preventDefault();
+    sendTerminalInput(pastedText);
+    terminalRef.current?.focus();
+  }
+
   function disconnectWebTerminal({ writeMessage = true } = {}) {
     const socket = socketRef.current;
 
@@ -672,8 +692,7 @@ function TerminalPane({
 
       disconnectWebTerminal({ writeMessage: false });
 
-      clearTerminal();
-      writeTerminalLine(`[system] Connecting to ${deviceId}...`);
+      writeTerminalLine(`\r\n[system] Connecting to ${deviceId}...`);
 
       const socket = new WebSocket(webTerminalUrl);
       socket.binaryType = "arraybuffer";
@@ -774,6 +793,7 @@ function TerminalPane({
           className="xterm-shell-container multi-terminal-xterm-container"
           ref={terminalContainerRef}
           onClick={() => terminalRef.current?.focus()}
+          onPaste={handleTerminalPaste}
           role="application"
           aria-label={`Interactive Web Terminal for ${deviceLabel}`}
         />

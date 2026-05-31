@@ -40,5 +40,5 @@
       "related_failed_checks": []
     }
   ],
-  "message": "Rule-based fallback recommendations generated successfully. ML prototype is experimental and not required for this demo."
+  "message": "Learning guidance generated successfully."
 }
