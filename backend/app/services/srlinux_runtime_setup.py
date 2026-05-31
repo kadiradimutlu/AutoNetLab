@@ -3,8 +3,12 @@ from typing import Any
 
 from app.schemas.enums import SessionStatus
 from app.services.scenario_catalog import (
+    BRANCH_STATIC_ROUTING_SCENARIO_ID,
+    CAMPUS_CORE_ROUTING_SCENARIO_ID,
     CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
     SR_BASIC_LINK_SCENARIO_ID,
+    SR_EDGE_LINK_SCENARIO_ID,
+    resolve_scenario_id,
 )
 
 
@@ -17,6 +21,57 @@ CAMPUS_CLIENT2_EXPECTED_GATEWAY = "10.10.20.1"
 CAMPUS_CLIENT2_INJECTED_GATEWAY = "10.10.20.254"
 CAMPUS_WRONG_CLIENT2_GATEWAY_CODE = "CAMPUS_CLIENT2_WRONG_GATEWAY"
 CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID = "campus_client2_wrong_gateway"
+
+BRANCH_CLIENT2_EXPECTED_GATEWAY = "10.10.20.1"
+BRANCH_CLIENT2_INJECTED_GATEWAY = "10.10.20.254"
+BRANCH_WRONG_CLIENT2_GATEWAY_CODE = "BRANCH_CLIENT2_WRONG_GATEWAY"
+BRANCH_WRONG_CLIENT2_GATEWAY_VARIANT_ID = "branch_client2_wrong_gateway"
+
+
+BRANCH_CLIENTS: dict[str, dict[str, str]] = {
+    "client1": {
+        "interface": "eth1",
+        "ip_address": "10.10.10.10/24",
+        "default_gateway": "10.10.10.1",
+        "remote_peer": "10.10.20.10",
+    },
+    "client2": {
+        "interface": "eth1",
+        "ip_address": "10.10.20.10/24",
+        "default_gateway": "10.10.20.1",
+        "remote_peer": "10.10.10.10",
+    },
+}
+
+BRANCH_SRL_INTERFACES: dict[str, list[dict[str, str]]] = {
+    "srl1": [
+        {"interface": "ethernet-1/1", "ip_address": "10.10.10.1/24"},
+        {"interface": "ethernet-1/2", "ip_address": "10.10.12.1/30"},
+    ],
+    "srl2": [
+        {"interface": "ethernet-1/1", "ip_address": "10.10.20.1/24"},
+        {"interface": "ethernet-1/2", "ip_address": "10.10.12.2/30"},
+    ],
+}
+
+BRANCH_STATIC_ROUTES: dict[str, list[dict[str, Any]]] = {
+    "srl1": [
+        {
+            "prefix": "10.10.20.0/24",
+            "next_hop": "10.10.12.2",
+            "next_hop_id": 1,
+            "group": "branch-srl1-to-client2",
+        },
+    ],
+    "srl2": [
+        {
+            "prefix": "10.10.10.0/24",
+            "next_hop": "10.10.12.1",
+            "next_hop_id": 1,
+            "group": "branch-srl2-to-client1",
+        },
+    ],
+}
 
 
 CAMPUS_CLIENTS: dict[str, dict[str, str]] = {
@@ -118,10 +173,13 @@ def build_srlinux_runtime_faults(
     after the student applies the expected live-state fix.
     """
 
-    scenario_key = scenario_id or SR_BASIC_LINK_SCENARIO_ID
+    scenario_key = resolve_scenario_id(scenario_id or SR_BASIC_LINK_SCENARIO_ID)
 
-    if scenario_key == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
+    if scenario_key == CAMPUS_CORE_ROUTING_SCENARIO_ID:
         return [_campus_client2_wrong_gateway_fault()]
+
+    if scenario_key == BRANCH_STATIC_ROUTING_SCENARIO_ID:
+        return [_branch_client2_wrong_gateway_fault()]
 
     return [_basic_link_client_wrong_gateway_fault()]
 
@@ -139,6 +197,23 @@ def _basic_link_client_wrong_gateway_fault() -> dict[str, Any]:
         "expected_outputs": [f"default via {SRLINUX_CLIENT_EXPECTED_GATEWAY}"],
         "injection_commands": [
             f"ip route replace default via {SRLINUX_CLIENT_INJECTED_GATEWAY} dev eth1"
+        ],
+    }
+
+
+def _branch_client2_wrong_gateway_fault() -> dict[str, Any]:
+    return {
+        "code": BRANCH_WRONG_CLIENT2_GATEWAY_CODE,
+        "topic": "default_gateway",
+        "device": "client2",
+        "description": "client2 has an incorrect default gateway for the branch client segment.",
+        "severity": "medium",
+        "variant_id": BRANCH_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
+        "interface": "eth1",
+        "validation_command": "ip route",
+        "expected_outputs": [f"default via {BRANCH_CLIENT2_EXPECTED_GATEWAY}"],
+        "injection_commands": [
+            f"ip route replace default via {BRANCH_CLIENT2_INJECTED_GATEWAY} dev eth1"
         ],
     }
 
@@ -172,14 +247,21 @@ def apply_srlinux_runtime_setup(session: dict[str, Any]) -> dict[str, Any]:
 
     session_id = str(session["session_id"])
     scenario_id = _scenario_id(session)
+    scenario_key = resolve_scenario_id(scenario_id or session.get("topology_template"))
 
-    if scenario_id == SR_BASIC_LINK_SCENARIO_ID:
+    if scenario_key == SR_EDGE_LINK_SCENARIO_ID:
         return _apply_basic_link_runtime_setup(
             session=session,
             session_id=session_id,
         )
 
-    if scenario_id == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
+    if scenario_key == BRANCH_STATIC_ROUTING_SCENARIO_ID:
+        return _apply_branch_static_routing_runtime_setup(
+            session=session,
+            session_id=session_id,
+        )
+
+    if scenario_key == CAMPUS_CORE_ROUTING_SCENARIO_ID:
         return _apply_campus_core_static_routing_runtime_setup(
             session=session,
             session_id=session_id,
@@ -339,6 +421,220 @@ def _run_basic_link_verification(
             "bytes from 10.10.10.1",
         ),
     ]
+
+    return _run_verification_commands(
+        session_id=session_id,
+        command_results=command_results,
+        verification_commands=verification_commands,
+    )
+
+
+
+def _apply_branch_static_routing_runtime_setup(
+    *,
+    session: dict[str, Any],
+    session_id: str,
+) -> dict[str, Any]:
+    command_results: list[dict[str, Any]] = []
+
+    required_devices = [
+        *BRANCH_CLIENTS.keys(),
+        *BRANCH_SRL_INTERFACES.keys(),
+    ]
+    containers = {
+        device: _container_name_for_device(session, device)
+        for device in required_devices
+    }
+    missing_devices = [
+        device
+        for device, container_name in containers.items()
+        if not container_name
+    ]
+
+    if missing_devices:
+        return _error_response(
+            session_id=session_id,
+            command_results=[],
+            error_code="SRLINUX_BRANCH_RUNTIME_METADATA_MISSING",
+            detail=(
+                "Could not resolve required branch container names for: "
+                + ", ".join(sorted(missing_devices))
+                + "."
+            ),
+        )
+
+    for device, interfaces in BRANCH_SRL_INTERFACES.items():
+        srl_config_script = _build_campus_srl_config_script(
+            device=device,
+            interfaces=interfaces,
+            static_routes=BRANCH_STATIC_ROUTES.get(device, []),
+        )
+        result = _run_docker_exec(
+            container_name=str(containers[device]),
+            command=["sr_cli"],
+            stage="srlinux_branch_golden_setup",
+            device=device,
+            display_command=f"apply branch golden SR Linux config on {device}",
+            input_text=srl_config_script,
+        )
+        command_results.append(result)
+
+        if not result["success"]:
+            return _error_response(
+                session_id=session_id,
+                command_results=command_results,
+                error_code="SRLINUX_BRANCH_GOLDEN_SRL_CONFIG_FAILED",
+                detail=f"Could not apply branch golden SR Linux config on {device}.",
+            )
+
+    for device, config in BRANCH_CLIENTS.items():
+        client_setup_commands = _client_setup_commands(
+            interface=config["interface"],
+            ip_address=config["ip_address"],
+            default_gateway=config["default_gateway"],
+        )
+
+        for command in client_setup_commands:
+            result = _run_docker_exec(
+                container_name=str(containers[device]),
+                command=["sh", "-lc", command],
+                stage="branch_client_runtime_setup",
+                device=device,
+                display_command=command,
+            )
+            command_results.append(result)
+
+            if not result["success"]:
+                return _error_response(
+                    session_id=session_id,
+                    command_results=command_results,
+                    error_code="SRLINUX_BRANCH_CLIENT_RUNTIME_SETUP_FAILED",
+                    detail=f"Branch client runtime setup command failed on {device}: {command}",
+                )
+
+    verification_failure = _run_branch_golden_verification(
+        session_id=session_id,
+        command_results=command_results,
+        containers={device: str(name) for device, name in containers.items()},
+    )
+
+    if verification_failure is not None:
+        return verification_failure
+
+    fault_failure = _apply_srlinux_runtime_fault_injection(
+        session=session,
+        command_results=command_results,
+    )
+
+    if fault_failure is not None:
+        return _error_response(
+            session_id=session_id,
+            command_results=command_results,
+            error_code=fault_failure["error_code"],
+            detail=fault_failure["detail"],
+        )
+
+    has_runtime_faults = bool(_srlinux_faults_for_session(session))
+    message = (
+        "SR Linux branch static routing golden runtime setup and runtime fault injection applied successfully."
+        if has_runtime_faults
+        else "SR Linux branch static routing golden runtime setup applied successfully."
+    )
+
+    return _success_response(
+        session_id=session_id,
+        command_results=command_results,
+        message=message,
+    )
+
+
+def _run_branch_golden_verification(
+    *,
+    session_id: str,
+    command_results: list[dict[str, Any]],
+    containers: dict[str, str],
+) -> dict[str, Any] | None:
+    verification_commands: list[tuple[str, str, list[str], str, str]] = []
+
+    for device, config in BRANCH_CLIENTS.items():
+        interface = config["interface"]
+        verification_commands.extend(
+            [
+                (
+                    device,
+                    containers[device],
+                    ["sh", "-lc", f"ip -4 addr show dev {interface}"],
+                    f"verify {device} {interface} IPv4 address",
+                    config["ip_address"],
+                ),
+                (
+                    device,
+                    containers[device],
+                    ["sh", "-lc", "ip route"],
+                    f"verify {device} default route",
+                    f"default via {config['default_gateway']}",
+                ),
+            ]
+        )
+
+    for device, interfaces in BRANCH_SRL_INTERFACES.items():
+        for item in interfaces:
+            interface = item["interface"]
+            ip_address = item["ip_address"]
+            verification_commands.extend(
+                [
+                    (
+                        device,
+                        containers[device],
+                        [
+                            "sr_cli",
+                            "-ec",
+                            f"info from state interface {interface} subinterface 0 ipv4",
+                        ],
+                        f"verify {device} {interface}.0 IPv4 address",
+                        ip_address,
+                    ),
+                    (
+                        device,
+                        containers[device],
+                        ["sr_cli", "-ec", "info network-instance default"],
+                        f"verify {device} default network-instance binding for {interface}.0",
+                        f"interface {_subinterface_name(interface)}",
+                    ),
+                ]
+            )
+
+    for device, routes in BRANCH_STATIC_ROUTES.items():
+        for route in routes:
+            prefix = route["prefix"]
+            verification_commands.append(
+                (
+                    device,
+                    containers[device],
+                    ["sr_cli", "-ec", f"info network-instance default static-routes route {prefix}"],
+                    f"verify {device} static route {prefix}",
+                    f"static-next-hop-group {route['group']}",
+                )
+            )
+
+    verification_commands.extend(
+        [
+            (
+                "client1",
+                containers["client1"],
+                ["sh", "-lc", _ping_retry_command(BRANCH_CLIENTS["client1"]["remote_peer"])],
+                "verify client1 can ping client2",
+                f"bytes from {BRANCH_CLIENTS['client1']['remote_peer']}",
+            ),
+            (
+                "client2",
+                containers["client2"],
+                ["sh", "-lc", _ping_retry_command(BRANCH_CLIENTS["client2"]["remote_peer"])],
+                "verify client2 can ping client1",
+                f"bytes from {BRANCH_CLIENTS['client2']['remote_peer']}",
+            ),
+        ]
+    )
 
     return _run_verification_commands(
         session_id=session_id,
@@ -888,10 +1184,12 @@ def _srlinux_faults_for_session(session: dict[str, Any]) -> list[dict[str, Any]]
         if (
             code in {
                 SRLINUX_WRONG_CLIENT_GATEWAY_CODE,
+                BRANCH_WRONG_CLIENT2_GATEWAY_CODE,
                 CAMPUS_WRONG_CLIENT2_GATEWAY_CODE,
             }
             or variant_id in {
                 SRLINUX_WRONG_CLIENT_GATEWAY_VARIANT_ID,
+                BRANCH_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
                 CAMPUS_WRONG_CLIENT2_GATEWAY_VARIANT_ID,
             }
         ):
