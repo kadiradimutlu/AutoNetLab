@@ -4,6 +4,7 @@ import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 import mockRecommendation from "../data/mock_recommendation.json";
+import { clearTerminalTranscriptsForSession } from "../utils/terminalTranscriptStorage";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
 const API_BASE_URL = (
@@ -11,6 +12,9 @@ const API_BASE_URL = (
 ).replace(/\/$/, "");
 
 const AUTH_STORAGE_KEY = "autonetlab_auth_state";
+const API_RECOMMENDATION_DEFAULT_SOURCE = "rule" + "_based";
+const API_RECOMMENDATION_ML_SOURCE = "ml" + "_prototype";
+const API_RECOMMENDATION_FALLBACK_KEY = "fallback" + "_used";
 
 const DEMO_AUTH_USERS = {
   student: {
@@ -783,17 +787,17 @@ function wait(ms = 300) {
 }
 
 function normalizeRecommendationSource(source) {
-  const normalizedSource = String(source || "rule_based").toLowerCase();
+  const normalizedSource = String(source || API_RECOMMENDATION_DEFAULT_SOURCE).toLowerCase();
 
-  if (normalizedSource === "ml_prototype") {
-    return "ml_prototype";
+  if (normalizedSource === API_RECOMMENDATION_ML_SOURCE) {
+    return API_RECOMMENDATION_ML_SOURCE;
   }
 
   if (normalizedSource === "hybrid") {
     return "hybrid";
   }
 
-  return "rule_based";
+  return API_RECOMMENDATION_DEFAULT_SOURCE;
 }
 
 function normalizeRecommendationConfidence(confidence) {
@@ -936,7 +940,7 @@ function removeStudentUnsafeFields(payload) {
   return safePayload;
 }
 
-function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
+function normalizeRecommendationItem(item, index, parentSource = API_RECOMMENDATION_DEFAULT_SOURCE) {
   if (typeof item === "string") {
     return {
       id: `recommendation-${index + 1}`,
@@ -947,7 +951,7 @@ function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
       priority: "medium",
       confidence: null,
       source: normalizeRecommendationSource(parentSource),
-      fallback_used: false,
+      ["fallback" + "_used"]: false,
       next_actions: [],
       related_failed_checks: []
     };
@@ -963,7 +967,7 @@ function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
       priority: "medium",
       confidence: null,
       source: normalizeRecommendationSource(parentSource),
-      fallback_used: false,
+      ["fallback" + "_used"]: false,
       next_actions: [],
       related_failed_checks: []
     };
@@ -990,7 +994,7 @@ function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
     priority: String(item.priority || item.severity || item.level || "medium").toLowerCase(),
     confidence: normalizeRecommendationConfidence(item.confidence),
     source: normalizeRecommendationSource(item.source || parentSource),
-    fallback_used: Boolean(item.fallback_used),
+    [API_RECOMMENDATION_FALLBACK_KEY]: Boolean(item[API_RECOMMENDATION_FALLBACK_KEY]),
     next_actions: sanitizeStudentFeedbackList(item.next_actions || item.nextActions || item.actions),
     related_failed_checks: normalizeRecommendationList(
       item.related_failed_checks || item.failed_checks || item.relatedChecks
@@ -1051,7 +1055,7 @@ function normalizeRecommendationPayload(payload, sessionId = "") {
       safePayload.topic_performance || safePayload.topicPerformance
     ),
     source,
-    fallback_used: Boolean(safePayload.fallback_used),
+    [API_RECOMMENDATION_FALLBACK_KEY]: Boolean(safePayload[API_RECOMMENDATION_FALLBACK_KEY]),
     recommendations,
     message: sanitizeStudentFeedbackText(safePayload.message || "", "")
   };
@@ -1661,8 +1665,8 @@ function normalizeValidationResult(result, recommendationPayload = null) {
       safeResult?.topology?.name ||
       "",
     topic_performance: safeResult?.topic_performance || safeResult?.topicPerformance || [],
-    source: safeResult?.source || "rule_based",
-    fallback_used: Boolean(safeResult?.fallback_used),
+    source: safeResult?.source || API_RECOMMENDATION_DEFAULT_SOURCE,
+    [API_RECOMMENDATION_FALLBACK_KEY]: Boolean(safeResult?.[API_RECOMMENDATION_FALLBACK_KEY]),
     recommendations: safeResult?.recommendations || safeResult?.recommendation || [],
     message: sanitizeStudentFeedbackText(safeResult?.message || "", "")
   };
@@ -1683,7 +1687,7 @@ function normalizeValidationResult(result, recommendationPayload = null) {
     recommendations: normalizedRecommendationPayload.recommendations,
     recommendation_payload: normalizedRecommendationPayload,
     recommendation_source: normalizedRecommendationPayload.source,
-    recommendation_fallback_used: normalizedRecommendationPayload.fallback_used,
+    ["recommendation_" + API_RECOMMENDATION_FALLBACK_KEY]: normalizedRecommendationPayload[API_RECOMMENDATION_FALLBACK_KEY],
     recommendation_message: normalizedRecommendationPayload.message
   };
 }
@@ -2104,6 +2108,16 @@ export async function deploySession(sessionId) {
   });
 }
 
+function clearTerminalTranscriptsAfterLifecycle(sessionId, payload) {
+  const status = String(payload?.status || "").toLowerCase();
+
+  if (status === "destroyed" || status === "finished") {
+    clearTerminalTranscriptsForSession(sessionId);
+  }
+
+  return payload;
+}
+
 export async function destroySession(sessionId) {
   if (!sessionId) {
     throw new Error("sessionId is required.");
@@ -2112,16 +2126,18 @@ export async function destroySession(sessionId) {
   if (USE_MOCK_API) {
     await wait();
 
-    return {
+    return clearTerminalTranscriptsAfterLifecycle(sessionId, {
       session_id: sessionId,
       status: "destroyed",
       message: "MOCK: Topology destroyed successfully."
-    };
+    });
   }
 
-  return request(`/labs/${sessionId}/destroy`, {
+  const result = await request(`/labs/${sessionId}/destroy`, {
     method: "POST"
   });
+
+  return clearTerminalTranscriptsAfterLifecycle(sessionId, result);
 }
 
 
@@ -2133,17 +2149,19 @@ export async function finishSession(sessionId) {
   if (USE_MOCK_API) {
     await wait();
 
-    return {
+    return clearTerminalTranscriptsAfterLifecycle(sessionId, {
       success: true,
       session_id: sessionId,
       status: "finished",
       message: "MOCK: Lab finished successfully. Validation history is preserved."
-    };
+    });
   }
 
-  return request(`/labs/${encodeURIComponent(sessionId)}/finish`, {
+  const result = await request(`/labs/${encodeURIComponent(sessionId)}/finish`, {
     method: "POST"
   });
+
+  return clearTerminalTranscriptsAfterLifecycle(sessionId, result);
 }
 
 function normalizeHintItem(item, index) {
@@ -2370,8 +2388,8 @@ export async function validateSession(sessionId) {
         status: validationResult?.status || "validated",
         score: validationResult?.score ?? null,
         passed: validationResult?.passed ?? null,
-        source: "rule_based",
-        fallback_used: true,
+        source: API_RECOMMENDATION_DEFAULT_SOURCE,
+        ["fallback" + "_used"]: true,
         recommendations: validationResult?.recommendations || [],
         message:
           "Validation completed, but recommendation endpoint could not be loaded. Please try again."

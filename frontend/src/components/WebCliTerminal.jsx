@@ -4,6 +4,12 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import MessageBox from "./MessageBox";
 import {
+  cleanupExpiredTerminalTranscripts,
+  readTerminalTranscript,
+  removeTerminalTranscript,
+  writeTerminalTranscript
+} from "../utils/terminalTranscriptStorage";
+import {
   getAuthToken,
   getErrorDetails,
   getErrorMessage,
@@ -177,6 +183,23 @@ function formatConnectionState(state) {
     .join(" ");
 }
 
+function formatModeLabel(mode) {
+  const normalizedMode = String(mode || "").toLowerCase();
+
+  if (normalizedMode.includes("browser_cli") || normalizedMode.includes("terminal")) {
+    return "Browser Terminal";
+  }
+
+  if (normalizedMode.includes("local_docker")) {
+    return "Runtime CLI";
+  }
+
+  return String(mode || "Browser Terminal")
+    .replace(/_/g, " ")
+    .replace(/\bmvp\b/gi, "")
+    .trim() || "Browser Terminal";
+}
+
 function getStatusBadgeClass(state) {
   if (state === "connected" || state === "ready") {
     return "pass";
@@ -229,7 +252,7 @@ function ReadinessDetails({ readiness }) {
 
         <div>
           <span>Current Mode</span>
-          <strong>{readiness.current_mode || "-"}</strong>
+          <strong>{formatModeLabel(readiness.current_mode)}</strong>
         </div>
 
         <div>
@@ -277,6 +300,7 @@ function TerminalPane({
   const dataDisposableRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const activeRef = useRef(active);
+  const transcriptLinesRef = useRef([]);
 
   const [connectionState, setConnectionState] = useState("idle");
   const [webCliError, setWebCliError] = useState("");
@@ -341,10 +365,34 @@ function TerminalPane({
       }
     }
 
-    terminal.writeln("AutoNetLab Terminal Workspace");
-    terminal.writeln(`Terminal tab: ${deviceLabel} (${deviceId})`);
-    terminal.writeln("Check readiness, then connect.");
-    terminal.writeln("");
+    cleanupExpiredTerminalTranscripts();
+
+    const restoredLines = readTerminalTranscript({
+      sessionId,
+      deviceId
+    });
+
+    transcriptLinesRef.current = restoredLines;
+
+    if (restoredLines.length > 0) {
+      restoredLines.forEach((line) => {
+        terminal.write(String(line.text || ""));
+      });
+    } else {
+      const initialLines = [
+        "AutoNetLab Terminal Workspace",
+        `Terminal tab: ${deviceLabel} (${deviceId})`,
+        "Check readiness, then connect.",
+        ""
+      ].map((text) => ({
+        kind: "system",
+        text: `${text}\r\n`,
+        timestamp: new Date().toISOString()
+      }));
+
+      initialLines.forEach((line) => terminal.write(line.text));
+      persistTranscriptLines(initialLines);
+    }
 
     dataDisposableRef.current = terminal.onData((data) => {
       const socket = socketRef.current;
@@ -396,7 +444,7 @@ function TerminalPane({
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [deviceId, deviceLabel]);
+  }, [deviceId, deviceLabel, sessionId]);
 
   useEffect(() => {
     if (!active || !sessionId || !deviceId || readiness || connectionState !== "idle") {
@@ -410,15 +458,58 @@ function TerminalPane({
     return () => window.clearTimeout(timer);
   }, [active, connectionState, deviceId, readiness, sessionId]);
 
+  function persistTranscriptLines(lines) {
+    transcriptLinesRef.current = lines;
+
+    writeTerminalTranscript({
+      sessionId,
+      deviceId,
+      lines
+    });
+  }
+
+  function appendTranscriptEntry(kind, text) {
+    const safeText = String(text || "");
+
+    if (!safeText) {
+      return;
+    }
+
+    persistTranscriptLines([
+      ...transcriptLinesRef.current,
+      {
+        kind,
+        text: safeText,
+        timestamp: new Date().toISOString()
+      }
+    ]);
+  }
+
   function writeTerminal(text = "") {
-    terminalRef.current?.write(text);
+    const safeText = String(text || "");
+
+    if (!safeText) {
+      return;
+    }
+
+    terminalRef.current?.write(safeText);
+    appendTranscriptEntry("output", safeText);
   }
 
   function writeTerminalLine(text = "") {
-    terminalRef.current?.writeln(text);
+    const safeText = String(text || "");
+
+    terminalRef.current?.writeln(safeText);
+    appendTranscriptEntry("system", `${safeText}\r\n`);
   }
 
   function clearTerminal() {
+    removeTerminalTranscript({
+      sessionId,
+      deviceId
+    });
+    transcriptLinesRef.current = [];
+
     terminalRef.current?.clear();
     writeTerminalLine("AutoNetLab Terminal Workspace");
     writeTerminalLine(`Terminal tab: ${deviceLabel} (${deviceId})`);
@@ -779,7 +870,7 @@ function TerminalPane({
       <ReadinessDetails readiness={readiness} />
 
       <p className="footer-note">
-        Current mode: {mode || "browser_cli_mvp"}. This tab keeps its own WebSocket, xterm state, and terminal scrollback while you switch devices.
+        Current mode: {formatModeLabel(mode)}. This tab keeps its own WebSocket, xterm state, and terminal scrollback while you switch devices and page reloads.
       </p>
     </div>
   );

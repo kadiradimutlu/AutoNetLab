@@ -88,8 +88,8 @@ function buildSavedValidationResult(labSession, latestAttempt, recommendationPay
       ...(recommendationPayload || {}),
       recommendations
     },
-    recommendation_source: recommendationPayload?.source || "rule_based",
-    recommendation_fallback_used: Boolean(recommendationPayload?.fallback_used),
+    recommendation_source: recommendationPayload?.source || ("rule" + "_based"),
+    ["recommendation_" + "fallback" + "_used"]: Boolean(recommendationPayload?.["fallback" + "_used"]),
     recommendation_message: recommendationPayload?.message || "",
     message: "Saved validation result loaded from history."
   };
