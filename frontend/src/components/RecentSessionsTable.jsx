@@ -74,7 +74,11 @@ function getLifecycleStatusClass(status) {
     return "medium";
   }
 
-  if (["finished", "destroyed"].includes(normalizedStatus)) {
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
     return "neutral";
   }
 
@@ -113,8 +117,8 @@ function getScenarioValue(session) {
   return session.scenario_id || session.scenario || session.scenario_name || "-";
 }
 
-function getTopologyValue(session) {
-  return session.topology_template || session.topology_name || session.topology || "-";
+function getFaultScore(session) {
+  return session.fault_resolution_score ?? session.score ?? null;
 }
 
 function RecentSessionsTable({ sessions }) {
@@ -126,7 +130,7 @@ function RecentSessionsTable({ sessions }) {
         <div>
           <h3>Recent Sessions</h3>
           <p className="muted">
-            Latest student lab sessions with scenario and topology context.
+            Latest student lab sessions with scenario context.
           </p>
         </div>
       </div>
@@ -144,10 +148,9 @@ function RecentSessionsTable({ sessions }) {
                 <th>Session</th>
                 <th>Student</th>
                 <th>Scenario</th>
-                <th>Topology</th>
                 <th>Difficulty</th>
                 <th>Status</th>
-                <th>Score</th>
+                <th>Fault Score</th>
                 <th>Result</th>
                 <th>Last Activity</th>
               </tr>
@@ -162,9 +165,6 @@ function RecentSessionsTable({ sessions }) {
                     <span className="analytics-code-pill">{getScenarioValue(session)}</span>
                   </td>
                   <td>
-                    <span className="analytics-code-pill neutral">{getTopologyValue(session)}</span>
-                  </td>
-                  <td>
                     <span className={`badge ${session.difficulty}`}>
                       {formatDifficultyLabel(session.difficulty)}
                     </span>
@@ -174,7 +174,7 @@ function RecentSessionsTable({ sessions }) {
                       {getLifecycleStatusLabel(session.status)}
                     </span>
                   </td>
-                  <td>{formatScore(session.score)}</td>
+                  <td>{formatScore(getFaultScore(session))}</td>
                   <td>
                     <span className={`badge ${getResultClass(session.passed)}`}>
                       {getResultLabel(session.passed)}

@@ -130,7 +130,11 @@ function getLifecycleStatusBadgeClass(status) {
     return "medium";
   }
 
-  if (["finished", "destroyed"].includes(normalizedStatus)) {
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
     return "neutral";
   }
 
@@ -257,6 +261,36 @@ function getScenarioTitleFromSession(session) {
   const scenarioId = getScenarioIdFromSession(session);
 
   return SCENARIO_TITLE_BY_ID[scenarioId] || scenarioId || "Scenario not reported";
+}
+
+function getScenarioTitleLines(title) {
+  const normalizedTitle = String(title || "").trim();
+
+  const fixedLines = {
+    "Edge Link Troubleshooting": ["Edge Link", "Troubleshooting"],
+    "Branch Static Routing": ["Branch Static", "Routing"],
+    "Campus Core Troubleshooting": ["Campus Core", "Troubleshooting"]
+  };
+
+  if (fixedLines[normalizedTitle]) {
+    return fixedLines[normalizedTitle];
+  }
+
+  if (!normalizedTitle) {
+    return ["Scenario not reported"];
+  }
+
+  return [normalizedTitle];
+}
+
+function ScenarioTitleLines({ title }) {
+  return (
+    <>
+      {getScenarioTitleLines(title).map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </>
+  );
 }
 
 
@@ -995,7 +1029,7 @@ function StudentSessionsTable({ sessions, onViewDetails }) {
   const newestFirstSessions = getNewestFirstSessions(sessions);
 
   return (
-    <section className="card">
+    <section className="card student-session-history-card">
       <div className="section-title-row">
         <div>
           <h3>Session History</h3>
@@ -1013,8 +1047,8 @@ function StudentSessionsTable({ sessions, onViewDetails }) {
           message="This student does not have lab session history yet."
         />
       ) : (
-        <div className="table-wrapper">
-          <table className="analytics-table">
+        <div className="table-wrapper student-session-table-wrapper">
+          <table className="analytics-table student-session-table">
             <thead>
               <tr>
                 <th>Session</th>
@@ -1037,7 +1071,7 @@ function StudentSessionsTable({ sessions, onViewDetails }) {
                     <td>
                       <div className="session-title-cell">
                         <strong>{session.session_id}</strong>
-                        <span>{getScenarioTitleFromSession(session)}</span>
+                        <ScenarioTitleLines title={getScenarioTitleFromSession(session)} />
                       </div>
                     </td>
                     <td>
@@ -1060,11 +1094,13 @@ function StudentSessionsTable({ sessions, onViewDetails }) {
                     <td>{formatDateTime(getSessionLastActivityAt(session))}</td>
                     <td>
                       <button
-                        className="secondary-button table-action-button"
+                        className="secondary-button table-action-button table-action-button-stacked"
                         onClick={() => onViewDetails?.(session)}
                         type="button"
+                        aria-label={`View details for ${session.session_id}`}
                       >
-                        View Details
+                        <span>View</span>
+                        <span>Details</span>
                       </button>
                     </td>
                   </tr>
@@ -1085,6 +1121,7 @@ function SessionReviewPanel({
   isLoading,
   errorMessage,
   errorDetails,
+  panelRef,
   onClose
 }) {
   if (!session && !isLoading && !errorMessage) {
@@ -1111,7 +1148,7 @@ function SessionReviewPanel({
   const checkCounts = getAttemptCheckCounts(latestAttempt);
 
   return (
-    <section className="card session-review-panel">
+    <section className="card session-review-panel" ref={panelRef}>
       <div className="section-title-row">
         <div>
           <h3>Session Review</h3>
@@ -1494,7 +1531,7 @@ function StudentScoreTrend({ scoreTrend, sessions = [] }) {
                       <td>
                         <div className="session-title-cell">
                           <strong>{item.session_id}</strong>
-                          <span>{getScenarioTitleFromSession(displaySession)}</span>
+                          <ScenarioTitleLines title={getScenarioTitleFromSession(displaySession)} />
                         </div>
                       </td>
                       <td>{item.difficulty || "-"}</td>
@@ -1759,6 +1796,7 @@ function CleanupIncidentPanel({ incidents }) {
 }
 
 function InstructorDashboardPage() {
+  const sessionReviewPanelRef = useRef(null);
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [summary, setSummary] = useState(null);
@@ -2010,6 +2048,19 @@ function InstructorDashboardPage() {
     }
   }
 
+
+  useEffect(() => {
+    if (!sessionReviewId || !sessionReviewPanelRef.current) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      sessionReviewPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  }, [sessionReviewId, sessionReviewLoadingId]);
 
   async function handleViewSessionDetails(session) {
     const sessionId = session?.session_id;
@@ -2365,6 +2416,7 @@ function InstructorDashboardPage() {
                         isLoading={Boolean(sessionReviewId) && sessionReviewLoadingId === sessionReviewId}
                         errorMessage={sessionReviewErrorMessage}
                         errorDetails={sessionReviewErrorDetails}
+                        panelRef={sessionReviewPanelRef}
                         onClose={() => setSessionReviewId("")}
                       />
                     </>

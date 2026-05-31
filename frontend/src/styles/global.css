@@ -7008,3 +7008,116 @@ html {
 .scenario-performance-context {
   font-weight: 700;
 }
+
+
+/* NR-Sprint41B pre-PR UI fit fixes */
+.student-list {
+  padding: 3px 4px 4px 2px;
+  box-sizing: border-box;
+  scroll-padding-top: 4px;
+}
+
+.student-list > *:first-child {
+  margin-top: 2px;
+}
+
+.badge.finished {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.student-session-history-card {
+  overflow: hidden;
+}
+
+.student-session-table-wrapper {
+  overflow-x: visible;
+}
+
+.student-session-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.student-session-table th,
+.student-session-table td {
+  padding: 9px 8px;
+  vertical-align: top;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 24%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 10%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 10%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6),
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 9%;
+}
+
+.student-session-table .session-title-cell {
+  min-width: 0;
+  gap: 3px;
+}
+
+.student-session-table .session-title-cell strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.student-session-table .session-title-cell span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.table-action-button-stacked {
+  display: inline-grid;
+  gap: 0;
+  justify-items: center;
+  min-width: 66px;
+  padding: 7px 9px;
+  line-height: 1.05;
+  white-space: normal;
+}
+
+.table-action-button-stacked span {
+  display: block;
+}
+
+@media (max-width: 1100px) {
+  .student-session-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .student-session-table {
+    min-width: 780px;
+  }
+}
