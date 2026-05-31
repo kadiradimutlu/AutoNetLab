@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.schemas.enums import Difficulty, SessionStatus
-from app.services.scenario_catalog import CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID, get_scenario
+from app.services.scenario_catalog import CAMPUS_CORE_ROUTING_SCENARIO_ID, get_scenario
 from app.services.session_service import get_lab_session
 from app.services.srlinux_runtime_setup import (
     CAMPUS_CLIENT2_EXPECTED_GATEWAY,
@@ -104,20 +104,20 @@ def _fake_campus_golden_run(command, **kwargs):
 
 
 def test_nr_sprint34b_campus_catalog_is_runtime_fault_injection_enabled():
-    scenario = get_scenario(CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID)
+    scenario = get_scenario(CAMPUS_CORE_ROUTING_SCENARIO_ID)
 
     assert scenario["runtime_profile"] == "runtime_fault_injection"
 
     notes = "\n".join(scenario["student_notes"])
-    assert "hidden, fixable client default-gateway issue" in notes
-    assert "No hidden solution data is exposed" in notes
+    assert "Injected faults are hidden" in notes
+    assert "Use the scenario design requirements" in notes
 
 
 def test_nr_sprint34b_campus_runtime_fault_catalog_defaults_to_client2_wrong_gateway():
     faults = build_srlinux_runtime_faults(
         difficulty=Difficulty.easy,
         seed="lab-campus-fault-catalog",
-        scenario_id=CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+        scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
     )
 
     assert len(faults) == 1
@@ -143,7 +143,7 @@ def test_nr_sprint34b_create_campus_session_stores_internal_fault_metadata_only(
         json={
             "student_id": student_id,
             "difficulty": "easy",
-            "scenario_id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+            "scenario_id": CAMPUS_CORE_ROUTING_SCENARIO_ID,
         },
     )
 
@@ -191,11 +191,11 @@ def test_nr_sprint34b_campus_runtime_setup_injects_client2_wrong_gateway_after_g
     session_id = "lab-campus-runtime-fault-test"
     session = {
         "session_id": session_id,
-        "scenario": {"id": CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID},
+        "scenario": {"id": CAMPUS_CORE_ROUTING_SCENARIO_ID},
         "injected_errors": build_srlinux_runtime_faults(
             difficulty=Difficulty.easy,
             seed=session_id,
-            scenario_id=CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+            scenario_id=CAMPUS_CORE_ROUTING_SCENARIO_ID,
         ),
         "cli_access": _campus_cli_access(session_id),
     }

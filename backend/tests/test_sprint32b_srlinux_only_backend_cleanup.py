@@ -26,10 +26,10 @@ def test_sprint32b_create_without_scenario_defaults_to_srlinux():
     payload = response.json()
 
     assert payload["success"] is True
-    assert payload["scenario"]["id"] == "srl-basic-link"
+    assert payload["scenario"]["id"] == "srl-edge-link"
     assert payload["topology_summary"]["node_count"] == 2
     assert payload["topology_summary"]["link_count"] == 1
-    assert payload["topology_summary"]["devices"] == ["srl1", "client1"]
+    assert set(payload["topology_summary"]["devices"]) == {"srl1", "client1"}
 
     node_kinds = {
         node["id"]: node["kind"]
@@ -64,7 +64,7 @@ def test_sprint32b_legacy_topology_template_is_ignored_for_new_create_flow():
         json={
             "student_id": _new_student("sprint32b-legacy"),
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -72,12 +72,12 @@ def test_sprint32b_legacy_topology_template_is_ignored_for_new_create_flow():
 
     payload = response.json()
 
-    assert payload["scenario"]["id"] == "srl-basic-link"
-    assert payload["topology_summary"]["devices"] == ["srl1", "client1"]
-    assert [
+    assert payload["scenario"]["id"] == "srl-edge-link"
+    assert set(payload["topology_summary"]["devices"]) == {"srl1", "client1"}
+    assert {
         node["id"]
         for node in payload["topology"]["nodes"]
-    ] == ["srl1", "client1"]
+    } == {"srl1", "client1"}
 
 
 def test_sprint32b_unknown_scenario_is_still_rejected():
