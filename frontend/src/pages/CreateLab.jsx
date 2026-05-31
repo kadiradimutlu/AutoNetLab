@@ -14,14 +14,14 @@ import {
   getDifficultyClass
 } from "../utils/formatters";
 
-const DEFAULT_SCENARIO_ID = "srl-basic-link";
-const CAMPUS_SCENARIO_ID = "campus-core-static-routing";
+const DEFAULT_SCENARIO_ID = "srl-edge-link";
+const CAMPUS_SCENARIO_ID = "campus-core-routing";
 
 const FALLBACK_SRL_SCENARIO = {
   id: DEFAULT_SCENARIO_ID,
   title: "SR Linux Basic Link Troubleshooting",
   summary: "A professional router-client starter scenario using Nokia SR Linux and a Linux client.",
-  topology_template: "srl-basic-link",
+  topology_template: "srl-edge-link",
   router_os: "Nokia SR Linux",
   devices: [
     {

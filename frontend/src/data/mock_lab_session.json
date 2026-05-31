@@ -5,7 +5,7 @@
   "difficulty": "hard",
   "status": "created",
   "topology": {
-    "name": "srl-basic-link",
+    "name": "srl-edge-link",
     "nodes": [
       {
         "id": "r1",

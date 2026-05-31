@@ -542,7 +542,7 @@ function isCampusTopology(topology, nodes, links) {
   const topologyName = normalizeTopologyKey(topology?.name || topology?.id || topology?.scenario_id || "");
   const nodeSet = getCampusNodeSet(nodes);
   const hasCampusNodes = CAMPUS_NODE_ORDER.every((nodeId) => nodeSet.has(nodeId));
-  const hasCampusName = topologyName.includes("campus-core-static-routing") || topologyName.includes("campus");
+  const hasCampusName = topologyName.includes("campus-core-routing") || topologyName.includes("campus");
 
   return hasCampusNodes && (hasCampusName || links.length >= 5);
 }

@@ -7,9 +7,11 @@ from fastapi import HTTPException, status
 from app.schemas.enums import Difficulty
 from app.schemas.topology import Topology, TopologyEndpoint, TopologyLink, TopologyNode
 from app.services.scenario_catalog import (
-    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    BRANCH_STATIC_ROUTING_SCENARIO_ID,
+    CAMPUS_CORE_ROUTING_SCENARIO_ID,
+    DEFAULT_SCENARIO_ID,
     NETWORK_CLIENT_IMAGE,
-    SR_BASIC_LINK_SCENARIO_ID,
+    SR_EDGE_LINK_SCENARIO_ID,
     SR_LINUX_IMAGE,
     get_scenario,
 )
@@ -26,33 +28,20 @@ TEMPLATE_FILE_BY_DIFFICULTY = {
 }
 
 
-def generate_basic_topology(template_name: str = "basic-two-router") -> Topology:
+def generate_basic_topology(template_name: str = "legacy-basic-two-router") -> Topology:
     """
-    Backward-compatible Sprint 1 helper.
+    Legacy compatibility helper.
 
-    This function is kept so older code/tests do not break.
-    Sprint 2 uses generate_session_topology() instead.
+    Product scenario creation now uses generate_session_topology() with SR Linux
+    scenario identifiers. This helper remains only so older internal tests or
+    stored metadata can still be loaded during the cleanup sprint.
     """
 
     return Topology(
         name=template_name,
         nodes=[
-            TopologyNode(
-                id="r1",
-                label="Router 1",
-                kind="linux",
-                image="alpine:latest",
-                mgmt_ipv4=None,
-                role="router",
-            ),
-            TopologyNode(
-                id="r2",
-                label="Router 2",
-                kind="linux",
-                image="alpine:latest",
-                mgmt_ipv4=None,
-                role="router",
-            ),
+            TopologyNode(id="r1", label="Router 1", kind="linux", image="alpine:latest", mgmt_ipv4=None, role="router"),
+            TopologyNode(id="r2", label="Router 2", kind="linux", image="alpine:latest", mgmt_ipv4=None, role="router"),
         ],
         links=[
             TopologyLink(
@@ -66,118 +55,84 @@ def generate_basic_topology(template_name: str = "basic-two-router") -> Topology
 def generate_session_topology(
     session_id: str,
     difficulty: Difficulty,
-    topology_template: str = "srl-basic-link",
-    scenario_id: str | None = SR_BASIC_LINK_SCENARIO_ID,
+    topology_template: str = DEFAULT_SCENARIO_ID,
+    scenario_id: str | None = DEFAULT_SCENARIO_ID,
 ) -> dict[str, Any]:
     """
-    Creates a session-specific Containerlab topology file.
+    Creates a session-specific Containerlab topology file for the product
+    scenario contract.
 
-    Sprint 32B direction:
-    - New student-facing lab creation is scenario-first.
-    - If scenario_id is omitted by an older caller, SR Linux basic link is used.
-    - Legacy difficulty templates remain only as compatibility code during cleanup.
-
-    NR-Sprint 32A:
-    - Adds a deploy-only professional campus topology foundation.
+    The expected network state lives in scenario_catalog.py. This generator only
+    creates the runtime topology shape and per-session topology file.
     """
 
     _validate_session_id(session_id)
 
-    effective_scenario_id = scenario_id or SR_BASIC_LINK_SCENARIO_ID
+    effective_scenario_id = scenario_id or topology_template or DEFAULT_SCENARIO_ID
     scenario = get_scenario(effective_scenario_id)
 
     if scenario is not None:
-        if scenario["id"] == SR_BASIC_LINK_SCENARIO_ID:
-            return _generate_srl_basic_link_topology(
-                session_id=session_id,
-                topology_template=scenario["topology_template"],
-            )
+        scenario_id_value = scenario["id"]
+        topology_template_value = scenario["topology_template"]
 
-        if scenario["id"] == CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
-            return _generate_campus_core_static_routing_topology(
-                session_id=session_id,
-                topology_template=scenario["topology_template"],
-            )
+        if scenario_id_value == SR_EDGE_LINK_SCENARIO_ID:
+            return _generate_edge_link_topology(session_id=session_id, topology_template=topology_template_value)
+
+        if scenario_id_value == BRANCH_STATIC_ROUTING_SCENARIO_ID:
+            return _generate_branch_static_routing_topology(session_id=session_id, topology_template=topology_template_value)
+
+        if scenario_id_value == CAMPUS_CORE_ROUTING_SCENARIO_ID:
+            return _generate_campus_core_routing_topology(session_id=session_id, topology_template=topology_template_value)
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported scenario topology: {scenario['id']}",
+            detail=f"Unsupported scenario topology: {scenario_id_value}",
         )
 
     template_file = TEMPLATE_FILE_BY_DIFFICULTY.get(difficulty)
     if template_file is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported difficulty: {difficulty}",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported difficulty: {difficulty}")
 
     template_path = TEMPLATES_DIR / template_file
 
     if not template_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Topology template not found: {template_path}",
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Topology template not found: {template_path}")
 
     data = _load_yaml(template_path)
 
     lab_name = f"autonetlab-{session_id}"
     data["name"] = lab_name
 
-    output_path = _write_generated_topology(
-        session_id=session_id,
-        data=data,
-    )
-
-    topology = _to_topology_model(data)
+    output_path = _write_generated_topology(session_id=session_id, data=data)
 
     return {
-        "topology": topology,
+        "topology": _to_topology_model(data),
         "topology_file": str(output_path),
         "topology_template": topology_template,
         "lab_name": lab_name,
     }
 
 
-def _generate_srl_basic_link_topology(
-    session_id: str,
-    topology_template: str,
-) -> dict[str, Any]:
+def _generate_edge_link_topology(session_id: str, topology_template: str) -> dict[str, Any]:
     lab_name = f"autonetlab-{session_id}"
 
     data: dict[str, Any] = {
         "name": lab_name,
         "topology": {
             "nodes": {
-                "srl1": {
-                    "kind": "nokia_srlinux",
-                    "type": "ixr-d2l",
-                    "image": SR_LINUX_IMAGE,
-                },
-                "client1": {
-                    "kind": "linux",
-                    "image": NETWORK_CLIENT_IMAGE,
-                },
+                "client1": {"kind": "linux", "image": NETWORK_CLIENT_IMAGE},
+                "srl1": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE},
             },
             "links": [
                 {
-                    "endpoints": [
-                        "srl1:e1-1",
-                        "client1:eth1",
-                    ],
-                    "ipv4": [
-                        "10.10.10.1/24",
-                        "10.10.10.10/24",
-                    ],
+                    "endpoints": ["client1:eth1", "srl1:e1-1"],
+                    "ipv4": ["10.10.10.10/24", "10.10.10.1/24"],
                 }
             ],
         },
     }
 
-    output_path = _write_generated_topology(
-        session_id=session_id,
-        data=data,
-    )
+    output_path = _write_generated_topology(session_id=session_id, data=data)
 
     return {
         "topology": _to_topology_model(data),
@@ -187,117 +142,36 @@ def _generate_srl_basic_link_topology(
     }
 
 
-def _generate_campus_core_static_routing_topology(
-    session_id: str,
-    topology_template: str,
-) -> dict[str, Any]:
+def _generate_branch_static_routing_topology(session_id: str, topology_template: str) -> dict[str, Any]:
     lab_name = f"autonetlab-{session_id}"
 
     data: dict[str, Any] = {
         "name": lab_name,
         "topology": {
             "nodes": {
-                "client1": {
-                    "kind": "linux",
-                    "image": NETWORK_CLIENT_IMAGE,
-                },
-                "srl1": {
-                    "kind": "nokia_srlinux",
-                    "type": "ixr-d2l",
-                    "image": SR_LINUX_IMAGE,
-                },
-                "srl3": {
-                    "kind": "nokia_srlinux",
-                    "type": "ixr-d2l",
-                    "image": SR_LINUX_IMAGE,
-                    "startup-delay": 60,
-                },
-                "srl2": {
-                    "kind": "nokia_srlinux",
-                    "type": "ixr-d2l",
-                    "image": SR_LINUX_IMAGE,
-                    "startup-delay": 30,
-                },
-                "client2": {
-                    "kind": "linux",
-                    "image": NETWORK_CLIENT_IMAGE,
-                },
-                "srl4": {
-                    "kind": "nokia_srlinux",
-                    "type": "ixr-d2l",
-                    "image": SR_LINUX_IMAGE,
-                    "startup-delay": 90,
-                },
+                "client1": {"kind": "linux", "image": NETWORK_CLIENT_IMAGE},
+                "srl1": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE},
+                "srl2": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE, "startup-delay": 30},
+                "client2": {"kind": "linux", "image": NETWORK_CLIENT_IMAGE},
             },
             "links": [
                 {
-                    "endpoints": [
-                        "client1:eth1",
-                        "srl1:e1-1",
-                    ],
-                    "ipv4": [
-                        "10.10.10.10/24",
-                        "10.10.10.1/24",
-                    ],
+                    "endpoints": ["client1:eth1", "srl1:e1-1"],
+                    "ipv4": ["10.10.10.10/24", "10.10.10.1/24"],
                 },
                 {
-                    "endpoints": [
-                        "srl1:e1-2",
-                        "srl3:e1-1",
-                    ],
-                    "ipv4": [
-                        "10.10.13.1/30",
-                        "10.10.13.2/30",
-                    ],
+                    "endpoints": ["srl1:e1-2", "srl2:e1-2"],
+                    "ipv4": ["10.10.12.1/30", "10.10.12.2/30"],
                 },
                 {
-                    "endpoints": [
-                        "srl3:e1-2",
-                        "srl2:e1-2",
-                    ],
-                    "ipv4": [
-                        "10.10.23.2/30",
-                        "10.10.23.1/30",
-                    ],
-                },
-                {
-                    "endpoints": [
-                        "srl2:e1-1",
-                        "client2:eth1",
-                    ],
-                    "ipv4": [
-                        "10.10.20.1/24",
-                        "10.10.20.10/24",
-                    ],
-                },
-                {
-                    "endpoints": [
-                        "srl1:e1-3",
-                        "srl4:e1-1",
-                    ],
-                    "ipv4": [
-                        "10.10.14.1/30",
-                        "10.10.14.2/30",
-                    ],
-                },
-                {
-                    "endpoints": [
-                        "srl4:e1-2",
-                        "srl2:e1-3",
-                    ],
-                    "ipv4": [
-                        "10.10.24.2/30",
-                        "10.10.24.1/30",
-                    ],
+                    "endpoints": ["srl2:e1-1", "client2:eth1"],
+                    "ipv4": ["10.10.20.1/24", "10.10.20.10/24"],
                 },
             ],
         },
     }
 
-    output_path = _write_generated_topology(
-        session_id=session_id,
-        data=data,
-    )
+    output_path = _write_generated_topology(session_id=session_id, data=data)
 
     return {
         "topology": _to_topology_model(data),
@@ -307,20 +181,49 @@ def _generate_campus_core_static_routing_topology(
     }
 
 
-def _write_generated_topology(
-    session_id: str,
-    data: dict[str, Any],
-) -> Path:
+def _generate_campus_core_routing_topology(session_id: str, topology_template: str) -> dict[str, Any]:
+    lab_name = f"autonetlab-{session_id}"
+
+    data: dict[str, Any] = {
+        "name": lab_name,
+        "topology": {
+            "nodes": {
+                "client1": {"kind": "linux", "image": NETWORK_CLIENT_IMAGE},
+                "srl1": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE},
+                "srl3": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE, "startup-delay": 60},
+                "srl2": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE, "startup-delay": 30},
+                "client2": {"kind": "linux", "image": NETWORK_CLIENT_IMAGE},
+                "srl4": {"kind": "nokia_srlinux", "type": "ixr-d2l", "image": SR_LINUX_IMAGE, "startup-delay": 90},
+            },
+            "links": [
+                {"endpoints": ["client1:eth1", "srl1:e1-1"], "ipv4": ["10.10.10.10/24", "10.10.10.1/24"]},
+                {"endpoints": ["srl1:e1-2", "srl3:e1-1"], "ipv4": ["10.10.13.1/30", "10.10.13.2/30"]},
+                {"endpoints": ["srl3:e1-2", "srl2:e1-2"], "ipv4": ["10.10.23.2/30", "10.10.23.1/30"]},
+                {"endpoints": ["srl2:e1-1", "client2:eth1"], "ipv4": ["10.10.20.1/24", "10.10.20.10/24"]},
+                {"endpoints": ["srl1:e1-3", "srl4:e1-1"], "ipv4": ["10.10.14.1/30", "10.10.14.2/30"]},
+                {"endpoints": ["srl4:e1-2", "srl2:e1-3"], "ipv4": ["10.10.24.2/30", "10.10.24.1/30"]},
+            ],
+        },
+    }
+
+    output_path = _write_generated_topology(session_id=session_id, data=data)
+
+    return {
+        "topology": _to_topology_model(data),
+        "topology_file": str(output_path),
+        "topology_template": topology_template,
+        "lab_name": lab_name,
+    }
+
+
+def _write_generated_topology(session_id: str, data: dict[str, Any]) -> Path:
     session_dir = GENERATED_DIR / session_id
     _ensure_safe_child_path(session_dir, GENERATED_DIR)
 
     session_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = session_dir / "lab.clab.yml"
-    output_path.write_text(
-        yaml.safe_dump(data, sort_keys=False),
-        encoding="utf-8",
-    )
+    output_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
     return output_path
 
@@ -329,10 +232,7 @@ def _validate_session_id(session_id: str) -> None:
     allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
 
     if not session_id or any(char not in allowed for char in session_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid session_id format.",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid session_id format.")
 
 
 def _ensure_safe_child_path(child: Path, parent: Path) -> None:
@@ -342,26 +242,17 @@ def _ensure_safe_child_path(child: Path, parent: Path) -> None:
     try:
         child_resolved.relative_to(parent_resolved)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsafe generated topology path.",
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsafe generated topology path.") from exc
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     try:
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Invalid YAML template: {path.name}",
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Invalid YAML template: {path.name}") from exc
 
     if not isinstance(loaded, dict):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Topology template must be a YAML object: {path.name}",
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Topology template must be a YAML object: {path.name}")
 
     return loaded
 
@@ -396,30 +287,20 @@ def _to_topology_model(data: dict[str, Any]) -> Topology:
         if len(endpoints) != 2:
             continue
 
-        source = _parse_endpoint(endpoints[0])
-        target = _parse_endpoint(endpoints[1])
-
         links.append(
             TopologyLink(
-                source=source,
-                target=target,
+                source=_parse_endpoint(endpoints[0]),
+                target=_parse_endpoint(endpoints[1]),
             )
         )
 
-    return Topology(
-        name=data.get("name", "autonetlab"),
-        nodes=nodes,
-        links=links,
-    )
+    return Topology(name=data.get("name", "autonetlab"), nodes=nodes, links=links)
 
 
 def _parse_endpoint(raw_endpoint: str) -> TopologyEndpoint:
     node, interface = raw_endpoint.split(":", maxsplit=1)
 
-    return TopologyEndpoint(
-        node=node,
-        interface=interface,
-    )
+    return TopologyEndpoint(node=node, interface=interface)
 
 
 def _make_node_label(node_id: str, kind: str | None = None) -> str:

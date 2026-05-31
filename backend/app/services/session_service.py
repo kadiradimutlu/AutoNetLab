@@ -29,6 +29,7 @@ from app.services.topology_generator import GENERATED_DIR, generate_session_topo
 from app.services.recommendation.features import build_topic_performance
 from app.services.scenario_catalog import (
     CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    DEFAULT_SCENARIO_ID,
     SR_BASIC_LINK_SCENARIO_ID,
     get_scenario,
     is_deploy_only_scenario,
@@ -97,7 +98,7 @@ def create_lab_session(
             detail=_build_blocking_lab_create_detail(blocking_session),
         )
 
-    scenario_id = request.scenario_id or SR_BASIC_LINK_SCENARIO_ID
+    scenario_id = request.scenario_id or DEFAULT_SCENARIO_ID
     scenario = get_scenario(scenario_id)
     topology_template = (
         scenario.get("topology_template")
@@ -1166,10 +1167,14 @@ def _load_session_metadata(session_id: str) -> dict | None:
 
 
 def _scenario_from_topology_template(topology_template: str | None) -> dict | None:
-    if str(topology_template or "") == SR_BASIC_LINK_SCENARIO_ID:
-        return get_scenario(SR_BASIC_LINK_SCENARIO_ID)
+    if not topology_template:
+        return None
 
-    return None
+    try:
+        return get_scenario(topology_template)
+    except HTTPException:
+        return None
+
 
 
 def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:

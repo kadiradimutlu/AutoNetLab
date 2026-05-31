@@ -20,17 +20,17 @@ class CreateLabRequest(BaseModel):
     difficulty: Difficulty = Field(default=Difficulty.easy, examples=["easy"])
     topology_template: str | None = Field(
         default=None,
-        examples=["srl-basic-link"],
+        examples=["srl-edge-link"],
         description=(
             "Deprecated compatibility field. New student-facing lab creation uses scenario_id."
         ),
     )
     scenario_id: str | None = Field(
-        default="srl-basic-link",
-        examples=["srl-basic-link"],
+        default="srl-edge-link",
+        examples=["srl-edge-link"],
         description=(
             "Professional network scenario identifier. "
-            "The current student-facing flow defaults to the SR Linux basic link scenario."
+            "The current student-facing flow defaults to the edge link troubleshooting scenario."
         ),
     )
 

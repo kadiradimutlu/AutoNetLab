@@ -29,8 +29,8 @@ class RecentSessionItem(BaseModel):
     status: str = Field(..., examples=["validated"])
     score: int | None = Field(default=None, ge=0, le=100, examples=[75])
     passed: bool | None = Field(default=None, examples=[False])
-    scenario_id: str | None = Field(default=None, examples=["campus-core-static-routing"])
-    topology_template: str | None = Field(default=None, examples=["campus-core-static-routing"])
+    scenario_id: str | None = Field(default=None, examples=["campus-core-routing"])
+    topology_template: str | None = Field(default=None, examples=["campus-core-routing"])
     created_at: str | None = Field(default=None)
     completed_at: str | None = Field(default=None)
 
@@ -52,14 +52,14 @@ class ScoreTrendItem(BaseModel):
     status: str = Field(..., examples=["validated"])
     score: int | None = Field(default=None, ge=0, le=100, examples=[75])
     passed: bool | None = Field(default=None, examples=[False])
-    scenario_id: str | None = Field(default=None, examples=["campus-core-static-routing"])
-    topology_template: str | None = Field(default=None, examples=["campus-core-static-routing"])
+    scenario_id: str | None = Field(default=None, examples=["campus-core-routing"])
+    topology_template: str | None = Field(default=None, examples=["campus-core-routing"])
     created_at: str | None = Field(default=None)
     completed_at: str | None = Field(default=None)
 
 
 class ScenarioPerformanceItem(BaseModel):
-    scenario_id: str = Field(..., examples=["campus-core-static-routing"])
+    scenario_id: str = Field(..., examples=["campus-core-routing"])
     total_sessions: int = Field(..., ge=0, examples=[10])
     completed_sessions: int = Field(..., ge=0, examples=[8])
     passed_sessions: int = Field(default=0, ge=0, examples=[6])

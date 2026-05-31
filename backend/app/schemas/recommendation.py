@@ -36,8 +36,8 @@ class RecommendationResponse(BaseModel):
     status: SessionStatus
     score: int | None = Field(default=None, ge=0, le=100)
     passed: bool | None = None
-    scenario_id: str | None = Field(default=None, examples=["campus-core-static-routing"])
-    topology_template: str | None = Field(default=None, examples=["campus-core-static-routing"])
+    scenario_id: str | None = Field(default=None, examples=["campus-core-routing"])
+    topology_template: str | None = Field(default=None, examples=["campus-core-routing"])
     source: RecommendationSource
     fallback_used: bool
     topic_performance: list[dict[str, Any]] = Field(default_factory=list)

@@ -364,10 +364,10 @@ const MOCK_SCENARIOS = {
   success: true,
   scenarios: [
     {
-      id: "srl-basic-link",
+      id: "srl-edge-link",
       title: "SR Linux Basic Link Troubleshooting",
       summary: "A professional router-client starter scenario using Nokia SR Linux and a Linux client.",
-      topology_template: "srl-basic-link",
+      topology_template: "srl-edge-link",
       platform: "containerlab",
       router_os: "Nokia SR Linux",
       supported_difficulties: ["easy", "medium", "hard"],
@@ -764,7 +764,7 @@ function sanitizeStudentSession(session) {
   return {
     ...safeSession,
     topology: safeSession.topology || {
-      name: "srl-basic-link",
+      name: "srl-edge-link",
       nodes: [],
       links: []
     },
@@ -1795,7 +1795,7 @@ export async function getScenarios() {
 export async function createSession({
   student_id = "muhammed",
   difficulty = "easy",
-  topology_template = "srl-basic-link",
+  topology_template = "srl-edge-link",
   scenario_id = ""
 } = {}) {
   if (USE_MOCK_API) {
@@ -2037,7 +2037,7 @@ export async function getCliAccess(sessionId) {
     const session = createMockLabSession({
       student_id: "muhammed",
       difficulty: "hard",
-      topology_template: "srl-basic-link"
+      topology_template: "srl-edge-link"
     });
 
     return normalizeCliAccessResponse(
