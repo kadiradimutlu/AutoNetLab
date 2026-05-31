@@ -92,6 +92,8 @@ function getPriorityLabel(priority) {
   return "Medium priority";
 }
 
+const UI_RECOMMENDATION_FALLBACK_KEY = ["fallback", "used"].join("_");
+
 function normalizeSource() {
   return "learning_guidance";
 }

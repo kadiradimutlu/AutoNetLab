@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
+import NetworkHealthDetails from "../components/NetworkHealthDetails";
 import MessageBox from "../components/MessageBox";
 import {
   finishLab,
@@ -404,6 +405,16 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
           </button>
 
           <button
+            className={activeTab === "networkHealth" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "networkHealth"}
+            onClick={() => setActiveTab("networkHealth")}
+          >
+            Network Health
+          </button>
+
+          <button
             className={activeTab === "recommendations" ? "active" : ""}
             type="button"
             role="tab"
@@ -423,6 +434,10 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
               validationResult={validationResult}
               isValidating={isValidating || isLoadingSavedResult}
             />
+          )}
+
+          {activeTab === "networkHealth" && (
+            <NetworkHealthDetails validationResult={validationResult} />
           )}
 
           {activeTab === "recommendations" && (
