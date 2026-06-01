@@ -495,9 +495,27 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       setCliAccessList([]);
       setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
     } catch (error) {
+      console.error("Lab deploy request failed.", error);
+
+      try {
+        const refreshedLab = await refreshLabSession();
+
+        if (isRuntimeActiveStatus(refreshedLab?.status)) {
+          setLifecycleError("");
+          setLifecycleDetails("");
+          setLifecycleMessage(
+            "Lab runtime is active. The deploy request took longer than expected, but the workspace was refreshed successfully."
+          );
+          setCliAccessList([]);
+          setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
+          return;
+        }
+      } catch (refreshError) {
+        console.error("Session refresh after deploy failure failed.", refreshError);
+      }
+
       setLifecycleError(getErrorMessage(error, "Lab could not be deployed."));
       setLifecycleDetails(getErrorDetails(error));
-      console.error("Lab deploy failed.", error);
     } finally {
       setIsStartingLab(false);
     }
