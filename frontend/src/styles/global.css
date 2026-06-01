@@ -8479,3 +8479,141 @@ html {
   background: #eff6ff;
 }
 /* End NR-Sprint41C shared badge palette alignment */
+
+/* NR-Sprint41C workspace guide mini-tabs */
+.scenario-guide-tabs-card {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-guide-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.scenario-guide-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  font-weight: 800;
+  padding: 9px 13px;
+  cursor: pointer;
+}
+
+.scenario-guide-tabs button strong {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+}
+
+.scenario-guide-tabs button.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.scenario-guide-tabs button.active strong {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.scenario-guide-tab-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-guide-section-heading {
+  padding: 4px 2px;
+}
+
+.scenario-expected-state-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(37, 99, 235, 0.04)),
+    #ffffff;
+}
+
+.scenario-expected-state-hero h4 {
+  margin: 4px 0 8px;
+}
+
+.scenario-expected-state-hero p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.scenario-expected-state-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scenario-expected-state-metrics div {
+  padding: 12px;
+  border: 1px solid #e0f2fe;
+  border-radius: 16px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.scenario-expected-state-metrics strong,
+.scenario-expected-state-metrics span {
+  display: block;
+}
+
+.scenario-expected-state-metrics strong {
+  color: #0369a1;
+  font-size: 1.3rem;
+}
+
+.scenario-expected-state-metrics span {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.scenario-expected-state-card {
+  border-color: rgba(14, 165, 233, 0.2);
+}
+
+@media (max-width: 900px) {
+  .scenario-expected-state-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-expected-state-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-guide-tabs {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .scenario-guide-tabs button {
+    justify-content: space-between;
+  }
+}
+/* End NR-Sprint41C workspace guide mini-tabs */
