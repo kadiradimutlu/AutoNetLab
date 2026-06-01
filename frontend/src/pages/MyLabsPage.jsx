@@ -13,6 +13,7 @@ import {
   formatStatus,
   getDifficultyClass
 } from "../utils/formatters";
+import { confirmAction } from "../components/ConfirmDialog";
 
 const ACTIVE_LAB_STATUSES = ["created", "deployed", "validated", "active"];
 const CLEANUP_REQUIRED_STATUSES = ["error"];
@@ -308,9 +309,12 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
       return;
     }
 
-    const shouldClose = window.confirm(
-      "Close this active lab? Running containers will be stopped, but validation history and results will be preserved."
-    );
+    const shouldClose = await confirmAction({
+      title: "Close active lab?",
+      message: "Running containers will be stopped, but validation history and results will be preserved.",
+      confirmLabel: "Close Lab",
+      variant: "destructive"
+    });
 
     if (!shouldClose) {
       return;
@@ -339,9 +343,12 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
       return;
     }
 
-    const shouldCleanup = window.confirm(
-      "Cleanup this errored lab runtime? Any remaining containers will be removed. Validation history and saved results will be preserved."
-    );
+    const shouldCleanup = await confirmAction({
+      title: "Clean up runtime?",
+      message: "Any remaining containers will be removed. Validation history and saved results will be preserved.",
+      confirmLabel: "Cleanup Runtime",
+      variant: "destructive"
+    });
 
     if (!shouldCleanup) {
       return;

@@ -16,6 +16,7 @@ import {
   formatDifficulty,
   formatStatus
 } from "../utils/formatters";
+import { confirmAction } from "../components/ConfirmDialog";
 
 function getRecommendationCount(validationResult) {
   const recommendations =
@@ -246,9 +247,12 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldFinish = window.confirm(
-      "Finish this lab? Running containers will be stopped, but validation history and results will be preserved."
-    );
+    const shouldFinish = await confirmAction({
+      title: "Finish lab?",
+      message: "Running containers will be stopped, but validation history and results will be preserved.",
+      confirmLabel: "Finish Lab",
+      variant: "destructive"
+    });
 
     if (!shouldFinish) {
       return;
