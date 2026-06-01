@@ -8737,77 +8737,136 @@ html {
   text-overflow: ellipsis;
 }
 
-/* Campus: readable chain layout with lower srl4 */
-.campus-topology-diagram {
-  min-width: 1280px;
-  min-height: 640px;
+/* Campus: deterministic grid chain layout */
+.network-diagram-canvas.campus {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 18px;
 }
 
-.campus-node {
-  width: 240px;
+.campus-structured-diagram {
+  width: max-content;
+  min-width: max-content;
+  padding: 28px 28px 34px;
 }
 
-.campus-node .network-node-card {
+.campus-structured-grid {
+  display: grid;
+  grid-template-columns:
+    320px 150px
+    320px 150px
+    320px 150px
+    320px 150px
+    320px;
+  grid-template-rows: auto 92px auto;
+  gap: 18px;
+  align-items: center;
+  width: max-content;
+  min-width: max-content;
+}
+
+.campus-structured-node {
+  width: 320px;
+  min-width: 320px;
+  position: relative;
+  z-index: 2;
+}
+
+.campus-structured-node .network-node-card {
   box-sizing: border-box;
   width: 100%;
-  min-height: 210px;
-  grid-template-columns: 68px minmax(0, 1fr);
+  min-height: 228px;
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
-.campus-node .network-node-title-row,
-.campus-node .network-node-content,
-.campus-node .network-node-detail-grid,
-.campus-node .network-node-detail-grid > div {
+.campus-structured-node .network-node-title-row,
+.campus-structured-node .network-node-content,
+.campus-structured-node .network-node-detail-grid,
+.campus-structured-node .network-node-detail-grid > div {
   min-width: 0;
 }
 
-.campus-node .network-node-title-row strong {
+.campus-structured-node .network-node-title-row strong {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.campus-node-client1 { left: 13%; top: 46%; }
-.campus-node-srl1    { left: 31%; top: 34%; }
-.campus-node-srl3    { left: 50%; top: 24%; }
-.campus-node-srl2    { left: 69%; top: 34%; }
-.campus-node-client2 { left: 87%; top: 46%; }
-.campus-node-srl4    { left: 50%; top: 74%; }
-
-.campus-link-label {
-  position: absolute;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  max-width: 190px;
-  min-height: 30px;
-  padding: 0.32rem 0.68rem;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.96);
-  color: #f8fafc;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+.campus-structured-link {
+  width: 150px;
+  min-width: 150px;
+  position: relative;
+  z-index: 1;
+  align-self: center;
 }
 
-.campus-link-label-client1-srl1 { left: 22%; top: 42%; }
-.campus-link-label-srl1-srl3    { left: 40%; top: 28%; }
-.campus-link-label-srl3-srl2    { left: 60%; top: 28%; }
-.campus-link-label-srl2-client2 { left: 78%; top: 42%; }
-.campus-link-label-srl1-srl4    { left: 40%; top: 56%; }
-.campus-link-label-srl4-srl2    { left: 60%; top: 56%; }
+.campus-structured-link .network-link-bridge {
+  width: 150px;
+  min-width: 150px;
+  min-height: 74px;
+  padding-inline: 0;
+}
+
+.campus-structured-link .network-link-line {
+  width: 150px;
+  min-width: 150px;
+}
+
+.campus-structured-link .network-link-label {
+  width: 160px;
+  max-width: 160px;
+  padding: 7px 8px;
+  overflow: hidden;
+  font-size: 0.73rem;
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campus-slot-client1 { grid-column: 1; grid-row: 1; }
+.campus-link-client1-srl1 { grid-column: 2; grid-row: 1; }
+.campus-slot-srl1 { grid-column: 3; grid-row: 1; }
+.campus-link-srl1-srl3 { grid-column: 4; grid-row: 1; }
+.campus-slot-srl3 { grid-column: 5; grid-row: 1; }
+.campus-link-srl3-srl2 { grid-column: 6; grid-row: 1; }
+.campus-slot-srl2 { grid-column: 7; grid-row: 1; }
+.campus-link-srl2-client2 { grid-column: 8; grid-row: 1; }
+.campus-slot-client2 { grid-column: 9; grid-row: 1; }
+
+.campus-link-srl1-srl4 {
+  grid-column: 4;
+  grid-row: 2;
+}
+
+.campus-slot-srl4 {
+  grid-column: 5;
+  grid-row: 3;
+}
+
+.campus-link-srl4-srl2 {
+  grid-column: 6;
+  grid-row: 2;
+}
+
+.campus-structured-node.missing {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.84);
+  color: #64748b;
+}
 
 @media (max-width: 1120px) {
   .network-diagram-canvas.linear .topology-linear-diagram {
     min-width: max-content;
   }
 
-  .campus-topology-diagram {
-    min-width: 1280px;
+  .campus-structured-diagram,
+  .campus-structured-grid {
+    min-width: max-content;
   }
 }
 /* NR-Sprint41C topology branch and campus repair END */
