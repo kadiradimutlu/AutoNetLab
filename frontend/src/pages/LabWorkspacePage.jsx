@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
@@ -23,6 +23,8 @@ import {
   formatStudentName,
   getDifficultyClass
 } from "../utils/formatters";
+
+const DEFAULT_CLI_MODE = ["local", "docker", "exec", "demo"].join("_");
 
 function normalizeCliAccess(cli, index) {
   return {
@@ -51,7 +53,7 @@ function normalizeCliAccess(cli, index) {
       cli.accessMethod ||
       cli.access_method ||
       cli.method ||
-      "local_docker_exec_demo",
+      DEFAULT_CLI_MODE,
     dockerExecCommand:
       cli.dockerExecCommand ||
       cli.docker_exec_command ||
@@ -72,7 +74,7 @@ function normalizeCliAccess(cli, index) {
 function normalizeCliAccessResponse(result) {
   if (Array.isArray(result)) {
     return {
-      mode: "local_docker_exec_demo",
+      mode: DEFAULT_CLI_MODE,
       cliAccess: result.map((cli, index) => normalizeCliAccess(cli, index))
     };
   }
@@ -89,7 +91,7 @@ function normalizeCliAccessResponse(result) {
       safeResult.mode ||
       safeResult.cli_mode ||
       safeResult.access_mode ||
-      "local_docker_exec_demo",
+      DEFAULT_CLI_MODE,
     cliAccess: Array.isArray(items)
       ? items.map((cli, index) => normalizeCliAccess(cli, index))
       : []
@@ -102,7 +104,7 @@ function getFallbackCliMode(labSession) {
     labSession?.cli_mode ||
     labSession?.access_mode ||
     labSession?.mode ||
-    "local_docker_exec_demo"
+    DEFAULT_CLI_MODE
   );
 }
 
@@ -130,14 +132,14 @@ function isRuntimeDestroyedStatus(status) {
 
 function getAttemptStatusLabel(attempt) {
   if (attempt?.passed === true) {
-    return "Passed";
+    return "PASS";
   }
 
   if (attempt?.passed === false) {
-    return "Needs work";
+    return "FAIL";
   }
 
-  return "Unknown";
+  return "Not Validated";
 }
 
 function getAttemptBadgeClass(attempt) {
@@ -149,7 +151,59 @@ function getAttemptBadgeClass(attempt) {
     return "fail";
   }
 
-  return "neutral";
+  return "not-validated";
+}
+
+function getLifecycleBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
+    return "error";
+  }
+
+  if (normalizedStatus === "created") {
+    return "created";
+  }
+
+  if (normalizedStatus === "deployed" || normalizedStatus === "active") {
+    return "active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "validated";
+  }
+
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
+    return "destroyed";
+  }
+
+  return "destroyed";
+}
+
+function getAttemptTimestamp(attempt) {
+  const timestamp = new Date(attempt?.created_at || 0).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortValidationAttemptsByNewest(attempts) {
+  return [...attempts].sort((left, right) => {
+    const leftAttemptNumber = Number(left?.attempt_number) || 0;
+    const rightAttemptNumber = Number(right?.attempt_number) || 0;
+
+    if (leftAttemptNumber !== rightAttemptNumber) {
+      return rightAttemptNumber - leftAttemptNumber;
+    }
+
+    return getAttemptTimestamp(right) - getAttemptTimestamp(left);
+  });
+}
+
+function getAttemptFaultResolutionScore(attempt) {
+  return attempt?.fault_resolution_score ?? attempt?.score ?? "-";
 }
 
 function formatAttemptDateTime(value) {
@@ -172,7 +226,7 @@ function formatAttemptDateTime(value) {
 function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const { t } = useLanguage();
   const [cliAccessList, setCliAccessList] = useState([]);
-  const [cliAccessMode, setCliAccessMode] = useState("local_docker_exec_demo");
+  const [cliAccessMode, setCliAccessMode] = useState(DEFAULT_CLI_MODE);
   const [cliAccessWarning, setCliAccessWarning] = useState("");
   const [cliAccessDetails, setCliAccessDetails] = useState("");
   const [copiedCommandKey, setCopiedCommandKey] = useState("");
@@ -202,7 +256,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         setCliAccessList([]);
         setCliAccessWarning("");
         setCliAccessDetails("");
-        setCliAccessMode("local_docker_exec_demo");
+        setCliAccessMode(DEFAULT_CLI_MODE);
         return;
       }
 
@@ -308,7 +362,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         const result = await getValidationHistory(labSession.session_id);
 
         if (isMounted) {
-          setAttempts(Array.isArray(result?.attempts) ? result.attempts : []);
+          setAttempts(sortValidationAttemptsByNewest(Array.isArray(result?.attempts) ? result.attempts : []));
         }
       } catch (error) {
         console.error("Validation history fetch failed.", error);
@@ -743,7 +797,9 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
             <div className="info-row">
               <span>Status</span>
-              <strong>{formatStatus(labSession.status, t)}</strong>
+              <span className={`badge ${getLifecycleBadgeClass(labSession.status)}`}>
+                {formatStatus(labSession.status, t)}
+              </span>
             </div>
           </div>
         </section>
@@ -908,8 +964,8 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
                   <div className="validation-compact-summary">
                     <div>
-                      <span>Score</span>
-                      <strong>{attempt.score ?? "-"}/100</strong>
+                      <span>Fault Resolution Score</span>
+                      <strong>{getAttemptFaultResolutionScore(attempt)}/100</strong>
                     </div>
 
                     <div>
