@@ -1,4 +1,5 @@
 import Header from "./Header";
+import BackToTopButton from "./BackToTopButton";
 
 function Layout({ currentPage, onNavigate, authUser, onLogout, children }) {
   return (
@@ -10,6 +11,7 @@ function Layout({ currentPage, onNavigate, authUser, onLogout, children }) {
         onLogout={onLogout}
       />
       <main className="page">{children}</main>
+      <BackToTopButton />
     </div>
   );
 }

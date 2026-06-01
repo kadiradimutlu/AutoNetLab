@@ -27,6 +27,7 @@ import {
   getSession,
   getValidationHistory
 } from "../services/apiService";
+import { confirmAction } from "../components/ConfirmDialog";
 
 function formatNumber(value, fallback = "0") {
   if (value === undefined || value === null || value === "") {
@@ -2425,13 +2426,14 @@ function InstructorDashboardPage() {
     }
 
     const isErrorSession = isErrorLabStatus(session.status);
-    const confirmed = typeof window === "undefined"
-      ? true
-      : window.confirm(
-        isErrorSession
-          ? `Cleanup errored lab ${sessionId}? Any remaining containers will be removed while preserving session history.`
-          : `Force close lab ${sessionId}? This will stop the runtime while preserving validation history.`
-      );
+    const confirmed = await confirmAction({
+      title: isErrorSession ? "Clean up runtime?" : "Close active lab?",
+      message: isErrorSession
+        ? "Any remaining containers will be removed while session history is preserved."
+        : "The active lab runtime will be stopped, but validation history and saved results will be preserved.",
+      confirmLabel: isErrorSession ? "Cleanup Runtime" : "Close Lab",
+      variant: "destructive"
+    });
 
     if (!confirmed) {
       return;

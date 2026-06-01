@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { confirmAction } from "../components/ConfirmDialog";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
@@ -526,9 +527,12 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldReset = window.confirm(
-      "Reset this lab runtime? Running containers will be removed. You can deploy the same lab again from this workspace."
-    );
+    const shouldReset = await confirmAction({
+      title: "Reset lab runtime?",
+      message: "Running containers will be removed. You can deploy the same lab again from this workspace.",
+      confirmLabel: "Reset Runtime",
+      variant: "destructive"
+    });
 
     if (!shouldReset) {
       return;
@@ -558,9 +562,12 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldCleanup = window.confirm(
-      "Cleanup this errored lab runtime? Any remaining containers will be removed. Validation history and saved results will be preserved."
-    );
+    const shouldCleanup = await confirmAction({
+      title: "Clean up runtime?",
+      message: "Any remaining containers will be removed. Validation history and saved results will be preserved.",
+      confirmLabel: "Cleanup Runtime",
+      variant: "destructive"
+    });
 
     if (!shouldCleanup) {
       return;
@@ -593,9 +600,12 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldStop = window.confirm(
-      "Finish this lab? Running containers will be stopped, but validation history and results will be preserved."
-    );
+    const shouldStop = await confirmAction({
+      title: "Finish lab?",
+      message: "Running containers will be stopped, but validation history and results will be preserved.",
+      confirmLabel: "Finish Lab",
+      variant: "destructive"
+    });
 
     if (!shouldStop) {
       return;
