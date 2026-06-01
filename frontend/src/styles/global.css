@@ -8932,3 +8932,67 @@ html {
   transform: translateX(-50%) rotate(-34deg);
 }
 /* NR-Sprint41C campus diagonal lower links END */
+
+/* NR-Sprint41D register page functional UI cleanup START */
+.message-box.success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.login-form,
+.auth-message-region,
+.auth-switch-panel {
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.auth-message-region {
+  width: 100%;
+  min-height: 88px;
+  margin-bottom: 12px;
+  display: grid;
+  align-content: start;
+}
+
+.auth-message-region .message-box {
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.auth-message-region .technical-detail-box {
+  margin-top: 8px;
+}
+
+.field-feedback-slot {
+  min-height: 22px;
+  margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.field-feedback-slot .form-helper,
+.field-feedback-slot .field-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.form-group.has-error input {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+}
+
+@media (max-width: 760px) {
+  .auth-message-region {
+    min-height: 104px;
+  }
+}
+/* NR-Sprint41D register page functional UI cleanup END */
