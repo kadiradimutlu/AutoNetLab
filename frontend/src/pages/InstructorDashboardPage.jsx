@@ -170,6 +170,79 @@ function getValidationResultBadgeClass(passed) {
   return "result-pending";
 }
 
+function getDifficultyBadgeClass(difficulty) {
+  const normalizedDifficulty = String(difficulty || "").toLowerCase();
+
+  if (["easy", "medium", "hard"].includes(normalizedDifficulty)) {
+    return normalizedDifficulty;
+  }
+
+  return "neutral";
+}
+
+function getSessionReviewLifecycleBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "created") {
+    return "status-created";
+  }
+
+  if (["deployed", "active"].includes(normalizedStatus)) {
+    return "status-active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "status-validated";
+  }
+
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
+    return "neutral";
+  }
+
+  if (normalizedStatus === "error") {
+    return "status-error";
+  }
+
+  return "neutral";
+}
+
+function getSessionReviewResultBadgeClass(passed) {
+  if (passed === true) {
+    return "result-pass";
+  }
+
+  if (passed === false) {
+    return "result-fail";
+  }
+
+  return "result-pending";
+}
+
+function getNewestFirstAttempts(attempts) {
+  if (!Array.isArray(attempts)) {
+    return [];
+  }
+
+  return [...attempts].sort((leftAttempt, rightAttempt) => {
+    const leftAttemptNumber = Number(leftAttempt?.attempt_number ?? leftAttempt?.attemptNumber ?? -1);
+    const rightAttemptNumber = Number(rightAttempt?.attempt_number ?? rightAttempt?.attemptNumber ?? -1);
+
+    if (!Number.isNaN(leftAttemptNumber) && !Number.isNaN(rightAttemptNumber) && leftAttemptNumber !== rightAttemptNumber) {
+      return rightAttemptNumber - leftAttemptNumber;
+    }
+
+    const leftCreatedAt = new Date(leftAttempt?.created_at || leftAttempt?.createdAt || 0).getTime();
+    const rightCreatedAt = new Date(rightAttempt?.created_at || rightAttempt?.createdAt || 0).getTime();
+
+    return (Number.isNaN(rightCreatedAt) ? 0 : rightCreatedAt) - (Number.isNaN(leftCreatedAt) ? 0 : leftCreatedAt);
+  });
+}
+
+
 function getSessionLastActivityAt(session) {
   return session?.completed_at || session?.updated_at || session?.created_at;
 }
@@ -1331,17 +1404,23 @@ function SessionReviewPanel({
 
             <div>
               <span>Difficulty</span>
-              <strong>{formatTitleCase(reviewSession?.difficulty)}</strong>
+              <span className={`badge session-review-value-badge ${getDifficultyBadgeClass(reviewSession?.difficulty)}`}>
+                {formatTitleCase(reviewSession?.difficulty)}
+              </span>
             </div>
 
             <div>
               <span>Status</span>
-              <strong>{getLifecycleStatusLabel(reviewSession?.status)}</strong>
+              <span className={`badge session-review-value-badge ${getSessionReviewLifecycleBadgeClass(reviewSession?.status)}`}>
+                {getLifecycleStatusLabel(reviewSession?.status)}
+              </span>
             </div>
 
             <div>
               <span>Result</span>
-              <strong>{getValidationResultLabel(reviewSession?.passed)}</strong>
+              <span className={`badge session-review-value-badge ${getSessionReviewResultBadgeClass(reviewSession?.passed)}`}>
+                {getValidationResultLabel(reviewSession?.passed)}
+              </span>
             </div>
 
             <div>
@@ -1445,7 +1524,7 @@ function SessionReviewPanel({
               />
             ) : (
               <div className="session-review-attempt-list">
-                {attempts.map((attempt) => {
+                {getNewestFirstAttempts(attempts).map((attempt) => {
                   const counts = getAttemptCheckCounts(attempt);
 
                   return (
@@ -1456,7 +1535,7 @@ function SessionReviewPanel({
                           <p className="muted">{formatDateTime(attempt.created_at)}</p>
                         </div>
 
-                        <span className={`badge ${getValidationResultBadgeClass(attempt.passed)}`}>
+                        <span className={`badge ${getSessionReviewResultBadgeClass(attempt.passed)}`}>
                           {getValidationResultLabel(attempt.passed)}
                         </span>
                       </div>
