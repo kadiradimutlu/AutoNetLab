@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createLab,
   getDifficulties,
@@ -401,6 +401,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
             <p className="muted">
               Select a scenario and difficulty level.
               The lab session will open in your workspace. Start the environment there when you are ready.
+              Runtime deployment for larger labs can take 3-5 minutes. Keep the page open while the workspace updates.
             </p>
           </div>
 
