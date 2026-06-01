@@ -1803,6 +1803,23 @@ function CleanupIncidentPanel({ incidents }) {
 function InstructorDashboardPage() {
   const sessionReviewPanelRef = useRef(null);
   const sessionReviewReturnTargetRef = useRef(null);
+
+  function preserveScrollPosition(callback) {
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+
+    callback();
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({
+          left: scrollX,
+          top: scrollY,
+          behavior: "auto"
+        });
+      });
+    });
+  }
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [summary, setSummary] = useState(null);
@@ -2424,7 +2441,7 @@ function InstructorDashboardPage() {
 
                   <StudentDetailTabs
                     activeTab={studentDetailTab}
-                    onChange={setStudentDetailTab}
+                    onChange={(nextTab) => preserveScrollPosition(() => setStudentDetailTab(nextTab))}
                   />
 
                   {studentDetailTab === "overview" && (
@@ -2501,7 +2518,7 @@ function InstructorDashboardPage() {
 
             <AnalyticsDetailTabs
               activeTab={analyticsDetailTab}
-              onChange={setAnalyticsDetailTab}
+              onChange={(nextTab) => preserveScrollPosition(() => setAnalyticsDetailTab(nextTab))}
             />
 
             {analyticsDetailTab === "scenario" && (

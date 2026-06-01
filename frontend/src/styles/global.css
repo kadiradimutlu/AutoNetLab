@@ -7462,3 +7462,109 @@ html {
 .analytics-recent-sessions-table th:nth-child(8) {
   padding-right: 12px;
 }
+
+
+/* NR-Sprint41B table tube fit correction */
+.student-session-table-wrapper {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  max-height: 640px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+}
+
+.student-session-table {
+  width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.student-session-table th,
+.student-session-table td {
+  padding: 10px 7px;
+  vertical-align: top;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 23%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 11%;
+  text-align: right;
+}
+
+.student-session-table th:nth-child(8) {
+  padding-right: 10px;
+}
+
+.student-session-table td:nth-child(8) {
+  padding-right: 8px;
+}
+
+.student-session-table .session-title-cell {
+  min-width: 0;
+  gap: 3px;
+}
+
+.student-session-table .session-title-cell strong {
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.student-session-table .session-title-cell span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: normal;
+}
+
+.student-session-table .table-action-button-stacked {
+  min-width: 64px;
+  max-width: 72px;
+  padding: 7px 8px;
+}
+
+@media (max-width: 1100px) {
+  .student-session-table-wrapper {
+    overflow-x: hidden !important;
+  }
+
+  .student-session-table {
+    min-width: 0 !important;
+  }
+}
