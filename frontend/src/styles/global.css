@@ -8478,3 +8478,87 @@ html {
   background: #eff6ff;
 }
 /* End NR-Sprint41C shared badge palette alignment */
+
+/* NR-Sprint41C My Labs badge palette alignment */
+.my-labs-list .my-lab-card .badge.easy,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.easy {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.my-labs-list .my-lab-card .badge.medium,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.medium {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.my-labs-list .my-lab-card .badge.hard,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.hard {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.my-labs-list .my-lab-card .badge.created,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.created {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.my-labs-list .my-lab-card .badge.active,
+.my-labs-list .my-lab-card .badge.deployed,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.active,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.deployed {
+  background: #ecfeff;
+  border-color: #a5f3fc;
+  color: #0e7490;
+}
+
+.my-labs-list .my-lab-card .badge.validated,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.validated {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+.my-labs-list .my-lab-card .badge.finished,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.finished {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.my-labs-list .my-lab-card .badge.destroyed,
+.my-labs-list .my-lab-card .badge.neutral,
+.my-labs-list .my-lab-card .badge.not-validated,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.destroyed,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.neutral,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.not-validated {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.my-labs-list .my-lab-card .badge.error,
+.my-labs-list .my-lab-card .badge.fail,
+.my-labs-list .my-lab-card .badge.failed,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.error,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.fail,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.failed {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.my-labs-list .my-lab-card .badge.pass,
+.my-labs-list .my-lab-card .badge.passed,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.pass,
+.my-labs-list.my-labs-scroll-tube .my-lab-card-functional .badge.passed {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+/* End NR-Sprint41C My Labs badge palette alignment */
