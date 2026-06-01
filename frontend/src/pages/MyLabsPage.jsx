@@ -119,14 +119,39 @@ function getSessionTimestamp(session) {
 }
 
 function getScenarioTitleForSession(session, topologySummary) {
-  return (
+  const explicitTitle =
     session?.scenario_title ||
     session?.scenario_name ||
     session?.scenario_id ||
-    session?.topology_template ||
-    topologySummary?.name ||
-    "Lab scenario"
-  );
+    session?.topology_template;
+
+  const normalizedTitle = String(explicitTitle || "").toLowerCase();
+
+  if (normalizedTitle === "srl-edge-link") {
+    return "Edge Link Troubleshooting";
+  }
+
+  if (normalizedTitle === "branch-static-routing") {
+    return "Branch Static Routing";
+  }
+
+  if (normalizedTitle === "campus-core-routing") {
+    return "Campus Core Troubleshooting";
+  }
+
+  if (topologySummary?.nodeCount === 2 && topologySummary?.linkCount === 1) {
+    return "Edge Link Troubleshooting";
+  }
+
+  if (topologySummary?.nodeCount === 4 && topologySummary?.linkCount === 3) {
+    return "Branch Static Routing";
+  }
+
+  if (topologySummary?.nodeCount === 6 && topologySummary?.linkCount === 6) {
+    return "Campus Core Troubleshooting";
+  }
+
+  return "Lab scenario";
 }
 
 function getFaultResolutionScore(session) {
@@ -152,6 +177,11 @@ function getMyLabsSearchText(session, topologySummary) {
     .toLowerCase();
 }
 
+function getSortableScore(session) {
+  const score = Number(getFaultResolutionScore(session));
+  return Number.isFinite(score) ? score : -1;
+}
+
 function sortMyLabsSessions(sessions, sortMode) {
   return [...sessions].sort((left, right) => {
     if (sortMode === "oldest") {
@@ -159,15 +189,20 @@ function sortMyLabsSessions(sessions, sortMode) {
     }
 
     if (sortMode === "score_high") {
-      return Number(getFaultResolutionScore(right) || -1) - Number(getFaultResolutionScore(left) || -1);
+      return getSortableScore(right) - getSortableScore(left);
     }
 
     if (sortMode === "score_low") {
-      return Number(getFaultResolutionScore(left) || -1) - Number(getFaultResolutionScore(right) || -1);
+      return getSortableScore(left) - getSortableScore(right);
     }
 
     return getSessionTimestamp(right) - getSessionTimestamp(left);
   });
+}
+
+function formatTopologyCount(count, singularLabel, pluralLabel) {
+  const safeCount = Number(count || 0);
+  return `${safeCount} ${safeCount === 1 ? singularLabel : pluralLabel}`;
 }
 
 function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
@@ -395,12 +430,12 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 
       {!isLoading && hasLabHistory && (
         <div className="card my-labs-toolbar">
-          <div>
+          <div className="my-labs-toolbar-summary">
             <span className="my-labs-toolbar-label">Lab history controls</span>
             <strong>{filteredAndSortedSessions.length} of {sessions.length} labs shown</strong>
           </div>
 
-          <div className="my-labs-filter-row">
+          <div className="my-labs-control-tube">
             <label>
               <span>Search labs</span>
               <input
@@ -447,7 +482,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 
       {!isLoading && hasFilteredLabHistory && (
         <div className="my-labs-list">
-          {sessions.map((session) => {
+          {filteredAndSortedSessions.map((session) => {
             const topologySummary = getTopologySummary(session);
             const difficultyClass = getDifficultyClass(session.difficulty);
             const passBadgeClass = getPassBadgeClass(session.passed);
@@ -466,7 +501,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                     <span className="my-lab-session-id">{session.session_id}</span>
                     <h3>{getScenarioTitleForSession(session, topologySummary)}</h3>
                     <p className="muted">
-                      {topologySummary.nodeCount} devices / {topologySummary.linkCount} links
+                      {formatTopologyCount(topologySummary.nodeCount, "device", "devices")} / {formatTopologyCount(topologySummary.linkCount, "link", "links")}
                     </p>
                   </div>
 

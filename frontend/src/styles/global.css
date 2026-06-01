@@ -8243,7 +8243,7 @@ html {
   justify-content: space-between;
 }
 
-.my-labs-toolbar > div:first-child {
+.my-labs-toolbar-summary {
   display: grid;
   gap: 4px;
 }
@@ -8255,34 +8255,40 @@ html {
   text-transform: uppercase;
 }
 
-.my-labs-filter-row {
+.my-labs-control-tube {
   align-items: end;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(260px, 1fr) minmax(180px, 220px);
-  width: min(100%, 640px);
+  gap: 10px;
+  grid-template-columns: minmax(260px, 1fr) minmax(170px, 220px);
+  padding: 8px;
+  width: min(100%, 680px);
 }
 
-.my-labs-filter-row label {
+.my-labs-control-tube label {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 
-.my-labs-filter-row label span {
+.my-labs-control-tube label span {
   color: #4b5563;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 900;
+  padding-left: 8px;
 }
 
 .my-labs-search-input,
 .my-labs-sort-select {
   background: #ffffff;
   border: 1px solid #d1d5db;
-  border-radius: 14px;
+  border-radius: 999px;
   color: #111827;
   font: inherit;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 42px;
+  padding: 9px 14px;
   width: 100%;
 }
 
@@ -8334,7 +8340,8 @@ html {
     flex-direction: column;
   }
 
-  .my-labs-filter-row {
+  .my-labs-control-tube {
+    border-radius: 28px;
     grid-template-columns: 1fr;
     width: 100%;
   }
