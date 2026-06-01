@@ -8674,3 +8674,110 @@ html {
   white-space: nowrap;
 }
 /* NR-Sprint41C workspace guide tab visual polish END */
+
+/* NR-Sprint41C topology branch and campus repair START */
+.network-diagram-canvas.linear {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 18px;
+}
+
+.network-diagram-canvas.linear .topology-linear-diagram {
+  display: flex !important;
+  align-items: center;
+  gap: 16px;
+  width: max-content;
+  min-width: max-content;
+}
+
+.network-diagram-canvas.linear .topology-linear-node {
+  flex: 0 0 320px;
+  width: 320px;
+  min-width: 320px;
+}
+
+.network-diagram-canvas.linear .network-node-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 228px;
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.network-diagram-canvas.linear .network-node-title-row,
+.network-diagram-canvas.linear .network-node-content,
+.network-diagram-canvas.linear .network-node-detail-grid,
+.network-diagram-canvas.linear .network-node-detail-grid > div {
+  min-width: 0;
+}
+
+.network-diagram-canvas.linear .network-node-title-row strong {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.network-diagram-canvas.linear .topology-linear-link {
+  flex: 0 0 126px;
+  width: 126px;
+  min-width: 126px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-line {
+  width: 126px;
+  min-width: 126px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-label {
+  width: 118px;
+  max-width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campus-topology-diagram {
+  min-width: 1280px;
+  min-height: 640px;
+}
+
+.campus-node {
+  width: 220px;
+}
+
+.campus-node .network-node-card {
+  box-sizing: border-box;
+  width: 100%;
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.campus-node .network-node-title-row,
+.campus-node .network-node-content,
+.campus-node .network-node-detail-grid,
+.campus-node .network-node-detail-grid > div {
+  min-width: 0;
+}
+
+.campus-node-client1 { left: 18%; top: 64%; }
+.campus-node-srl1 { left: 35%; top: 38%; }
+.campus-node-srl3 { left: 50%; top: 24%; }
+.campus-node-srl2 { left: 65%; top: 38%; }
+.campus-node-client2 { left: 82%; top: 64%; }
+.campus-node-srl4 { left: 50%; top: 80%; }
+
+.campus-link-label {
+  display: none;
+}
+
+@media (max-width: 1120px) {
+  .network-diagram-canvas.linear {
+    overflow-x: auto;
+  }
+
+  .network-diagram-canvas.linear .topology-linear-diagram {
+    min-width: max-content;
+  }
+
+  .campus-topology-diagram {
+    min-width: 1240px;
+  }
+}
+/* NR-Sprint41C topology branch and campus repair END */
