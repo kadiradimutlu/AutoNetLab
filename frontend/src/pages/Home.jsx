@@ -51,18 +51,66 @@ function getScenarioTitle(labSession) {
   );
 }
 
-function getCurrentLabValue(labSession) {
+function getCurrentLabInfo(labSession) {
   if (!labSession?.session_id) {
-    return "-";
+    return {
+      title: "-",
+      sessionId: ""
+    };
   }
 
-  const scenarioTitle = getScenarioTitle(labSession);
+  return {
+    title: getScenarioTitle(labSession) || "Selected Lab",
+    sessionId: labSession.session_id
+  };
+}
 
-  if (!scenarioTitle) {
-    return labSession.session_id;
+function getDifficultyBadgeClass(difficulty) {
+  const normalizedDifficulty = String(difficulty || "").toLowerCase();
+
+  if (normalizedDifficulty === "easy") {
+    return "easy";
   }
 
-  return `${scenarioTitle} · ${labSession.session_id}`;
+  if (normalizedDifficulty === "medium") {
+    return "medium";
+  }
+
+  if (normalizedDifficulty === "hard") {
+    return "hard";
+  }
+
+  return "neutral";
+}
+
+function getStatusBadgeClass(labSession) {
+  const status = getNormalizedStatus(labSession?.status);
+
+  if (status === "error") {
+    return "cleanup";
+  }
+
+  if (status === "validated" && labSession?.passed === true) {
+    return "success";
+  }
+
+  if (status === "validated" && labSession?.passed === false) {
+    return "warning";
+  }
+
+  if (["created", "deployed", "active", "validated"].includes(status)) {
+    return "active";
+  }
+
+  if (status === "finished") {
+    return "success";
+  }
+
+  if (status === "destroyed") {
+    return "neutral";
+  }
+
+  return "neutral";
 }
 
 function getNextStep(labSession) {
@@ -139,6 +187,9 @@ function Home({ labSession, onNavigate }) {
   const canOpenWorkspace = isWorkspaceOpenable(labSession);
   const canReviewResult = hasLabSession && hasValidationSignal(labSession);
   const nextStep = getNextStep(labSession);
+  const currentLabInfo = getCurrentLabInfo(labSession);
+  const difficultyLabel = formatDifficulty(labSession?.difficulty, t);
+  const statusLabel = formatStatus(labSession?.status, t);
 
   return (
     <>
@@ -192,27 +243,38 @@ function Home({ labSession, onNavigate }) {
       )}
 
       <section className="grid student-home-grid">
-        <StatCard
-          title="Current Lab"
-          value={getCurrentLabValue(labSession)}
-          helper={
-            hasLabSession
+        <div className="card stat-card student-home-info-card student-home-current-lab-card">
+          <span className="student-home-card-title">Current Lab</span>
+
+          <div className="student-home-current-lab-content">
+            <strong className="student-home-current-lab-title">{currentLabInfo.title}</strong>
+            {currentLabInfo.sessionId && (
+              <span className="student-home-lab-id">{currentLabInfo.sessionId}</span>
+            )}
+          </div>
+
+          <small>
+            {hasLabSession
               ? "The latest selected or restored lab session."
-              : "No lab session is currently selected."
-          }
-        />
+              : "No lab session is currently selected."}
+          </small>
+        </div>
 
-        <StatCard
-          title="Difficulty"
-          value={formatDifficulty(labSession?.difficulty, t)}
-          helper="The troubleshooting level selected for this lab."
-        />
+        <div className="card stat-card student-home-info-card">
+          <span className="student-home-card-title">Difficulty</span>
+          <strong className={`student-home-badge student-home-difficulty-badge ${getDifficultyBadgeClass(labSession?.difficulty)}`}>
+            {difficultyLabel}
+          </strong>
+          <small>The troubleshooting level selected for this lab.</small>
+        </div>
 
-        <StatCard
-          title="Status"
-          value={formatStatus(labSession?.status, t)}
-          helper="The current lifecycle state of the selected lab."
-        />
+        <div className="card stat-card student-home-info-card">
+          <span className="student-home-card-title">Status</span>
+          <strong className={`student-home-badge student-home-status-badge ${getStatusBadgeClass(labSession)}`}>
+            {statusLabel}
+          </strong>
+          <small>The current lifecycle state of the selected lab.</small>
+        </div>
 
         <StatCard
           title="Next Step"
@@ -225,4 +287,3 @@ function Home({ labSession, onNavigate }) {
 }
 
 export default Home;
-
