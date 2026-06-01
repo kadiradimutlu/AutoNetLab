@@ -1,3 +1,4 @@
+﻿import { useState } from "react";
 import MessageBox from "./MessageBox";
 import {
   formatDifficulty,
@@ -504,6 +505,8 @@ function ScenarioDeviceCard({ device, index }) {
 }
 
 function ScenarioOverview({ labSession, t }) {
+  const [activeGuideSection, setActiveGuideSection] = useState("guide");
+
   if (!labSession) {
     return null;
   }
@@ -527,6 +530,34 @@ function ScenarioOverview({ labSession, t }) {
     studentTasks.length > 0 ||
     studentNotes.length > 0;
   const isCampus = isCampusScenario(scenario, labSession, devices);
+  const expectedStateCount =
+    addressingTable.length +
+    routingRequirements.length +
+    expectedConnectivity.length;
+  const guideSections = [
+    {
+      id: "guide",
+      label: "Guide",
+      count:
+        Number(Boolean(scenario.objective)) +
+        Number(Boolean(scenario.story)) +
+        devices.length +
+        Number(isCampus)
+    },
+    {
+      id: "expectedState",
+      label: "Expected State",
+      count: expectedStateCount
+    },
+    {
+      id: "tasks",
+      label: "Tasks & Notes",
+      count: studentTasks.length + studentNotes.length + hints.length
+    }
+  ].filter((section) => section.id === "guide" || section.count > 0);
+  const selectedGuideSection = guideSections.some((section) => section.id === activeGuideSection)
+    ? activeGuideSection
+    : guideSections[0]?.id || "guide";
 
   return (
     <section className={`scenario-overview scenario-overview-polished ${isCampus ? "scenario-overview-campus" : ""}`}>
@@ -580,109 +611,202 @@ function ScenarioOverview({ labSession, t }) {
         </div>
       )}
 
-      {isCampus && (
-        <CampusGuidancePanel
-          devices={devices}
-          addressingTable={addressingTable}
-          expectedConnectivity={expectedConnectivity}
-        />
-      )}
-
-      {hasScenarioDesign && (
-        <div className="scenario-detail-grid scenario-detail-grid-polished">
-          {scenario.objective && (
-            <div className="scenario-detail-card scenario-detail-card-wide scenario-highlight-card">
-              <h4>Objective</h4>
-              <p>{scenario.objective}</p>
-            </div>
-          )}
-
-          {scenario.story && (
-            <div className="scenario-detail-card scenario-detail-card-wide scenario-highlight-card">
-              <h4>Design Requirements</h4>
-              <p>{scenario.story}</p>
-            </div>
-          )}
-
-          {devices.length > 0 && (
-            <div className="scenario-detail-card scenario-detail-card-wide">
-              <div className="section-title-row compact">
-                <div>
-                  <h4>Devices</h4>
-                  <p className="muted">Device roles and operating systems for this scenario.</p>
-                </div>
-              </div>
-
-              <div className="scenario-device-grid scenario-device-grid-polished">
-                {devices.map((device, index) => (
-                  <ScenarioDeviceCard device={device} index={index} key={`${device?.id || "device"}-${index}`} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {addressingTable.length > 0 && (
-            <div className="scenario-detail-card scenario-detail-card-wide">
-              <div className="section-title-row compact">
-                <div>
-                  <h4>Addressing Table</h4>
-                  <p className="muted">Use these addresses and gateways as the expected network state.</p>
-                </div>
-              </div>
-              <ScenarioAddressingTable rows={addressingTable} />
-            </div>
-          )}
-
-          {routingRequirements.length > 0 && (
-            <div className="scenario-detail-card">
-              <h4>Routing Requirements</h4>
-              <ScenarioRequirementCards requirements={routingRequirements} />
-            </div>
-          )}
-
-          {expectedConnectivity.length > 0 && (
-            <div className="scenario-detail-card">
-              <h4>Expected Connectivity</h4>
-              <ScenarioConnectivityCards connectivity={expectedConnectivity} />
-            </div>
-          )}
-
-          {studentTasks.length > 0 && (
-            <div className="scenario-detail-card">
-              <h4>Student Tasks</h4>
-              <ol className="scenario-task-list scenario-task-list-polished">
-                {studentTasks.map((task, index) => (
-                  <li key={`${task}-${index}`}>
-                    <span>{index + 1}</span>
-                    <p>{task}</p>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {studentNotes.length > 0 && (
-            <div className="scenario-detail-card">
-              <h4>Student Notes</h4>
-              <ul className="scenario-note-list scenario-note-list-polished">
-                {studentNotes.map((note, index) => (
-                  <li key={`${note}-${index}`}>{note}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+      <div className="scenario-guide-tabs-card">
+        <div className="scenario-guide-tabs" role="tablist" aria-label="Scenario guide sections">
+          {guideSections.map((section) => (
+            <button
+              className={selectedGuideSection === section.id ? "active" : ""}
+              key={section.id}
+              type="button"
+              role="tab"
+              aria-selected={selectedGuideSection === section.id}
+              onClick={() => setActiveGuideSection(section.id)}
+            >
+              <span>{section.label}</span>
+              {section.count > 0 && <strong>{section.count}</strong>}
+            </button>
+          ))}
         </div>
-      )}
 
-      <h4>General Hints</h4>
-      <div className="hints-list">
-        {hints.map((hint, index) => (
-          <div className="hint-item" key={`${hint}-${index}`}>
-            <span className="hint-number">{index + 1}</span>
-            <p>{hint}</p>
+        {selectedGuideSection === "guide" && (
+          <div className="scenario-guide-tab-panel" role="tabpanel">
+            <div className="section-title-row compact scenario-guide-section-heading">
+              <div>
+                <h4>Guide</h4>
+                <p className="muted">
+                  Start here to understand the scenario, the device roles, and the troubleshooting direction.
+                </p>
+              </div>
+
+              <span className="badge neutral">Student View</span>
+            </div>
+
+            {isCampus && (
+              <CampusGuidancePanel
+                devices={devices}
+                addressingTable={addressingTable}
+                expectedConnectivity={expectedConnectivity}
+              />
+            )}
+
+            {hasScenarioDesign && (
+              <div className="scenario-detail-grid scenario-detail-grid-polished">
+                {scenario.objective && (
+                  <div className="scenario-detail-card scenario-detail-card-wide scenario-highlight-card">
+                    <h4>Objective</h4>
+                    <p>{scenario.objective}</p>
+                  </div>
+                )}
+
+                {scenario.story && (
+                  <div className="scenario-detail-card scenario-detail-card-wide scenario-highlight-card">
+                    <h4>Design Requirements</h4>
+                    <p>{scenario.story}</p>
+                  </div>
+                )}
+
+                {devices.length > 0 && (
+                  <div className="scenario-detail-card scenario-detail-card-wide">
+                    <div className="section-title-row compact">
+                      <div>
+                        <h4>Devices</h4>
+                        <p className="muted">Device roles and operating systems for this scenario.</p>
+                      </div>
+                    </div>
+
+                    <div className="scenario-device-grid scenario-device-grid-polished">
+                      {devices.map((device, index) => (
+                        <ScenarioDeviceCard device={device} index={index} key={`${device?.id || "device"}-${index}`} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        ))}
+        )}
+
+        {selectedGuideSection === "expectedState" && (
+          <div className="scenario-guide-tab-panel" role="tabpanel">
+            <div className="scenario-expected-state-hero">
+              <div>
+                <span className="scenario-eyebrow">Expected Network State</span>
+                <h4>Target design after troubleshooting</h4>
+                <p>
+                  Use these addressing, routing, and connectivity requirements as the expected network state.
+                  Hidden runtime faults remain intentionally hidden.
+                </p>
+              </div>
+
+              <div className="scenario-expected-state-metrics">
+                <div>
+                  <strong>{addressingTable.length}</strong>
+                  <span>Address rows</span>
+                </div>
+                <div>
+                  <strong>{routingRequirements.length}</strong>
+                  <span>Routing items</span>
+                </div>
+                <div>
+                  <strong>{expectedConnectivity.length}</strong>
+                  <span>Connectivity targets</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="scenario-detail-grid scenario-detail-grid-polished">
+              {addressingTable.length > 0 && (
+                <div className="scenario-detail-card scenario-detail-card-wide scenario-expected-state-card">
+                  <div className="section-title-row compact">
+                    <div>
+                      <h4>Addressing Table</h4>
+                      <p className="muted">Expected interfaces, addresses, networks, gateways, and peers.</p>
+                    </div>
+                  </div>
+
+                  <ScenarioAddressingTable rows={addressingTable} />
+                </div>
+              )}
+
+              {routingRequirements.length > 0 && (
+                <div className="scenario-detail-card scenario-expected-state-card">
+                  <h4>Routing Requirements</h4>
+                  <ScenarioRequirementCards requirements={routingRequirements} />
+                </div>
+              )}
+
+              {expectedConnectivity.length > 0 && (
+                <div className="scenario-detail-card scenario-expected-state-card">
+                  <h4>Expected Connectivity</h4>
+                  <ScenarioConnectivityCards connectivity={expectedConnectivity} />
+                </div>
+              )}
+
+              {expectedStateCount === 0 && (
+                <div className="scenario-detail-card scenario-detail-card-wide">
+                  <h4>Expected State</h4>
+                  <p className="muted">Expected network state metadata is not available for this lab yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {selectedGuideSection === "tasks" && (
+          <div className="scenario-guide-tab-panel" role="tabpanel">
+            <div className="section-title-row compact scenario-guide-section-heading">
+              <div>
+                <h4>Tasks & Notes</h4>
+                <p className="muted">
+                  Follow these learning tasks while using validation feedback and the expected state tab.
+                </p>
+              </div>
+
+              <span className="badge neutral">{studentTasks.length + studentNotes.length + hints.length} items</span>
+            </div>
+
+            <div className="scenario-detail-grid scenario-detail-grid-polished">
+              {studentTasks.length > 0 && (
+                <div className="scenario-detail-card">
+                  <h4>Student Tasks</h4>
+                  <ol className="scenario-task-list scenario-task-list-polished">
+                    {studentTasks.map((task, index) => (
+                      <li key={`${task}-${index}`}>
+                        <span>{index + 1}</span>
+                        <p>{task}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {studentNotes.length > 0 && (
+                <div className="scenario-detail-card">
+                  <h4>Student Notes</h4>
+                  <ul className="scenario-note-list scenario-note-list-polished">
+                    {studentNotes.map((note, index) => (
+                      <li key={`${note}-${index}`}>{note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="scenario-detail-card scenario-detail-card-wide">
+                <h4>General Hints</h4>
+                <div className="hints-list">
+                  {hints.map((hint, index) => (
+                    <div className="hint-item" key={`${hint}-${index}`}>
+                      <span className="hint-number">{index + 1}</span>
+                      <p>{hint}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
     </section>
   );
 }

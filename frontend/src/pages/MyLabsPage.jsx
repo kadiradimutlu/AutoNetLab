@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
   destroyLab,
@@ -44,14 +44,14 @@ function formatDateTime(value) {
 
 function formatPassState(value) {
   if (value === true) {
-    return "Passed";
+    return "PASS";
   }
 
   if (value === false) {
-    return "Needs work";
+    return "FAIL";
   }
 
-  return "Not validated";
+  return "Not Validated";
 }
 
 function getPassBadgeClass(value) {
@@ -63,7 +63,37 @@ function getPassBadgeClass(value) {
     return "fail";
   }
 
-  return "neutral";
+  return "not-validated";
+}
+
+function getLifecycleBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
+    return "error";
+  }
+
+  if (normalizedStatus === "created") {
+    return "created";
+  }
+
+  if (normalizedStatus === "deployed" || normalizedStatus === "active") {
+    return "active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "validated";
+  }
+
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
+    return "destroyed";
+  }
+
+  return "destroyed";
 }
 
 function getSummaryStatCardClassName(kind, count) {
@@ -98,8 +128,136 @@ function getTopologySummary(session) {
   };
 }
 
+
+function getSessionTimestamp(session) {
+  const candidates = [
+    session?.updated_at,
+    session?.completed_at,
+    session?.created_at,
+    session?.started_at
+  ];
+
+  for (const candidate of candidates) {
+    const time = new Date(candidate || 0).getTime();
+
+    if (Number.isFinite(time) && time > 0) {
+      return time;
+    }
+  }
+
+  return 0;
+}
+
+function getScenarioTitleForSession(session, topologySummary) {
+  const explicitTitle =
+    session?.scenario_title ||
+    session?.scenario_name ||
+    session?.scenario_id ||
+    session?.topology_template;
+
+  const normalizedTitle = String(explicitTitle || "").toLowerCase();
+
+  if (normalizedTitle === "srl-edge-link") {
+    return "Edge Link Troubleshooting";
+  }
+
+  if (normalizedTitle === "branch-static-routing") {
+    return "Branch Static Routing";
+  }
+
+  if (normalizedTitle === "campus-core-routing") {
+    return "Campus Core Troubleshooting";
+  }
+
+  if (topologySummary?.nodeCount === 2 && topologySummary?.linkCount === 1) {
+    return "Edge Link Troubleshooting";
+  }
+
+  if (topologySummary?.nodeCount === 4 && topologySummary?.linkCount === 3) {
+    return "Branch Static Routing";
+  }
+
+  if (topologySummary?.nodeCount === 6 && topologySummary?.linkCount === 6) {
+    return "Campus Core Troubleshooting";
+  }
+
+  return "Lab scenario";
+}
+
+function getFaultResolutionScore(session) {
+  return session?.fault_resolution_score ?? session?.score ?? "-";
+}
+
+function getMyLabsSearchText(session, topologySummary) {
+  return [
+    session?.session_id,
+    session?.student_id,
+    session?.scenario_id,
+    session?.scenario_title,
+    session?.scenario_name,
+    session?.topology_template,
+    topologySummary?.name,
+    session?.difficulty,
+    session?.status,
+    session?.passed === true ? "passed" : "",
+    session?.passed === false ? "failed" : ""
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function getSortableScore(session) {
+  const score = Number(getFaultResolutionScore(session));
+  return Number.isFinite(score) ? score : -1;
+}
+
+function sortMyLabsSessions(sessions, sortMode) {
+  return [...sessions].sort((left, right) => {
+    if (sortMode === "oldest") {
+      return getSessionTimestamp(left) - getSessionTimestamp(right);
+    }
+
+    if (sortMode === "score_high") {
+      return getSortableScore(right) - getSortableScore(left);
+    }
+
+    if (sortMode === "score_low") {
+      return getSortableScore(left) - getSortableScore(right);
+    }
+
+    return getSessionTimestamp(right) - getSessionTimestamp(left);
+  });
+}
+
+function formatTopologyCount(count, singularLabel, pluralLabel) {
+  const safeCount = Number(count || 0);
+  return `${safeCount} ${safeCount === 1 ? singularLabel : pluralLabel}`;
+}
+
+function handleContainedScrollWheel(event) {
+  const container = event.currentTarget;
+
+  if (!container || container.scrollHeight <= container.clientHeight) {
+    return;
+  }
+
+  const deltaY = event.deltaY;
+  const atTop = container.scrollTop <= 0;
+  const atBottom =
+    Math.ceil(container.scrollTop + container.clientHeight) >= container.scrollHeight;
+
+  event.stopPropagation();
+
+  if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+    event.preventDefault();
+  }
+}
+
 function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
   const [sessions, setSessions] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState("newest");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [closingSessionId, setClosingSessionId] = useState("");
@@ -208,6 +366,25 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
     }
   }
 
+  const filteredAndSortedSessions = useMemo(() => {
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+    const matchedSessions = sessions.filter((session) => {
+      if (!normalizedSearchQuery) {
+        return true;
+      }
+
+      const topologySummary = getTopologySummary(session);
+      return getMyLabsSearchText(session, topologySummary).includes(normalizedSearchQuery);
+    });
+
+    return sortMyLabsSessions(matchedSessions, sortMode);
+  }, [sessions, searchQuery, sortMode]);
+
+  const hasLabHistory = sessions.length > 0;
+  const hasFilteredLabHistory = filteredAndSortedSessions.length > 0;
+
+
   return (
     <section className="my-labs-page">
       <div className="section-title-row">
@@ -299,6 +476,51 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         </section>
       )}
 
+
+      {!isLoading && hasLabHistory && (
+        <div className="card my-labs-toolbar">
+          <div className="my-labs-toolbar-summary">
+            <span className="my-labs-toolbar-label">Lab history controls</span>
+            <strong>{filteredAndSortedSessions.length} of {sessions.length} labs shown</strong>
+          </div>
+
+          <div className="my-labs-filter-row">
+            <label>
+              <span>Search labs</span>
+              <input
+                className="my-labs-search-input"
+                type="search"
+                value={searchQuery}
+                placeholder="Search by lab id, scenario, difficulty, status, or result"
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Sort by</span>
+              <select
+                className="my-labs-sort-select"
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value)}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="score_high">Highest score</option>
+                <option value="score_low">Lowest score</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && hasLabHistory && !hasFilteredLabHistory && !errorMessage && (
+        <MessageBox
+          type="info"
+          title="No matching labs"
+          message="Adjust the search text or sorting option to find a different lab session."
+        />
+      )}
+
       {!isLoading && sessions.length === 0 && !errorMessage && (
         <MessageBox
           type="info"
@@ -307,11 +529,12 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         />
       )}
 
-      {!isLoading && sessions.length > 0 && (
-        <div className="my-labs-list">
-          {sessions.map((session) => {
+      {!isLoading && hasFilteredLabHistory && (
+        <div className="my-labs-list my-labs-scroll-tube" onWheel={handleContainedScrollWheel} role="region" aria-label="Lab history list">
+          {filteredAndSortedSessions.map((session) => {
             const topologySummary = getTopologySummary(session);
             const difficultyClass = getDifficultyClass(session.difficulty);
+            const statusBadgeClass = getLifecycleBadgeClass(session.status);
             const passBadgeClass = getPassBadgeClass(session.passed);
             const isSelected = selectedSessionId === session.session_id;
             const isClosing = closingSessionId === session.session_id;
@@ -322,12 +545,13 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
             const isBusy = isSelected || isClosing || isCleaning;
 
             return (
-              <article className="card my-lab-card" key={session.session_id}>
+              <article className="card my-lab-card my-lab-card-functional" key={session.session_id}>
                 <div className="my-lab-card-header">
                   <div>
-                    <h3>{session.session_id}</h3>
+                    <span className="my-lab-session-id">{session.session_id}</span>
+                    <h3>{getScenarioTitleForSession(session, topologySummary)}</h3>
                     <p className="muted">
-                      {topologySummary.name} / {topologySummary.nodeCount} devices / {topologySummary.linkCount} links
+                      {formatTopologyCount(topologySummary.nodeCount, "device", "devices")} / {formatTopologyCount(topologySummary.linkCount, "link", "links")}
                     </p>
                   </div>
 
@@ -335,7 +559,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                     <span className={`badge ${difficultyClass}`}>
                       {formatDifficulty(session.difficulty)}
                     </span>
-                    <span className="badge neutral">
+                    <span className={`badge ${statusBadgeClass}`}>
                       {formatStatus(session.status)}
                     </span>
                     <span className={`badge ${passBadgeClass}`}>
@@ -346,8 +570,8 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 
                 <div className="my-lab-detail-grid">
                   <div>
-                    <span className="muted">Score</span>
-                    <strong>{session.score ?? "-"}</strong>
+                    <span className="muted">Fault Resolution Score</span>
+                    <strong className="my-lab-score-value">{getFaultResolutionScore(session)}</strong>
                   </div>
 
                   <div>
@@ -361,12 +585,8 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                   </div>
 
                   <div>
-                    <span className="muted">Devices</span>
-                    <strong>
-                      {topologySummary.devices.length > 0
-                        ? topologySummary.devices.join(", ")
-                        : "-"}
-                    </strong>
+                    <span className="muted">Scenario</span>
+                    <strong>{getScenarioTitleForSession(session, topologySummary)}</strong>
                   </div>
                 </div>
 
@@ -387,14 +607,16 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                 )}
 
                 <div className="actions">
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={() => handleOpenLab(session, "workspace")}
-                    disabled={isBusy}
-                  >
-                    {isSelected ? "Opening..." : "Open Workspace"}
-                  </button>
+                  {isActive && (
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={() => handleOpenLab(session, "workspace")}
+                      disabled={isBusy}
+                    >
+                      {isSelected ? "Opening..." : "Open Workspace"}
+                    </button>
+                  )}
 
                   {hasResults && (
                     <button

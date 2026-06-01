@@ -314,6 +314,21 @@ function TerminalPane({
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
   const canConnect = isReady && !isConnected && !isConnecting && !isCheckingReadiness;
+  const primaryTerminalActionDisabled = (
+    isCheckingReadiness ||
+    isConnecting ||
+    (!isConnected && !canConnect)
+  );
+  const primaryTerminalActionLabel = isConnecting
+    ? "Connecting..."
+    : isConnected || connectionState === "disconnected" || connectionState === "error"
+      ? "Reconnect Terminal"
+      : "Connect Terminal";
+  const primaryTerminalActionTitle = isConnected
+    ? "Restart this terminal connection."
+    : canConnect
+      ? "Connect to this device."
+      : "Check readiness and deploy the lab before connecting.";
   const statusBadgeClass = getStatusBadgeClass(connectionState);
 
   useEffect(() => {
@@ -834,6 +849,15 @@ function TerminalPane({
     connectWebTerminal();
   }
 
+  function handlePrimaryTerminalAction() {
+    if (isConnected) {
+      reconnectWebTerminal();
+      return;
+    }
+
+    connectWebTerminal();
+  }
+
   return (
     <div
       className={`terminal-tab-panel ${active ? "active" : "inactive"}`}
@@ -922,21 +946,12 @@ function TerminalPane({
 
           <button
             className="primary-button"
-            onClick={connectWebTerminal}
-            disabled={!canConnect}
-            title={!canConnect ? "Check readiness and deploy the lab before connecting." : "Connect to this device."}
+            onClick={handlePrimaryTerminalAction}
+            disabled={primaryTerminalActionDisabled}
+            title={primaryTerminalActionTitle}
             type="button"
           >
-            {isConnecting ? "Connecting..." : isConnected ? "Connected" : "Connect Terminal"}
-          </button>
-
-          <button
-            className="secondary-button"
-            onClick={reconnectWebTerminal}
-            disabled={isConnecting || isCheckingReadiness}
-            type="button"
-          >
-            Reconnect
+            {primaryTerminalActionLabel}
           </button>
 
           <button
@@ -1083,8 +1098,8 @@ function WebCliTerminal({
           </p>
         </div>
 
-        <span className="badge pass">
-          {connectedCount} Connected
+        <span className={`badge ${connectedCount > 0 ? "pass" : "neutral"}`}>
+          {connectedCount > 0 ? `${connectedCount} Connected` : "No Live Sessions"}
         </span>
       </div>
 

@@ -365,7 +365,7 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
         {!isLabInactive && hasValidationResult && (
           <MessageBox
             type={resultPassed ? "success" : "info"}
-            title={resultPassed ? "All checks passed" : "Continue troubleshooting"}
+            title={resultPassed ? "Validation successful" : "Continue troubleshooting"}
             message={
               resultPassed
                 ? "Great job. You can finish the lab now, or return to the workspace to review the configuration."
@@ -422,9 +422,6 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
             onClick={() => setActiveTab("recommendations")}
           >
             Recommendations
-            {recommendationCount > 0 && (
-              <span className="tab-count">{recommendationCount}</span>
-            )}
           </button>
         </div>
 

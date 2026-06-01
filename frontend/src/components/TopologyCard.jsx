@@ -572,77 +572,152 @@ function getCampusEdgeClass(link, index) {
 
 function getCampusLineCoordinates(edgeClass) {
   const coordinatesByEdge = {
-    "client1-srl1": { x1: 16, y1: 18, x2: 24, y2: 18 },
-    "srl1-srl3": { x1: 34, y1: 18, x2: 44, y2: 18 },
-    "srl3-srl2": { x1: 54, y1: 18, x2: 64, y2: 18 },
-    "srl2-client2": { x1: 74, y1: 18, x2: 82, y2: 18 },
-    "srl1-srl4": { x1: 30, y1: 26, x2: 45, y2: 42 },
-    "srl4-srl2": { x1: 55, y1: 42, x2: 70, y2: 26 }
+    "client1-srl1": { x1: 20, y1: 48, x2: 29, y2: 38 },
+    "srl1-srl3": { x1: 38, y1: 32, x2: 46, y2: 24 },
+    "srl3-srl2": { x1: 54, y1: 24, x2: 62, y2: 32 },
+    "srl2-client2": { x1: 71, y1: 38, x2: 80, y2: 48 },
+    "srl1-srl4": { x1: 38, y1: 42, x2: 47, y2: 66 },
+    "srl4-srl2": { x1: 53, y1: 66, x2: 62, y2: 42 }
   };
 
-  return coordinatesByEdge[edgeClass] || { x1: 48, y1: 30, x2: 52, y2: 30 };
+  return coordinatesByEdge[edgeClass] || { x1: 50, y1: 50, x2: 50, y2: 50 };
 }
 
 function getCampusLinkLabel(link) {
   return `${getSafeText(link.sourceNode)} ${getSafeText(link.sourceInterface)} ${LINK_ARROW} ${getSafeText(link.targetNode)} ${getSafeText(link.targetInterface)}`;
 }
 
-function CampusTopologyDiagram({ nodes, links, cliAccess }) {
-  const campusNodes = orderCampusNodes(nodes);
-  const campusLinks = links.map((link, index) => {
-    const edgeClass = getCampusEdgeClass(link, index);
+function getCampusNodeById(nodes, nodeId) {
+  const normalizedNodeId = normalizeTopologyKey(nodeId);
 
-    return {
-      link,
-      edgeClass,
-      coordinates: getCampusLineCoordinates(edgeClass)
-    };
-  });
+  return nodes.find((node) =>
+    normalizeTopologyKey(node.id) === normalizedNodeId ||
+    normalizeTopologyKey(node.label) === normalizedNodeId
+  ) || null;
+}
+
+function CampusStructuredNode({ node, cliAccess, className }) {
+  if (!node) {
+    return (
+      <div className={`campus-structured-node missing ${className || ""}`}>
+        <strong>Missing device</strong>
+      </div>
+    );
+  }
 
   return (
-    <div className="campus-topology-diagram" aria-label="Campus core static routing topology diagram">
-      <svg
-        className="campus-topology-svg"
-        viewBox="0 0 100 58"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {campusLinks.map(({ link, edgeClass, coordinates }, index) => (
-          <g key={`${link.sourceNode}-${link.targetNode}-${index}`}>
-            <line
-              className={`campus-topology-line campus-link-line-${edgeClass}`}
-              x1={coordinates.x1}
-              y1={coordinates.y1}
-              x2={coordinates.x2}
-              y2={coordinates.y2}
-            />
-            <circle className="campus-topology-endpoint" cx={coordinates.x1} cy={coordinates.y1} r="1.1" />
-            <circle className="campus-topology-endpoint" cx={coordinates.x2} cy={coordinates.y2} r="1.1" />
-          </g>
-        ))}
-      </svg>
+    <div className={`campus-structured-node ${className || ""}`}>
+      <TopologyNode
+        node={node}
+        cliInfo={findCliAccessForNode(node, cliAccess)}
+      />
+    </div>
+  );
+}
 
-      <div className="campus-link-label-layer" aria-hidden="true">
-        {campusLinks.map(({ link, edgeClass }, index) => (
-          <span
-            className={`campus-link-label campus-link-label-${edgeClass}`}
-            key={`${link.sourceNode}-${link.targetNode}-label-${index}`}
-            title={getCampusLinkLabel(link)}
-          >
-            {getCampusLinkLabel(link)}
-          </span>
-        ))}
-      </div>
+function CampusStructuredLink({ leftNode, rightNode, links, className }) {
+  const link = leftNode && rightNode ? findLinkBetweenNodes(links, leftNode, rightNode) : null;
 
-      <div className="campus-node-layer">
-        {campusNodes.map((node) => (
-          <div className={`campus-node campus-node-${normalizeTopologyKey(node.id)}`} key={node.id}>
-            <TopologyNode
-              node={node}
-              cliInfo={findCliAccessForNode(node, cliAccess)}
-            />
-          </div>
-        ))}
+  return (
+    <div className={`campus-structured-link ${className || ""}`}>
+      <TopologyInlineLink
+        link={link}
+        leftNode={leftNode}
+        rightNode={rightNode}
+      />
+    </div>
+  );
+}
+
+function CampusTopologyDiagram({ nodes, links, cliAccess }) {
+  const campusNodes = orderCampusNodes(nodes);
+  const client1 = getCampusNodeById(campusNodes, "client1");
+  const srl1 = getCampusNodeById(campusNodes, "srl1");
+  const srl3 = getCampusNodeById(campusNodes, "srl3");
+  const srl2 = getCampusNodeById(campusNodes, "srl2");
+  const client2 = getCampusNodeById(campusNodes, "client2");
+  const srl4 = getCampusNodeById(campusNodes, "srl4");
+
+  return (
+    <div className="campus-structured-diagram" aria-label="Campus core static routing topology diagram">
+      <div className="campus-structured-grid">
+        <CampusStructuredNode
+          className="campus-slot-client1"
+          node={client1}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-client1-srl1"
+          leftNode={client1}
+          rightNode={srl1}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl1"
+          node={srl1}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl1-srl3"
+          leftNode={srl1}
+          rightNode={srl3}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl3"
+          node={srl3}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl3-srl2"
+          leftNode={srl3}
+          rightNode={srl2}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl2"
+          node={srl2}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl2-client2"
+          leftNode={srl2}
+          rightNode={client2}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-client2"
+          node={client2}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl1-srl4"
+          leftNode={srl1}
+          rightNode={srl4}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl4"
+          node={srl4}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl4-srl2"
+          leftNode={srl4}
+          rightNode={srl2}
+          links={links}
+        />
       </div>
     </div>
   );
@@ -862,4 +937,3 @@ function TopologyCard({
 }
 
 export default TopologyCard;
-
