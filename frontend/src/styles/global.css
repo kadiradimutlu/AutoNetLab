@@ -8896,7 +8896,7 @@ html {
 .campus-link-srl4-srl2 .network-link-line {
   position: absolute;
   left: 50%;
-  top: 42px;
+  top: 40px;
   width: 190px;
   min-width: 190px;
   margin: 0;
@@ -8916,31 +8916,18 @@ html {
 .campus-link-srl4-srl2 .network-link-label {
   position: absolute;
   left: 50%;
-  top: 52px;
+  top: 72px;
   z-index: 2;
   width: 176px;
   max-width: 176px;
-  transform: translateX(-50%);
-}
-/* NR-Sprint41C campus diagonal lower links END */
-
-/* NR-Sprint41C campus diagonal lower link labels START */
-.campus-link-label-srl1-srl4,
-.campus-link-label-srl4-srl2 {
-  position: absolute;
-  z-index: 4;
   transform-origin: center center;
 }
 
-.campus-link-label-srl1-srl4 {
-  transform: rotate(-26deg);
-  left: 26.8%;
-  top: 56.8%;
+.campus-link-srl1-srl4 .network-link-label {
+  transform: translateX(-50%) rotate(34deg);
 }
 
-.campus-link-label-srl4-srl2 {
-  transform: rotate(26deg);
-  left: 60.9%;
-  top: 56.8%;
+.campus-link-srl4-srl2 .network-link-label {
+  transform: translateX(-50%) rotate(-34deg);
 }
-/* NR-Sprint41C campus diagonal lower link labels END */
+/* NR-Sprint41C campus diagonal lower links END */
