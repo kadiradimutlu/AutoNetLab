@@ -572,15 +572,15 @@ function getCampusEdgeClass(link, index) {
 
 function getCampusLineCoordinates(edgeClass) {
   const coordinatesByEdge = {
-    "client1-srl1": { x1: 16, y1: 18, x2: 24, y2: 18 },
-    "srl1-srl3": { x1: 34, y1: 18, x2: 44, y2: 18 },
-    "srl3-srl2": { x1: 54, y1: 18, x2: 64, y2: 18 },
-    "srl2-client2": { x1: 74, y1: 18, x2: 82, y2: 18 },
-    "srl1-srl4": { x1: 30, y1: 26, x2: 45, y2: 42 },
-    "srl4-srl2": { x1: 55, y1: 42, x2: 70, y2: 26 }
+    "client1-srl1": { x1: 17, y1: 60, x2: 30, y2: 36 },
+    "srl1-srl3": { x1: 36, y1: 28, x2: 46, y2: 20 },
+    "srl3-srl2": { x1: 54, y1: 20, x2: 64, y2: 28 },
+    "srl2-client2": { x1: 70, y1: 36, x2: 83, y2: 60 },
+    "srl1-srl4": { x1: 34, y1: 38, x2: 47, y2: 72 },
+    "srl4-srl2": { x1: 53, y1: 72, x2: 66, y2: 38 }
   };
 
-  return coordinatesByEdge[edgeClass] || { x1: 48, y1: 30, x2: 52, y2: 30 };
+  return coordinatesByEdge[edgeClass] || { x1: 50, y1: 50, x2: 50, y2: 50 };
 }
 
 function getCampusLinkLabel(link) {
@@ -862,4 +862,3 @@ function TopologyCard({
 }
 
 export default TopologyCard;
-
