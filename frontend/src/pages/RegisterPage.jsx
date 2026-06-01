@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
-  getErrorDetails,
   getErrorMessage,
   registerUser
 } from "../services/apiService";
@@ -100,7 +99,6 @@ function RegisterPage({ onNavigateLogin }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [errorDetails, setErrorDetails] = useState("");
 
   const suggestedStudentId = useMemo(
     () => createDefaultStudentId(form.username),
@@ -152,7 +150,6 @@ function RegisterPage({ onNavigateLogin }) {
     setFieldErrors(validationErrors);
     setSuccessMessage("");
     setErrorMessage("");
-    setErrorDetails("");
 
     if (Object.keys(validationErrors).length > 0) {
       setErrorMessage("Please fix the highlighted fields before creating the account.");
@@ -195,7 +192,6 @@ function RegisterPage({ onNavigateLogin }) {
       }
 
       setErrorMessage(getRegisterErrorMessage(error));
-      setErrorDetails(getErrorDetails(error));
       console.error("Registration failed.", error);
     } finally {
       setIsSubmitting(false);
@@ -231,12 +227,6 @@ function RegisterPage({ onNavigateLogin }) {
                 message={errorMessage}
               />
 
-              {errorDetails && (
-                <details className="technical-detail-box auth-technical-details">
-                  <summary>Show diagnostics</summary>
-                  <p>{errorDetails}</p>
-                </details>
-              )}
             </>
           )}
         </div>

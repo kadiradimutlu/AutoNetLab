@@ -1,4 +1,4 @@
-import { useLanguage } from "../hooks/useLanguage";
+﻿import { useLanguage } from "../hooks/useLanguage";
 
 const TOPIC_LEARNING_FOCUS = {
   ip_addressing: "Review addressing, subnet membership, and interface IP consistency.",
@@ -451,13 +451,13 @@ function RecommendationCard({
 
       <div className="recommendation-source-panel recommendation-source-panel-v2">
         <div>
-          <span className="muted">Learning Guidance</span>
+          <span className="muted">Learning Guidance</span>{" "}
           <strong>{normalizedRecommendations.length} focused item{normalizedRecommendations.length === 1 ? "" : "s"}</strong>
           <p>Guidance focuses on learning tasks and avoids hidden runtime details.</p>
         </div>
 
         <div>
-          <span className="muted">Scenario Context</span>
+          <span className="muted">Scenario Context</span>{" "}
           <strong>{topicPerformance.length > 0 ? `${topicPerformance.length} tracked topic${topicPerformance.length === 1 ? "" : "s"}` : "Available after validation"}</strong>
           <p>Use the scenario guide and validation result together before running validation again.</p>
         </div>
