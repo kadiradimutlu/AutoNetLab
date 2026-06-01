@@ -8170,3 +8170,80 @@ html {
   color: #374151;
 }
 /* End NR-Sprint41C student home status badge cleanup */
+
+/* NR-Sprint41C Create Lab functional UX cleanup */
+.scenario-card-grid-selectable {
+  align-items: stretch;
+}
+
+.scenario-select-card-functional {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 260px;
+  text-align: left;
+}
+
+.scenario-select-card-functional.selected {
+  border-color: #2563eb;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.16);
+}
+
+.scenario-select-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.scenario-select-card-header strong {
+  line-height: 1.18;
+}
+
+.scenario-selected-label {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #2563eb;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 7px 9px;
+}
+
+.scenario-select-summary {
+  color: #4b5563;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.difficulty-card-badge-row,
+.selected-scenario-badge-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.difficulty-fault-count {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #374151;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 7px 9px;
+}
+
+.difficulty-select-card {
+  min-height: 180px;
+}
+
+.difficulty-select-card.selected {
+  border-color: #2563eb;
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
+}
+/* End NR-Sprint41C Create Lab functional UX cleanup */
