@@ -205,6 +205,25 @@ function formatTopologyCount(count, singularLabel, pluralLabel) {
   return `${safeCount} ${safeCount === 1 ? singularLabel : pluralLabel}`;
 }
 
+function handleContainedScrollWheel(event) {
+  const container = event.currentTarget;
+
+  if (!container || container.scrollHeight <= container.clientHeight) {
+    return;
+  }
+
+  const deltaY = event.deltaY;
+  const atTop = container.scrollTop <= 0;
+  const atBottom =
+    Math.ceil(container.scrollTop + container.clientHeight) >= container.scrollHeight;
+
+  event.stopPropagation();
+
+  if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+    event.preventDefault();
+  }
+}
+
 function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
   const [sessions, setSessions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -435,7 +454,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
             <strong>{filteredAndSortedSessions.length} of {sessions.length} labs shown</strong>
           </div>
 
-          <div className="my-labs-control-tube">
+          <div className="my-labs-filter-row">
             <label>
               <span>Search labs</span>
               <input
@@ -481,7 +500,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
       )}
 
       {!isLoading && hasFilteredLabHistory && (
-        <div className="my-labs-list">
+        <div className="my-labs-list my-labs-scroll-tube" onWheel={handleContainedScrollWheel} role="region" aria-label="Lab history list">
           {filteredAndSortedSessions.map((session) => {
             const topologySummary = getTopologySummary(session);
             const difficultyClass = getDifficultyClass(session.difficulty);
