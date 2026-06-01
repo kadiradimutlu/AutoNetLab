@@ -706,17 +706,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       )}
 
       {isLabRunning && (
-        <>
-          <button
-            className="secondary-button"
-            onClick={handleResetLabRuntime}
-            disabled={isStartingLab || isStoppingLab || isResettingLab}
-            type="button"
-          >
-            {isResettingLab ? "Resetting..." : "Reset Runtime"}
-          </button>
-
-          <button
+        <>          <button
             className="danger-button"
             onClick={handleStopLabEnvironment}
             disabled={isStartingLab || isStoppingLab || isResettingLab}
@@ -727,14 +717,13 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         </>
       )}
 
-      {isLabStopped && !isLabFinished && (
+      {isLabStopped && !isLabFinished && !isLabError && (
         <button
           className="primary-button"
-          onClick={handleStartLabEnvironment}
-          disabled={isStartingLab || isStoppingLab || isResettingLab}
+          onClick={() => onNavigate("create")}
           type="button"
         >
-          {isStartingLab ? "Starting..." : "Deploy Lab"}
+          Create New Lab
         </button>
       )}
 
@@ -801,6 +790,16 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
               type="info"
               title="Lab is not deployed yet"
               message="This lab has a saved validation result, but the runtime is not active. Deploy the lab to start troubleshooting, or finish it to keep the current result."
+            />
+          </div>
+        )}
+
+        {isLabStopped && !isLabFinished && !isLabError && (
+          <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
+            <MessageBox
+              type="info"
+              title="Lab runtime is closed"
+              message="This lab has been destroyed. Create a new lab to continue; saved results and validation history remain available."
             />
           </div>
         )}
@@ -939,7 +938,9 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
                 ? "This lab entered an error state. Web CLI is disabled until runtime cleanup is completed."
                 : isLabFinished
                   ? "This lab is finished. Running containers are closed, but validation history remains available."
-                  : "Deploy the lab before opening Web CLI."
+                  : isLabStopped
+                    ? "This lab has been destroyed. Create a new lab to continue."
+                    : "Deploy the lab before opening Web CLI."
             }
           />
         )}
