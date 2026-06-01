@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
@@ -200,6 +200,65 @@ function sortValidationAttemptsByNewest(attempts) {
 
     return getAttemptTimestamp(right) - getAttemptTimestamp(left);
   });
+}
+
+function getAttemptCheckText(check) {
+  return [
+    check?.check_id,
+    check?.id,
+    check?.topic,
+    check?.description,
+    check?.message,
+    check?.hint,
+    check?.status
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+}
+
+function isPreDeployValidationAttempt(attempt) {
+  if (!attempt || typeof attempt !== "object") {
+    return false;
+  }
+
+  const checks = Array.isArray(attempt.checks) ? attempt.checks : [];
+  const topicText = [
+    ...(Array.isArray(attempt.affected_topics) ? attempt.affected_topics : []),
+    ...(Array.isArray(attempt.failed_topics) ? attempt.failed_topics : []),
+    ...(Array.isArray(attempt.resolved_topics) ? attempt.resolved_topics : [])
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+
+  const checkText = checks.map((check) => getAttemptCheckText(check)).join(" ");
+
+  if (
+    checkText.includes("runtime is not deployed") ||
+    checkText.includes("runtime_deployed") ||
+    checkText.includes("deploy the lab first") ||
+    topicText.includes("lab_lifecycle")
+  ) {
+    return true;
+  }
+
+  const totalChecks =
+    Number(attempt.total_checks ?? attempt.totalChecks ?? checks.length) || checks.length;
+  const failedChecks =
+    Number(attempt.failed_checks ?? attempt.failedChecks ?? 0) ||
+    checks.filter((check) => check?.passed === false || String(check?.status || "").toLowerCase().includes("fail")).length;
+
+  const missingRuntimeStateChecks = checks.filter((check) =>
+    getAttemptCheckText(check).includes("expected sr linux scenario state is missing")
+  ).length;
+
+  return (
+    totalChecks > 0 &&
+    failedChecks >= totalChecks &&
+    checks.length > 0 &&
+    missingRuntimeStateChecks >= Math.max(1, Math.ceil(checks.length * 0.75))
+  );
 }
 
 function getAttemptFaultResolutionScore(attempt) {
@@ -596,7 +655,10 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const effectiveCliMode = cliAccessMode || getFallbackCliMode(labSession);
   const normalizedStatus = String(labSession.status || "").toLowerCase();
-  const isLabRunning = isRuntimeActiveStatus(normalizedStatus);
+  const latestAttempt = attempts[0] || null;
+  const isPreDeployValidatedLab =
+    normalizedStatus.includes("validated") && isPreDeployValidationAttempt(latestAttempt);
+  const isLabRunning = isRuntimeActiveStatus(normalizedStatus) && !isPreDeployValidatedLab;
   const isLabStopped = isRuntimeDestroyedStatus(normalizedStatus);
   const isLabFinished = isRuntimeFinishedStatus(normalizedStatus);
   const isLabError = isRuntimeErrorStatus(normalizedStatus);
@@ -611,6 +673,17 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           type="button"
         >
           {isStartingLab ? "Starting..." : "Deploy Lab"}
+        </button>
+      )}
+
+      {isPreDeployValidatedLab && !isLabStopped && !isLabFinished && !isLabError && (
+        <button
+          className="danger-button"
+          onClick={handleStopLabEnvironment}
+          disabled={isStartingLab || isStoppingLab || isResettingLab}
+          type="button"
+        >
+          {isStoppingLab ? "Finishing..." : "Finish Lab"}
         </button>
       )}
 
@@ -700,6 +773,16 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
               type="error"
               title="Runtime cleanup required"
               message="This lab entered an error state. Use Cleanup Runtime to remove any remaining containers before starting a new lab."
+            />
+          </div>
+        )}
+
+        {isPreDeployValidatedLab && (
+          <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
+            <MessageBox
+              type="info"
+              title="Lab is not deployed yet"
+              message="This lab has a saved validation result, but the runtime is not active. Deploy the lab to start troubleshooting, or finish it to keep the current result."
             />
           </div>
         )}
@@ -822,7 +905,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           <div>
             <h3>Browser Terminal</h3>
             <p className="muted">
-              Web CLI is available while the lab is deployed or validated.
+              Web CLI is available after the lab runtime is deployed.
             </p>
           </div>
 
