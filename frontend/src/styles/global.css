@@ -970,7 +970,7 @@ select {
     flex-direction: column;
   }
 }
-/* Sprint 7 recommendation UI / Ã¶neri arayÃ¼zÃ¼ */
+/* Sprint 7 recommendation UI / ÃƒÂ¶neri arayÃƒÂ¼zÃƒÂ¼ */
 .recommendation-source-panel {
   display: grid;
   grid-template-columns: 1fr;
@@ -8923,3 +8923,24 @@ html {
   transform: translateX(-50%);
 }
 /* NR-Sprint41C campus diagonal lower links END */
+
+/* NR-Sprint41C campus diagonal lower link labels START */
+.campus-link-label-srl1-srl4,
+.campus-link-label-srl4-srl2 {
+  position: absolute;
+  z-index: 4;
+  transform-origin: center center;
+}
+
+.campus-link-label-srl1-srl4 {
+  transform: rotate(-26deg);
+  left: 26.8%;
+  top: 56.8%;
+}
+
+.campus-link-label-srl4-srl2 {
+  transform: rotate(26deg);
+  left: 60.9%;
+  top: 56.8%;
+}
+/* NR-Sprint41C campus diagonal lower link labels END */
