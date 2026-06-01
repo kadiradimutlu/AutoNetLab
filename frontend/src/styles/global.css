@@ -8737,21 +8737,21 @@ html {
   text-overflow: ellipsis;
 }
 
-/* Campus: restore requested top-row chain + lower srl4 */
+/* Campus: readable chain layout with lower srl4 */
 .campus-topology-diagram {
-  min-width: 1680px;
-  min-height: 760px;
+  min-width: 1280px;
+  min-height: 640px;
 }
 
 .campus-node {
-  width: 260px;
+  width: 240px;
 }
 
 .campus-node .network-node-card {
   box-sizing: border-box;
   width: 100%;
-  min-height: 228px;
-  grid-template-columns: 72px minmax(0, 1fr);
+  min-height: 210px;
+  grid-template-columns: 68px minmax(0, 1fr);
 }
 
 .campus-node .network-node-title-row,
@@ -8766,35 +8766,40 @@ html {
   overflow-wrap: anywhere;
 }
 
-.campus-node-client1 { left: 12%; top: 42%; }
-.campus-node-srl1    { left: 31%; top: 28%; }
-.campus-node-srl3    { left: 50%; top: 18%; }
-.campus-node-srl2    { left: 69%; top: 28%; }
-.campus-node-client2 { left: 88%; top: 42%; }
-.campus-node-srl4    { left: 50%; top: 71%; }
+.campus-node-client1 { left: 13%; top: 46%; }
+.campus-node-srl1    { left: 31%; top: 34%; }
+.campus-node-srl3    { left: 50%; top: 24%; }
+.campus-node-srl2    { left: 69%; top: 34%; }
+.campus-node-client2 { left: 87%; top: 46%; }
+.campus-node-srl4    { left: 50%; top: 74%; }
 
 .campus-link-label {
+  position: absolute;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0.35rem 0.7rem;
+  max-width: 190px;
+  min-height: 30px;
+  padding: 0.32rem 0.68rem;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.96);
   color: #f8fafc;
-  font-size: 0.73rem;
+  font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-.campus-link-label-client1-srl1 { left: 21%; top: 39%; }
-.campus-link-label-srl1-srl3    { left: 40%; top: 25%; }
-.campus-link-label-srl3-srl2    { left: 60%; top: 25%; }
-.campus-link-label-srl2-client2 { left: 79%; top: 39%; }
-.campus-link-label-srl1-srl4    { left: 41%; top: 54%; }
-.campus-link-label-srl4-srl2    { left: 59%; top: 54%; }
+.campus-link-label-client1-srl1 { left: 22%; top: 42%; }
+.campus-link-label-srl1-srl3    { left: 40%; top: 28%; }
+.campus-link-label-srl3-srl2    { left: 60%; top: 28%; }
+.campus-link-label-srl2-client2 { left: 78%; top: 42%; }
+.campus-link-label-srl1-srl4    { left: 40%; top: 56%; }
+.campus-link-label-srl4-srl2    { left: 60%; top: 56%; }
 
 @media (max-width: 1120px) {
   .network-diagram-canvas.linear .topology-linear-diagram {
@@ -8802,7 +8807,7 @@ html {
   }
 
   .campus-topology-diagram {
-    min-width: 1600px;
+    min-width: 1280px;
   }
 }
 /* NR-Sprint41C topology branch and campus repair END */
