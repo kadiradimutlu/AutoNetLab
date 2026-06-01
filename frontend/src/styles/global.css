@@ -7317,3 +7317,148 @@ html {
   font-size: 12px;
   line-height: 1.25;
 }
+
+
+/* NR-Sprint41B final selected palette and contained scroll behavior */
+.badge.easy {
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.badge.medium {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.badge.hard {
+  background: #fce7f3;
+  color: #be185d;
+  border: 1px solid #fbcfe8;
+}
+
+.badge.status-created {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge.status-active {
+  background: #cffafe;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+}
+
+.badge.status-validated {
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+.badge.finished {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.badge.status-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge.result-pass {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badge.result-fail {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge.result-pending {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.table-action-button-stacked {
+  background: #ffffff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+}
+
+.table-action-button-stacked:hover {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  color: #1e40af;
+  transform: translateY(-1px);
+}
+
+.student-list,
+.student-session-table-wrapper,
+.analytics-recent-sessions-scroll {
+  overscroll-behavior: contain;
+}
+
+.student-session-table-wrapper {
+  max-height: 640px;
+  overflow-y: auto;
+  overflow-x: visible;
+  scroll-padding-top: 8px;
+}
+
+.analytics-recent-sessions-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  overflow-x: auto;
+  scroll-padding-top: 8px;
+}
+
+.student-list {
+  overscroll-behavior-y: contain;
+}
+
+.student-session-table-wrapper,
+.analytics-recent-sessions-scroll {
+  overscroll-behavior-y: contain;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 11%;
+  text-align: right;
+}
+
+.student-session-table td:nth-child(8) {
+  padding-right: 10px;
+}
+
+.student-session-table th:nth-child(8) {
+  padding-right: 12px;
+}
+
+.analytics-recent-sessions-table th:nth-child(8),
+.analytics-recent-sessions-table td:nth-child(8) {
+  width: 10%;
+  text-align: right;
+}
+
+.analytics-recent-sessions-table td:nth-child(8) {
+  padding-right: 10px;
+}
+
+.analytics-recent-sessions-table th:nth-child(8) {
+  padding-right: 12px;
+}
