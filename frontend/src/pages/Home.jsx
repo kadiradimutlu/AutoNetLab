@@ -87,30 +87,30 @@ function getStatusBadgeClass(labSession) {
   const status = getNormalizedStatus(labSession?.status);
 
   if (status === "error") {
-    return "cleanup";
+    return "error";
   }
 
-  if (status === "validated" && labSession?.passed === true) {
-    return "success";
+  if (status === "created") {
+    return "created";
   }
 
-  if (status === "validated" && labSession?.passed === false) {
-    return "warning";
-  }
-
-  if (["created", "deployed", "active", "validated"].includes(status)) {
+  if (status === "deployed" || status === "active") {
     return "active";
   }
 
+  if (status === "validated") {
+    return "validated";
+  }
+
   if (status === "finished") {
-    return "success";
+    return "finished";
   }
 
   if (status === "destroyed") {
-    return "neutral";
+    return "destroyed";
   }
 
-  return "neutral";
+  return "destroyed";
 }
 
 function getNextStep(labSession) {

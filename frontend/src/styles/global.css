@@ -8386,3 +8386,95 @@ html {
   }
 }
 /* End NR-Sprint41C My Labs functional UX cleanup */
+
+/* NR-Sprint41C shared badge palette alignment */
+.badge.easy,
+.student-home-difficulty-badge.easy {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.badge.medium,
+.student-home-difficulty-badge.medium {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.badge.hard,
+.student-home-difficulty-badge.hard {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.badge.created,
+.student-home-status-badge.created {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.badge.active,
+.badge.deployed,
+.student-home-status-badge.active {
+  background: #ecfeff;
+  border-color: #a5f3fc;
+  color: #0e7490;
+}
+
+.badge.validated,
+.student-home-status-badge.validated {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+.badge.finished,
+.student-home-status-badge.finished {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.badge.destroyed,
+.student-home-status-badge.destroyed,
+.badge.neutral,
+.badge.not-validated {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.badge.error,
+.student-home-status-badge.error,
+.badge.fail,
+.badge.failed,
+.badge.failure,
+.badge.danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.badge.pass,
+.badge.passed,
+.badge.success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+
+.my-lab-card-functional .secondary-button,
+.my-lab-card-functional .outline-button {
+  background: #ffffff;
+  border: 1px solid #2563eb;
+  color: #2563eb;
+}
+
+.my-lab-card-functional .secondary-button:hover,
+.my-lab-card-functional .outline-button:hover {
+  background: #eff6ff;
+}
+/* End NR-Sprint41C shared badge palette alignment */
