@@ -7651,3 +7651,154 @@ html {
 .selected-student-identity-meta {
   margin-top: 2px;
 }
+
+
+/* NR-Sprint41B student list 8-item tube, action inset, and scroll stability */
+.instructor-student-list-card {
+  align-self: start;
+}
+
+.instructor-student-list-card .student-list {
+  max-height: min(720px, calc(100vh - 248px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  padding-right: 6px;
+  margin-right: -2px;
+  scrollbar-gutter: stable;
+}
+
+.instructor-student-list-card .student-list-item {
+  min-height: 76px;
+  padding: 12px 14px;
+  gap: 8px;
+}
+
+.instructor-student-list-card .student-list-primary {
+  font-size: 14px;
+  line-height: 1.18;
+}
+
+.instructor-student-list-card .student-list-secondary {
+  font-size: 12px;
+  line-height: 1.24;
+}
+
+.instructor-student-list-card .student-list-metrics {
+  margin-top: 6px;
+  gap: 6px;
+}
+
+.instructor-student-list-card .student-list-metrics span {
+  padding: 5px 9px;
+  line-height: 1.1;
+}
+
+.student-session-table-wrapper {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  padding-right: 8px;
+}
+
+.student-session-table {
+  width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.student-session-table th,
+.student-session-table td {
+  box-sizing: border-box;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 22%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(8) {
+  text-align: center;
+  padding-right: 26px;
+}
+
+.student-session-table td:nth-child(8) {
+  text-align: left;
+  padding-left: 4px;
+  padding-right: 30px;
+}
+
+.student-session-table .table-action-button-stacked {
+  min-width: 66px;
+  max-width: 76px;
+  margin-right: 16px;
+}
+
+.instructor-student-detail::after,
+.analytics-detail-shell::after {
+  content: "";
+  display: block;
+  height: clamp(260px, 32vh, 420px);
+  pointer-events: none;
+}
+
+@media (max-width: 1200px) {
+  .instructor-student-list-card .student-list {
+    max-height: min(660px, calc(100vh - 236px));
+  }
+
+  .student-session-table td:nth-child(8) {
+    padding-right: 26px;
+  }
+
+  .student-session-table .table-action-button-stacked {
+    margin-right: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .instructor-student-list-card .student-list {
+    max-height: 560px;
+  }
+
+  .instructor-student-detail::after,
+  .analytics-detail-shell::after {
+    height: 220px;
+  }
+}
