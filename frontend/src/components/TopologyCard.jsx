@@ -572,12 +572,12 @@ function getCampusEdgeClass(link, index) {
 
 function getCampusLineCoordinates(edgeClass) {
   const coordinatesByEdge = {
-    "client1-srl1": { x1: 24, y1: 64, x2: 33, y2: 42 },
-    "srl1-srl3": { x1: 39, y1: 36, x2: 46, y2: 26 },
-    "srl3-srl2": { x1: 54, y1: 26, x2: 61, y2: 36 },
-    "srl2-client2": { x1: 67, y1: 42, x2: 76, y2: 64 },
-    "srl1-srl4": { x1: 35, y1: 48, x2: 47, y2: 76 },
-    "srl4-srl2": { x1: 53, y1: 76, x2: 65, y2: 48 }
+    "client1-srl1": { x1: 18, y1: 46, x2: 26, y2: 38 },
+    "srl1-srl3": { x1: 37, y1: 31, x2: 45, y2: 22 },
+    "srl3-srl2": { x1: 55, y1: 22, x2: 63, y2: 31 },
+    "srl2-client2": { x1: 74, y1: 38, x2: 82, y2: 46 },
+    "srl1-srl4": { x1: 36, y1: 40, x2: 46, y2: 63 },
+    "srl4-srl2": { x1: 54, y1: 63, x2: 64, y2: 40 }
   };
 
   return coordinatesByEdge[edgeClass] || { x1: 50, y1: 50, x2: 50, y2: 50 };
