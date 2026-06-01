@@ -44,14 +44,14 @@ function formatDateTime(value) {
 
 function formatPassState(value) {
   if (value === true) {
-    return "Passed";
+    return "PASS";
   }
 
   if (value === false) {
-    return "Needs work";
+    return "FAIL";
   }
 
-  return "Not validated";
+  return "Not Validated";
 }
 
 function getPassBadgeClass(value) {
@@ -63,7 +63,37 @@ function getPassBadgeClass(value) {
     return "fail";
   }
 
-  return "neutral";
+  return "not-validated";
+}
+
+function getLifecycleBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
+    return "error";
+  }
+
+  if (normalizedStatus === "created") {
+    return "created";
+  }
+
+  if (normalizedStatus === "deployed" || normalizedStatus === "active") {
+    return "active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "validated";
+  }
+
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
+    return "destroyed";
+  }
+
+  return "destroyed";
 }
 
 function getSummaryStatCardClassName(kind, count) {
@@ -504,6 +534,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
           {filteredAndSortedSessions.map((session) => {
             const topologySummary = getTopologySummary(session);
             const difficultyClass = getDifficultyClass(session.difficulty);
+            const statusBadgeClass = getLifecycleBadgeClass(session.status);
             const passBadgeClass = getPassBadgeClass(session.passed);
             const isSelected = selectedSessionId === session.session_id;
             const isClosing = closingSessionId === session.session_id;
@@ -528,7 +559,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                     <span className={`badge ${difficultyClass}`}>
                       {formatDifficulty(session.difficulty)}
                     </span>
-                    <span className="badge neutral">
+                    <span className={`badge ${statusBadgeClass}`}>
                       {formatStatus(session.status)}
                     </span>
                     <span className={`badge ${passBadgeClass}`}>
