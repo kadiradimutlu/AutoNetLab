@@ -459,7 +459,7 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
             <div>
               <h3>Scenario</h3>
               <p className="muted">
-                Choose a professional network realism scenario from the backend catalog.
+                Choose a troubleshooting scenario from the catalog.
               </p>
             </div>
           </div>
@@ -484,18 +484,10 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
                   aria-pressed={isSelected}
                   onClick={() => setSelectedScenarioId(scenario.id)}
                 >
-                  <span className="badge neutral">
-                    {scenario.id === CAMPUS_SCENARIO_ID
-                      ? "Campus Scenario"
-                      : isLoadingScenarios
-                        ? "Loading Scenario"
-                        : "Network Realism Scenario"}
-                  </span>
 
                   <div className="scenario-select-card-header">
                     <strong>{scenario.title || FALLBACK_SRL_SCENARIO.title}</strong>
-                    {isSelected && <span className="scenario-selected-label">Selected</span>}
-                  </div>
+</div>
                   <p className="scenario-select-summary">{getScenarioDisplaySummary(scenario)}</p>
 
                   <div className="scenario-card-meta-grid">
@@ -644,10 +636,6 @@ function CreateLab({ authUser, onLabCreated, onNavigate }) {
             <li key={topic}>{topic}</li>
           ))}
         </ul>
-
-        {selectedDifficulty?.description && (
-          <p className="footer-note">{selectedDifficulty.description}</p>
-        )}
       </section>
     </div>
   );

@@ -5492,7 +5492,7 @@ html {
   }
 }
 
-/* NR-Sprint33B campus scenario guidance frontend polish */
+/* NR-Sprint33B scenario guidance frontend polish */
 .scenario-overview-polished {
   display: grid;
   gap: 16px;
@@ -8193,23 +8193,10 @@ html {
   align-items: flex-start;
   display: flex;
   gap: 12px;
-  justify-content: space-between;
 }
 
 .scenario-select-card-header strong {
   line-height: 1.18;
-}
-
-.scenario-selected-label {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 999px;
-  color: #2563eb;
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1;
-  padding: 7px 9px;
 }
 
 .scenario-select-summary {
