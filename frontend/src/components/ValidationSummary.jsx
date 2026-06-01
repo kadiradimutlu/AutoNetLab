@@ -1,5 +1,4 @@
 import MessageBox from "./MessageBox";
-import ValidationCheckList from "./ValidationCheckList";
 import { useLanguage } from "../hooks/useLanguage";
 import {
   getValidationStatusClass,
@@ -307,7 +306,6 @@ function ValidationSummary({
   const allChecksPassed =
     validationResult.passed === true || (totalChecks > 0 && failedChecks === 0);
   const faultResolutionScore = getFaultResolutionScore(validationResult, checks);
-  const networkHealthScore = getNetworkHealthScore(validationResult, checks);
   const affectedTopics = normalizeTopicList(validationResult.affected_topics || validationResult.affectedTopics);
   const failedTopics = normalizeTopicList(validationResult.failed_topics || validationResult.failedTopics);
   const resolvedTopics = normalizeTopicList(validationResult.resolved_topics || validationResult.resolvedTopics);
@@ -337,7 +335,7 @@ function ValidationSummary({
         <div>
           <h3>{t("validationSummary")}</h3>
           <p className="muted">
-            Fault resolution, network health, affected topics, and network diagnostics for the current lab session.
+            Fault Resolution Score is the primary result. Network diagnostics are available in the Network Health tab.
           </p>
         </div>
 
@@ -371,12 +369,7 @@ function ValidationSummary({
         </div>
       </div>
 
-      <div className="validation-metrics validation-metrics-polished validation-contract-metrics">
-        <div className="metric-card metric-pass">
-          <span>Network Health Score</span>
-          <strong>{networkHealthScore}/100</strong>
-        </div>
-
+      <div className="validation-metrics validation-metrics-polished validation-contract-metrics validation-summary-focused-metrics">
         <div className="metric-card">
           <span>Affected Topics</span>
           <strong>{affectedTopicCount}</strong>
@@ -393,80 +386,6 @@ function ValidationSummary({
         </div>
       </div>
 
-      {(affectedTopics.length > 0 || failedTopics.length > 0 || resolvedTopics.length > 0) && (
-        <div className="validation-focus-panel validation-topic-progress-panel">
-          <div className="section-title-row compact">
-            <div>
-              <h4>Injected Fault Progress</h4>
-              <p className="muted">
-                These topics represent the fault-focused validation contract. Full network checks are listed separately below.
-              </p>
-            </div>
-          </div>
-
-          <div className="validation-focus-grid">
-            {affectedTopics.map((topic) => (
-              <article className="validation-focus-card" key={`affected-${topic}`}>
-                <strong>{topic}</strong>
-                <span>Affected topic</span>
-              </article>
-            ))}
-
-            {resolvedTopics.map((topic) => (
-              <article className="validation-focus-card" key={`resolved-${topic}`}>
-                <strong>{topic}</strong>
-                <span>Resolved</span>
-              </article>
-            ))}
-
-            {failedTopics.map((topic) => (
-              <article className="validation-focus-card" key={`failed-${topic}`}>
-                <strong>{topic}</strong>
-                <span>Needs review</span>
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="validation-metrics validation-metrics-polished validation-network-check-metrics">
-        <div className="metric-card">
-          <span>Network Checks</span>
-          <strong>{totalChecks}</strong>
-        </div>
-
-        <div className="metric-card metric-pass">
-          <span>Passed Network Checks</span>
-          <strong>{passedChecks}</strong>
-        </div>
-
-        <div className="metric-card metric-fail">
-          <span>Failed Network Checks</span>
-          <strong>{failedChecks}</strong>
-        </div>
-      </div>
-
-      {!allChecksPassed && failedAreas.length > 0 && (
-        <div className="validation-focus-panel">
-          <div className="section-title-row compact">
-            <div>
-              <h4>Primary Failed Areas</h4>
-              <p className="muted">Start here before changing the live configuration.</p>
-            </div>
-
-            {isCampus && <span className="badge neutral">Campus validation</span>}
-          </div>
-
-          <div className="validation-focus-grid">
-            {failedAreas.map((area) => (
-              <article className="validation-focus-card" key={area.label}>
-                <strong>{area.label}</strong>
-                <span>{area.count} failed {area.count === 1 ? "check" : "checks"}</span>
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="validation-next-steps-panel">
         <div>
@@ -486,16 +405,6 @@ function ValidationSummary({
         </ol>
       </div>
 
-      <div className="validation-check-section-header">
-        <div>
-          <h4>Validation Checks</h4>
-          <p className="muted">
-            Failed checks are shown first. Passed checks remain available without overwhelming the result view.
-          </p>
-        </div>
-      </div>
-
-      <ValidationCheckList checks={checks} />
     </section>
   );
 }
