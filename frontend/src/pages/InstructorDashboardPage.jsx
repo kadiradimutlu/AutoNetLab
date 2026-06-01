@@ -208,6 +208,73 @@ function normalizeStudentId(student) {
   return student?.student_id || student?.username || student?.id || "";
 }
 
+function getStudentDisplayName(student) {
+  const fallbackId = normalizeStudentId(student);
+
+  if (!student || typeof student !== "object") {
+    return fallbackId || "Student";
+  }
+
+  const displayName = String(
+    student.display_name ||
+      student.displayName ||
+      student.name ||
+      fallbackId ||
+      "Student"
+  ).trim();
+
+  return displayName || fallbackId || "Student";
+}
+
+function getStudentUsername(student) {
+  const fallbackId = normalizeStudentId(student);
+
+  if (!student || typeof student !== "object") {
+    return fallbackId;
+  }
+
+  const username = String(
+    student.username ||
+      student.user_name ||
+      student.student_id ||
+      student.studentId ||
+      fallbackId ||
+      ""
+  ).trim();
+
+  return username || fallbackId;
+}
+
+function getStudentSecondaryLabel(student) {
+  const username = getStudentUsername(student);
+  const studentId = normalizeStudentId(student);
+
+  if (!username && !studentId) {
+    return "";
+  }
+
+  if (username && studentId && username !== studentId) {
+    return `Username: ${username} - Student: ${studentId}`;
+  }
+
+  return `Username: ${username || studentId}`;
+}
+
+function getStudentSearchText(student) {
+  return [
+    getStudentDisplayName(student),
+    getStudentUsername(student),
+    normalizeStudentId(student)
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function normalizeSearchValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 const SCENARIO_TITLE_BY_ID = {
   "srl-edge-link": "Edge Link Troubleshooting",
   "branch-static-routing": "Branch Static Routing",
@@ -850,6 +917,23 @@ function StudentListPanel({
   onSelectStudent,
   isLoading
 }) {
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const normalizedSearchQuery = normalizeSearchValue(studentSearchQuery);
+
+  const visibleStudents = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return students;
+    }
+
+    return students.filter((student) =>
+      getStudentSearchText(student).includes(normalizedSearchQuery)
+    );
+  }, [students, normalizedSearchQuery]);
+
+  const studentCountLabel = normalizedSearchQuery
+    ? `${visibleStudents.length} of ${students.length} students`
+    : `${students.length} students`;
+
   return (
     <section className="card instructor-student-list-card">
       <div className="section-title-row">
@@ -860,10 +944,33 @@ function StudentListPanel({
           </p>
         </div>
 
-        <span className="badge neutral">{students.length} students</span>
+        <span className="badge neutral">{studentCountLabel}</span>
       </div>
 
       {isLoading && <p className="muted">Loading students...</p>}
+
+      {!isLoading && students.length > 0 && (
+        <div className="student-search-control">
+          <input
+            aria-label="Search students"
+            className="student-search-input"
+            onChange={(event) => setStudentSearchQuery(event.target.value)}
+            placeholder="Search by name or username..."
+            type="search"
+            value={studentSearchQuery}
+          />
+
+          {studentSearchQuery && (
+            <button
+              className="student-search-clear"
+              onClick={() => setStudentSearchQuery("")}
+              type="button"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {!isLoading && students.length === 0 && (
         <AnalyticsEmptyState
@@ -872,9 +979,18 @@ function StudentListPanel({
         />
       )}
 
+      {!isLoading && students.length > 0 && visibleStudents.length === 0 && (
+        <AnalyticsEmptyState
+          title="No matching students found."
+          message="Try a different name or username."
+        />
+      )}
+
       <div className="student-list">
-        {students.map((student) => {
+        {visibleStudents.map((student) => {
           const studentId = normalizeStudentId(student);
+          const displayName = getStudentDisplayName(student);
+          const secondaryLabel = getStudentSecondaryLabel(student);
           const isSelected = selectedStudentId === studentId;
 
           return (
@@ -884,9 +1000,16 @@ function StudentListPanel({
               onClick={() => onSelectStudent(studentId)}
               type="button"
             >
-              <div>
-                <strong>{studentId}</strong>
-                <span className="muted">
+              <div className="student-list-identity">
+                <strong className="student-list-primary">{displayName}</strong>
+
+                {secondaryLabel && (
+                  <span className="muted student-list-secondary">
+                    {secondaryLabel}
+                  </span>
+                )}
+
+                <span className="muted student-list-secondary">
                   Last activity: {formatDateTime(student.last_activity_at)}
                 </span>
               </div>
@@ -2414,7 +2537,14 @@ function InstructorDashboardPage() {
                     <div className="selected-student-header-main">
                       <div>
                         <span className="muted">Selected Student</span>
-                        <h3>{selectedStudentId}</h3>
+                        <h3>{getStudentDisplayName(selectedStudent || { student_id: selectedStudentId })}</h3>
+
+                        {getStudentSecondaryLabel(selectedStudent || { student_id: selectedStudentId }) && (
+                          <p className="muted selected-student-identity-meta">
+                            {getStudentSecondaryLabel(selectedStudent || { student_id: selectedStudentId })}
+                          </p>
+                        )}
+
                         <p className="muted">
                           Last activity: {formatDateTime(selectedStudent?.last_activity_at || summary?.last_activity_at)}
                         </p>
