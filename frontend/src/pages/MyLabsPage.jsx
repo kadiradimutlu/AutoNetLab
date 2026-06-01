@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
   destroyLab,
@@ -98,8 +98,82 @@ function getTopologySummary(session) {
   };
 }
 
+
+function getSessionTimestamp(session) {
+  const candidates = [
+    session?.updated_at,
+    session?.completed_at,
+    session?.created_at,
+    session?.started_at
+  ];
+
+  for (const candidate of candidates) {
+    const time = new Date(candidate || 0).getTime();
+
+    if (Number.isFinite(time) && time > 0) {
+      return time;
+    }
+  }
+
+  return 0;
+}
+
+function getScenarioTitleForSession(session, topologySummary) {
+  return (
+    session?.scenario_title ||
+    session?.scenario_name ||
+    session?.scenario_id ||
+    session?.topology_template ||
+    topologySummary?.name ||
+    "Lab scenario"
+  );
+}
+
+function getFaultResolutionScore(session) {
+  return session?.fault_resolution_score ?? session?.score ?? "-";
+}
+
+function getMyLabsSearchText(session, topologySummary) {
+  return [
+    session?.session_id,
+    session?.student_id,
+    session?.scenario_id,
+    session?.scenario_title,
+    session?.scenario_name,
+    session?.topology_template,
+    topologySummary?.name,
+    session?.difficulty,
+    session?.status,
+    session?.passed === true ? "passed" : "",
+    session?.passed === false ? "failed" : ""
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function sortMyLabsSessions(sessions, sortMode) {
+  return [...sessions].sort((left, right) => {
+    if (sortMode === "oldest") {
+      return getSessionTimestamp(left) - getSessionTimestamp(right);
+    }
+
+    if (sortMode === "score_high") {
+      return Number(getFaultResolutionScore(right) || -1) - Number(getFaultResolutionScore(left) || -1);
+    }
+
+    if (sortMode === "score_low") {
+      return Number(getFaultResolutionScore(left) || -1) - Number(getFaultResolutionScore(right) || -1);
+    }
+
+    return getSessionTimestamp(right) - getSessionTimestamp(left);
+  });
+}
+
 function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
   const [sessions, setSessions] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState("newest");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [closingSessionId, setClosingSessionId] = useState("");
@@ -208,6 +282,25 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
     }
   }
 
+  const filteredAndSortedSessions = useMemo(() => {
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+    const matchedSessions = sessions.filter((session) => {
+      if (!normalizedSearchQuery) {
+        return true;
+      }
+
+      const topologySummary = getTopologySummary(session);
+      return getMyLabsSearchText(session, topologySummary).includes(normalizedSearchQuery);
+    });
+
+    return sortMyLabsSessions(matchedSessions, sortMode);
+  }, [sessions, searchQuery, sortMode]);
+
+  const hasLabHistory = sessions.length > 0;
+  const hasFilteredLabHistory = filteredAndSortedSessions.length > 0;
+
+
   return (
     <section className="my-labs-page">
       <div className="section-title-row">
@@ -299,6 +392,51 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         </section>
       )}
 
+
+      {!isLoading && hasLabHistory && (
+        <div className="card my-labs-toolbar">
+          <div>
+            <span className="my-labs-toolbar-label">Lab history controls</span>
+            <strong>{filteredAndSortedSessions.length} of {sessions.length} labs shown</strong>
+          </div>
+
+          <div className="my-labs-filter-row">
+            <label>
+              <span>Search labs</span>
+              <input
+                className="my-labs-search-input"
+                type="search"
+                value={searchQuery}
+                placeholder="Search by lab id, scenario, difficulty, status, or result"
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Sort by</span>
+              <select
+                className="my-labs-sort-select"
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value)}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="score_high">Highest score</option>
+                <option value="score_low">Lowest score</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && hasLabHistory && !hasFilteredLabHistory && !errorMessage && (
+        <MessageBox
+          type="info"
+          title="No matching labs"
+          message="Adjust the search text or sorting option to find a different lab session."
+        />
+      )}
+
       {!isLoading && sessions.length === 0 && !errorMessage && (
         <MessageBox
           type="info"
@@ -307,7 +445,7 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
         />
       )}
 
-      {!isLoading && sessions.length > 0 && (
+      {!isLoading && hasFilteredLabHistory && (
         <div className="my-labs-list">
           {sessions.map((session) => {
             const topologySummary = getTopologySummary(session);
@@ -322,12 +460,13 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
             const isBusy = isSelected || isClosing || isCleaning;
 
             return (
-              <article className="card my-lab-card" key={session.session_id}>
+              <article className="card my-lab-card my-lab-card-functional" key={session.session_id}>
                 <div className="my-lab-card-header">
                   <div>
-                    <h3>{session.session_id}</h3>
+                    <span className="my-lab-session-id">{session.session_id}</span>
+                    <h3>{getScenarioTitleForSession(session, topologySummary)}</h3>
                     <p className="muted">
-                      {topologySummary.name} / {topologySummary.nodeCount} devices / {topologySummary.linkCount} links
+                      {topologySummary.nodeCount} devices / {topologySummary.linkCount} links
                     </p>
                   </div>
 
@@ -346,8 +485,8 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
 
                 <div className="my-lab-detail-grid">
                   <div>
-                    <span className="muted">Score</span>
-                    <strong>{session.score ?? "-"}</strong>
+                    <span className="muted">Fault Resolution Score</span>
+                    <strong className="my-lab-score-value">{getFaultResolutionScore(session)}</strong>
                   </div>
 
                   <div>
@@ -361,12 +500,8 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                   </div>
 
                   <div>
-                    <span className="muted">Devices</span>
-                    <strong>
-                      {topologySummary.devices.length > 0
-                        ? topologySummary.devices.join(", ")
-                        : "-"}
-                    </strong>
+                    <span className="muted">Scenario</span>
+                    <strong>{getScenarioTitleForSession(session, topologySummary)}</strong>
                   </div>
                 </div>
 
@@ -387,14 +522,16 @@ function MyLabsPage({ authUser, onLabSelected, onNavigate }) {
                 )}
 
                 <div className="actions">
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={() => handleOpenLab(session, "workspace")}
-                    disabled={isBusy}
-                  >
-                    {isSelected ? "Opening..." : "Open Workspace"}
-                  </button>
+                  {isActive && (
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={() => handleOpenLab(session, "workspace")}
+                      disabled={isBusy}
+                    >
+                      {isSelected ? "Opening..." : "Open Workspace"}
+                    </button>
+                  )}
 
                   {hasResults && (
                     <button
