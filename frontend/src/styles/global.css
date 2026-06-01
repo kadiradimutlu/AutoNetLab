@@ -5364,7 +5364,7 @@ html {
 }
 
 .network-diagram-canvas.campus {
-  min-height: 620px;
+  min-height: 700px;
   padding: 1rem;
   overflow-x: auto;
   overflow-y: hidden;
@@ -5372,8 +5372,8 @@ html {
 
 .campus-topology-diagram {
   position: relative;
-  min-width: 1080px;
-  min-height: 560px;
+  min-width: 1220px;
+  min-height: 640px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 24px;
@@ -5388,6 +5388,7 @@ html {
   inset: 24px;
   width: calc(100% - 48px);
   height: calc(100% - 48px);
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -5413,7 +5414,7 @@ html {
 
 .campus-node {
   position: absolute;
-  width: 176px;
+  width: 200px;
   transform: translate(-50%, -50%);
   z-index: 2;
 }
@@ -5453,30 +5454,15 @@ html {
   display: none;
 }
 
-.campus-node-client1 { left: 14%; top: 61%; }
-.campus-node-srl1 { left: 31%; top: 32%; }
-.campus-node-srl3 { left: 50%; top: 20%; }
-.campus-node-srl2 { left: 69%; top: 32%; }
-.campus-node-client2 { left: 86%; top: 61%; }
+.campus-node-client1 { left: 12%; top: 66%; }
+.campus-node-srl1 { left: 30%; top: 38%; }
+.campus-node-srl3 { left: 50%; top: 24%; }
+.campus-node-srl2 { left: 70%; top: 38%; }
+.campus-node-client2 { left: 88%; top: 66%; }
 .campus-node-srl4 { left: 50%; top: 79%; }
 
 .campus-link-label {
-  position: absolute;
-  z-index: 1;
-  max-width: 148px;
-  padding: 0.24rem 0.42rem;
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #1e293b;
-  font-size: 0.62rem;
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: center;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  transform: translate(-50%, -50%);
-  white-space: normal;
-  pointer-events: none;
+  display: none;
 }
 
 .campus-link-label-client1-srl1 { left: 22%; top: 44%; }
@@ -5488,11 +5474,11 @@ html {
 
 @media (max-width: 900px) {
   .network-diagram-canvas.campus {
-    min-height: 600px;
+    min-height: 680px;
   }
 
   .campus-topology-diagram {
-    min-width: 1020px;
+    min-width: 1180px;
   }
 }
 
