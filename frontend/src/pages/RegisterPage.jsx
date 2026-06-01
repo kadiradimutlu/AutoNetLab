@@ -35,6 +35,7 @@ function validateRegisterForm(form, suggestedStudentId) {
   const errors = {};
   const username = form.username.trim();
   const password = form.password;
+  const displayName = form.display_name.trim();
   const email = form.email.trim();
   const studentId = form.student_id.trim() || suggestedStudentId || username;
 
@@ -48,6 +49,10 @@ function validateRegisterForm(form, suggestedStudentId) {
     errors.password = "Password is required.";
   } else if (password.length < 6) {
     errors.password = "Password must be at least 6 characters.";
+  }
+
+  if (!displayName || displayName.length < 3) {
+    errors.display_name = "Display name must be at least 3 characters.";
   }
 
   if (!isValidEmail(email)) {
@@ -127,15 +132,16 @@ function RegisterPage({ onNavigateLogin }) {
   }
 
   function getFieldHelp(field) {
-    if (fieldErrors[field]) {
-      return <p className="field-error">{fieldErrors[field]}</p>;
-    }
+    const helpMessage =
+      fieldErrors[field] ||
+      (focusedField === field ? FIELD_HELPERS[field] : "");
+    const helpClassName = fieldErrors[field] ? "field-error" : "form-helper";
 
-    if (focusedField === field && FIELD_HELPERS[field]) {
-      return <p className="form-helper">{FIELD_HELPERS[field]}</p>;
-    }
-
-    return null;
+    return (
+      <div className="field-feedback-slot" aria-live="polite">
+        {helpMessage ? <p className={helpClassName}>{helpMessage}</p> : null}
+      </div>
+    );
   }
 
   async function handleSubmit(event) {
@@ -156,11 +162,11 @@ function RegisterPage({ onNavigateLogin }) {
     setIsSubmitting(true);
 
     const username = form.username.trim();
-    const displayName = form.display_name.trim() || username;
+    const displayName = form.display_name.trim();
     const studentId = form.student_id.trim() || suggestedStudentId || username;
 
     try {
-      const result = await registerUser({
+      await registerUser({
         username,
         password: form.password,
         display_name: displayName,
@@ -168,10 +174,7 @@ function RegisterPage({ onNavigateLogin }) {
         student_id: studentId
       });
 
-      setSuccessMessage(
-        result?.message ||
-          "Registration successful. Redirecting you to the sign in page..."
-      );
+      setSuccessMessage("Your account was created. You will be redirected in a few seconds.");
 
       setForm({
         username: "",
@@ -211,30 +214,32 @@ function RegisterPage({ onNavigateLogin }) {
           </p>
         </div>
 
-        {successMessage && (
-          <MessageBox
-            type="success"
-            title="Registration successful"
-            message={`${successMessage} You will be redirected in a few seconds.`}
-          />
-        )}
-
-        {errorMessage && (
-          <>
+        <div className="auth-message-region" aria-live="polite">
+          {successMessage && (
             <MessageBox
-              type="error"
-              title="Registration failed"
-              message={errorMessage}
+              type="success"
+              title="Registration successful"
+              message={successMessage}
             />
+          )}
 
-            {errorDetails && (
-              <details className="technical-detail-box auth-technical-details">
-                <summary>Show diagnostics</summary>
-                <p>{errorDetails}</p>
-              </details>
-            )}
-          </>
-        )}
+          {errorMessage && (
+            <>
+              <MessageBox
+                type="error"
+                title="Registration failed"
+                message={errorMessage}
+              />
+
+              {errorDetails && (
+                <details className="technical-detail-box auth-technical-details">
+                  <summary>Show diagnostics</summary>
+                  <p>{errorDetails}</p>
+                </details>
+              )}
+            </>
+          )}
+        </div>
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className={`form-group ${fieldErrors.username ? "has-error" : ""}`}>
@@ -246,7 +251,7 @@ function RegisterPage({ onNavigateLogin }) {
               onBlur={() => setFocusedField("")}
               onChange={(event) => updateField("username", event.target.value)}
               autoComplete="username"
-              placeholder="alice"
+              placeholder="muhammed"
               aria-invalid={Boolean(fieldErrors.username)}
             />
             {getFieldHelp("username")}
@@ -287,13 +292,13 @@ function RegisterPage({ onNavigateLogin }) {
               onFocus={() => setFocusedField("display_name")}
               onBlur={() => setFocusedField("")}
               onChange={(event) => updateField("display_name", event.target.value)}
-              placeholder="Alice Student"
+              placeholder="Muhammed YILDIZ"
             />
             {getFieldHelp("display_name")}
           </div>
 
           <div className={`form-group ${fieldErrors.email ? "has-error" : ""}`}>
-            <label htmlFor="registerEmail">Email</label>
+            <label htmlFor="registerEmail">Email (Optional)</label>
             <input
               id="registerEmail"
               type="email"
@@ -301,7 +306,7 @@ function RegisterPage({ onNavigateLogin }) {
               onFocus={() => setFocusedField("email")}
               onBlur={() => setFocusedField("")}
               onChange={(event) => updateField("email", event.target.value)}
-              placeholder="alice@example.com"
+              placeholder="muhammed@example.com"
               aria-invalid={Boolean(fieldErrors.email)}
             />
             {getFieldHelp("email")}
@@ -315,7 +320,7 @@ function RegisterPage({ onNavigateLogin }) {
               onFocus={() => setFocusedField("student_id")}
               onBlur={() => setFocusedField("")}
               onChange={(event) => updateField("student_id", event.target.value)}
-              placeholder="alice"
+              placeholder="muhammed"
               aria-invalid={Boolean(fieldErrors.student_id)}
             />
             {getFieldHelp("student_id")}
