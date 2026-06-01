@@ -1227,7 +1227,29 @@ function StudentDetailOverview({
 }
 
 function StudentSessionsTable({ sessions, onViewDetails }) {
-  const newestFirstSessions = getNewestFirstSessions(sessions);
+  const [sessionSearchQuery, setSessionSearchQuery] = useState("");
+  const normalizedSessionSearchQuery = normalizeSearchValue(sessionSearchQuery);
+
+  const visibleSessions = useMemo(() => {
+    const matchingSessions = normalizedSessionSearchQuery
+      ? sessions.filter((session) => {
+          const sessionId = String(
+            session?.session_id ||
+              session?.sessionId ||
+              session?.id ||
+              ""
+          ).toLowerCase();
+
+          return sessionId.includes(normalizedSessionSearchQuery);
+        })
+      : sessions;
+
+    return getNewestFirstSessions(matchingSessions);
+  }, [sessions, normalizedSessionSearchQuery]);
+
+  const sessionCountLabel = normalizedSessionSearchQuery
+    ? `${visibleSessions.length} of ${sessions.length} sessions`
+    : `${sessions.length} sessions`;
 
   return (
     <section className="card student-session-history-card">
@@ -1239,16 +1261,37 @@ function StudentSessionsTable({ sessions, onViewDetails }) {
           </p>
         </div>
 
-        <span className="badge neutral">{newestFirstSessions.length} sessions</span>
+        <span className="badge neutral">{sessionCountLabel}</span>
       </div>
 
-      {newestFirstSessions.length === 0 ? (
+      {sessions.length === 0 ? (
         <AnalyticsEmptyState
           title="No sessions found."
           message="This student does not have lab session history yet."
         />
       ) : (
         <div className="table-wrapper student-session-table-wrapper">
+          <div className="session-history-search-control">
+        <input
+          aria-label="Search sessions by session id"
+          className="session-history-search-input"
+          onChange={(event) => setSessionSearchQuery(event.target.value)}
+          placeholder="Search by session id..."
+          type="search"
+          value={sessionSearchQuery}
+        />
+
+        {sessionSearchQuery && (
+          <button
+            className="session-history-search-clear"
+            onClick={() => setSessionSearchQuery("")}
+            type="button"
+          >
+            Clear
+          </button>
+        )}
+          </div>
+
           <table className="analytics-table student-session-table">
             <thead>
               <tr>
@@ -1264,7 +1307,15 @@ function StudentSessionsTable({ sessions, onViewDetails }) {
             </thead>
 
             <tbody>
-              {newestFirstSessions.map((session) => {
+              {visibleSessions.length === 0 && (
+              <tr>
+                <td className="session-history-empty-cell" colSpan={8}>
+                  No matching sessions found.
+                </td>
+              </tr>
+              )}
+
+              {visibleSessions.map((session) => {
                 const faultScore = getFaultScore(session);
 
                 return (
