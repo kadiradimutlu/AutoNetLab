@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class DifficultyDistributionItem(BaseModel):
@@ -37,6 +37,8 @@ class RecentSessionItem(BaseModel):
 
 class StudentListItem(BaseModel):
     student_id: str = Field(..., examples=["demo-student"])
+    username: str | None = Field(default=None, examples=["alice"])
+    display_name: str | None = Field(default=None, examples=["Alice Student"])
     total_sessions: int = Field(..., ge=0, examples=[6])
     completed_sessions: int = Field(..., ge=0, examples=[4])
     active_sessions: int = Field(..., ge=0, examples=[2])

@@ -90,7 +90,7 @@ function DifficultyDistributionChart({ distribution }) {
         <div>
           <h3>Difficulty Performance</h3>
           <p className="muted">
-            Lab outcomes grouped by difficulty, pass rate, and average score.
+            Lab outcomes grouped by difficulty, pass rate, and average fault score.
           </p>
         </div>
       </div>
@@ -130,7 +130,7 @@ function DifficultyDistributionChart({ distribution }) {
                 <span>Completed: {formatNumber(item.completed_count, "0")}</span>
                 <span>Passed: {formatNumber(item.passed_count, "0")}</span>
                 <span>Pass Rate: {formatPercent(item.pass_rate)}</span>
-                <span>Average Score: {formatNumber(item.average_score)}</span>
+                <span>Average Fault Score: {formatNumber(item.average_score)}</span>
               </div>
             </div>
           ))}

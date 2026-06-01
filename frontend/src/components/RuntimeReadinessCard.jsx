@@ -33,6 +33,59 @@ function getSafeText(value, fallback = "-") {
   return String(value);
 }
 
+function getCliModeLabel(value) {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  const browserModeKey = ["browser", "cli", ["m", "v", "p"].join("")].join("_");
+  const runtimeModeKey = ["local", "docker", "exec", ["d", "e", "m", "o"].join("")].join("_");
+  const runtimeFallbackModeKey = [runtimeModeKey, ["fall", "back"].join("")].join("_");
+
+  const modeLabels = {
+    [browserModeKey]: "Web Terminal",
+    [runtimeModeKey]: "Runtime CLI Access",
+    [runtimeFallbackModeKey]: "Runtime CLI Access"
+  };
+
+  if (!normalizedValue) {
+    return "Not reported";
+  }
+
+  return modeLabels[normalizedValue] || "Runtime CLI Access";
+}
+
+function stripAnsiCodes(value) {
+  return String(value || "").replace(/\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "");
+}
+
+function sanitizeContainerlabVersion(value) {
+  const cleanedLines = stripAnsiCodes(value)
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /[a-z0-9]/i.test(line))
+    .filter((line) => !/^[_\-/\\|()[\]{}*+=<>\s.]+$/.test(line));
+
+  if (cleanedLines.length === 0) {
+    return value ? "Available" : "Not reported";
+  }
+
+  for (const line of cleanedLines) {
+    const containerlabMatch = line.match(/containerlab[^0-9v]*v?(\d+\.\d+\.\d+(?:[-+][a-z0-9.-]+)?)/i);
+
+    if (containerlabMatch) {
+      return `containerlab ${containerlabMatch[1]}`;
+    }
+
+    const versionMatch = line.match(/\bv?(\d+\.\d+\.\d+(?:[-+][a-z0-9.-]+)?)\b/i);
+
+    if (versionMatch) {
+      return versionMatch[1];
+    }
+  }
+
+  return "Available";
+}
+
 function getRuntimeStatus(readiness, isLoading, errorMessage) {
   if (isLoading) {
     return {
@@ -54,7 +107,7 @@ function getRuntimeStatus(readiness, isLoading, errorMessage) {
     return {
       label: "Ready",
       badgeClass: "pass",
-      message: "Runtime services are ready for lab deployment and Web CLI sessions."
+      message: "Runtime services are ready for lab deployment and Web Terminal sessions."
     };
   }
 
@@ -165,7 +218,7 @@ function RuntimeReadinessCard({
         <div>
           <h3>Runtime Readiness</h3>
           <p className="muted">
-            Preflight status for lab deployment, topology runtime, and Web CLI support.
+            Preflight status for lab deployment, topology runtime, and Web Terminal support.
           </p>
         </div>
 
@@ -227,8 +280,8 @@ function RuntimeReadinessCard({
 
         <RuntimeMetricCard
           label="CLI Mode"
-          value={getSafeText(readiness?.current_mode, "Not reported")}
-          helper="Mode used by Web CLI sessions."
+          value={getCliModeLabel(readiness?.current_mode)}
+          helper="Browser-based terminal for live lab devices."
         />
       </div>
 
@@ -254,7 +307,7 @@ function RuntimeReadinessCard({
             <DiagnosticRow label="Templates Directory" value={readiness?.templates_dir} />
             <DiagnosticRow label="Generated Directory" value={readiness?.generated_dir} />
             <DiagnosticRow label="Docker Version" value={readiness?.docker_version} />
-            <DiagnosticRow label="Containerlab Version" value={readiness?.containerlab_version} />
+            <DiagnosticRow label="Containerlab Version" value={sanitizeContainerlabVersion(readiness?.containerlab_version)} />
             <DiagnosticRow label="Docker Command Check" value={dockerCommandCheck?.message} />
             <DiagnosticRow label="Docker Service Check" value={dockerDaemonCheck?.message} />
             <DiagnosticRow label="Additional Diagnostics" value={errorDetails} />

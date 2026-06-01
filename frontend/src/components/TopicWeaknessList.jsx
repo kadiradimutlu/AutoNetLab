@@ -91,7 +91,7 @@ function TopicWeaknessList({ topicWeaknesses }) {
 
                 <div className="analytics-bar-meta analytics-bar-meta-v2">
                   <span>Failure Rate: {formatNumber(item.failure_rate)}%</span>
-                  <span>Average Score: {formatNumber(item.average_score, "-")}</span>
+                  <span>Average Fault Score: {formatNumber(item.average_score, "-")}</span>
                   <span>Topic Key: {item.topic || "-"}</span>
                 </div>
               </div>

@@ -129,6 +129,66 @@ def get_recent_sessions(limit: int = 10) -> dict:
     }
 
 
+
+def _load_student_identity_map(student_ids: set[str]) -> dict[str, dict[str, str]]:
+    normalized_student_ids = sorted(
+        {
+            _normalize_student_id(student_id)
+            for student_id in student_ids
+            if _normalize_student_id(student_id)
+        }
+    )
+
+    if not normalized_student_ids:
+        return {}
+
+    try:
+        import os
+
+        from sqlalchemy import bindparam, create_engine, text
+    except Exception:
+        return {}
+
+    database_url = os.getenv("DATABASE_URL")
+
+    if not database_url:
+        return {}
+
+    try:
+        engine = create_engine(database_url)
+        statement = text(
+            """
+            SELECT username, display_name
+            FROM users
+            WHERE username IN :student_ids
+            """
+        ).bindparams(bindparam("student_ids", expanding=True))
+
+        with engine.connect() as connection:
+            rows = connection.execute(
+                statement,
+                {"student_ids": normalized_student_ids},
+            ).mappings().all()
+    except Exception:
+        return {}
+
+    identity_map: dict[str, dict[str, str]] = {}
+
+    for row in rows:
+        username = _normalize_student_id(row.get("username"))
+        display_name = str(row.get("display_name") or "").strip()
+
+        if not username:
+            continue
+
+        identity_map[username] = {
+            "username": username,
+            "display_name": display_name or username,
+        }
+
+    return identity_map
+
+
 def get_students(limit: int = 100) -> dict:
     sessions = _load_session_records()
 
@@ -139,6 +199,7 @@ def get_students(limit: int = 100) -> dict:
         grouped[student_id].append(session)
 
     students = []
+    student_identity_map = _load_student_identity_map(set(grouped.keys()))
 
     for student_id, student_sessions in grouped.items():
         completed_sessions = [
@@ -168,9 +229,15 @@ def get_students(limit: int = 100) -> dict:
             else 0.0
         )
 
+        student_identity = student_identity_map.get(student_id, {})
+        username = student_identity.get("username") or student_id
+        display_name = student_identity.get("display_name") or student_id
+
         students.append(
             {
                 "student_id": student_id,
+                "username": username,
+                "display_name": display_name,
                 "total_sessions": len(student_sessions),
                 "completed_sessions": len(completed_sessions),
                 "active_sessions": len(active_sessions),
