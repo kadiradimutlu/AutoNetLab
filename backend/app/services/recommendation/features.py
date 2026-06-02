@@ -93,24 +93,116 @@ def build_topic_performance(validation_result: dict[str, Any]) -> list[dict[str,
 def build_ml_feature_rows(
     topic_performance: list[dict[str, Any]],
     overall_score: int | None,
+    validation_result: dict[str, Any] | None = None,
+    session: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
+    validation_result = validation_result if isinstance(validation_result, dict) else {}
+    session = session if isinstance(session, dict) else {}
+
+    scenario_id = _scenario_id_from_session(session) or str(validation_result.get("scenario_id") or "")
+    difficulty = str(session.get("difficulty") or validation_result.get("difficulty") or "")
+
+    fault_resolution_score = _coerce_int(
+        validation_result.get("fault_resolution_score"),
+        default=_coerce_int(overall_score, default=0),
+    )
+    network_health_score = _coerce_int(
+        validation_result.get("network_health_score"),
+        default=fault_resolution_score,
+    )
+
+    affected_topics = _list_of_strings(validation_result.get("affected_topics"))
+    failed_topics = _list_of_strings(validation_result.get("failed_topics"))
+    resolved_topics = _list_of_strings(validation_result.get("resolved_topics"))
+
+    ml_training_sample = validation_result.get("ml_training_sample")
+    if isinstance(ml_training_sample, dict):
+        affected_topics.extend(_list_of_strings(ml_training_sample.get("affected_topics")))
+        failed_topics.extend(_list_of_strings(ml_training_sample.get("failed_topics")))
+        resolved_topics.extend(_list_of_strings(ml_training_sample.get("resolved_topics")))
+
     rows: list[dict[str, Any]] = []
 
     for item in topic_performance:
         if item.get("fail_count", 0) <= 0:
             continue
 
+        topic = str(item.get("topic") or "general_troubleshooting")
+        failed_checks = item.get("failed_checks", [])
+        failed_check_ids: list[str] = []
+
+        if isinstance(failed_checks, list):
+            for failed_check in failed_checks:
+                if not isinstance(failed_check, dict):
+                    continue
+
+                check_id = failed_check.get("check_id")
+                if check_id:
+                    failed_check_ids.append(str(check_id))
+
+        row_failed_topics = sorted(set([topic, *failed_topics]))
+
         rows.append(
             {
-                "topic": item["topic"],
+                "topic": topic,
+                "scenario_id": scenario_id,
+                "difficulty": difficulty,
                 "failure_rate": float(item.get("failure_rate", 0.0)),
                 "failed_count": int(item.get("fail_count", 0)),
                 "attempt_count": int(item.get("attempt_count", 0)),
                 "overall_score": int(overall_score if overall_score is not None else 0),
+                "score_impact": int(item.get("score_impact", 0)),
+                "failed_check_ids": failed_check_ids,
+                "failed_topics": row_failed_topics,
+                "affected_topics": sorted(set(affected_topics)),
+                "resolved_topics": sorted(set(resolved_topics)),
+                "fault_resolution_score": fault_resolution_score,
+                "network_health_score": network_health_score,
+                "passed": validation_result.get("passed"),
             }
         )
 
     return rows
+
+
+def _scenario_id_from_session(session: dict[str, Any]) -> str:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict) and scenario.get("id"):
+        return str(scenario["id"])
+
+    if session.get("scenario_id"):
+        return str(session["scenario_id"])
+
+    if session.get("topology_template"):
+        return str(session["topology_template"])
+
+    return ""
+
+
+def _list_of_strings(value: Any) -> list[str]:
+    if value is None:
+        return []
+
+    if isinstance(value, (list, tuple, set)):
+        return [
+            str(item)
+            for item in value
+            if item is not None and str(item).strip()
+        ]
+
+    if isinstance(value, str) and value.strip():
+        return [value]
+
+    return []
+
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
 
 
 def _coerce_int(value: Any, default: int = 0) -> int:

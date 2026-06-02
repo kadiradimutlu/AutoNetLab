@@ -48,27 +48,32 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
     feature_rows = build_ml_feature_rows(
         topic_performance=topic_performance,
         overall_score=score,
+        validation_result=validation_result,
+        session=session,
     )
 
-    ml_predictions_list = predict_topic_priorities(feature_rows)
+    try:
+        ml_predictions_list = predict_topic_priorities(feature_rows)
+    except Exception:
+        ml_predictions_list = None
+
     ml_predictions = {
         item["topic"]: item
         for item in ml_predictions_list
+        if isinstance(item, dict) and item.get("topic")
     } if ml_predictions_list else {}
 
     if ml_predictions:
         source = "hybrid"
         fallback_used = False
         message = (
-            "Hybrid recommendations generated using rule-based validation signals "
-            "and the optional ML prototype."
+            "Recommendations generated from validation signals and topic performance."
         )
     else:
         source = "rule_based"
         fallback_used = True
         message = (
-            "Rule-based fallback recommendations generated successfully. "
-            "ML prototype was unavailable or did not produce a reliable prediction."
+            "Recommendations generated from validation signals and topic performance."
         )
 
     recommendations = build_rule_based_recommendations(

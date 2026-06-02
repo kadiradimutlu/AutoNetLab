@@ -66,7 +66,7 @@ def build_rule_based_recommendations(
             priority = ml_prediction.get("priority", rule_priority)
             confidence = max(rule_confidence, float(ml_prediction.get("confidence", 0.0)))
             item_source = source
-            reason = f"Rule-based validation and ML prototype both indicate weakness in {label}."
+            reason = f"Validation patterns indicate weakness in {label}."
         else:
             priority = rule_priority
             confidence = rule_confidence
