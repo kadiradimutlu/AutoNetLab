@@ -1,10 +1,38 @@
-﻿import MessageBox from "./MessageBox";
-import ValidationCheckList from "./ValidationCheckList";
+import MessageBox from "./MessageBox";
 import { useLanguage } from "../hooks/useLanguage";
 import {
   getValidationStatusClass,
   getValidationStatusLabel
 } from "../utils/formatters";
+
+const CAMPUS_SCENARIO_ID = "campus-core-routing";
+
+const FOCUS_AREA_RULES = [
+  {
+    label: "Default Gateway",
+    keywords: ["default_gateway", "default gateway", "gateway", "client2_default_gateway"]
+  },
+  {
+    label: "Connectivity",
+    keywords: ["connectivity", "reachability", "ping", "client1_to_client2", "client2_to_client1"]
+  },
+  {
+    label: "Static Routing",
+    keywords: ["static_route", "static route", "route", "routing", "next-hop", "next hop"]
+  },
+  {
+    label: "Interface State",
+    keywords: ["interface", "admin-state", "oper-state", "link state", "link"]
+  },
+  {
+    label: "IP Addressing",
+    keywords: ["address", "ip address", "subnet", "prefix"]
+  },
+  {
+    label: "Network Instance",
+    keywords: ["network_instance", "network instance"]
+  }
+];
 
 function isCheckPassed(check) {
   const status = String(check.status || "").toLowerCase();
@@ -30,9 +58,15 @@ function getSafeNumber(value, fallback = 0) {
   return numericValue;
 }
 
-function getScore(validationResult, checks) {
-  if (validationResult.score !== undefined && validationResult.score !== null) {
-    return getSafeNumber(validationResult.score);
+function clampScore(value, fallback = 0) {
+  const numericValue = getSafeNumber(value, fallback);
+
+  return Math.min(Math.max(Math.round(numericValue), 0), 100);
+}
+
+function getNetworkHealthScore(validationResult, checks) {
+  if (validationResult.network_health_score !== undefined && validationResult.network_health_score !== null) {
+    return clampScore(validationResult.network_health_score);
   }
 
   const earnedPoints = checks.reduce(
@@ -48,13 +82,189 @@ function getScore(validationResult, checks) {
     return 0;
   }
 
-  return Math.round((earnedPoints / maxPoints) * 100);
+  return clampScore((earnedPoints / maxPoints) * 100);
+}
+
+function getFaultResolutionScore(validationResult, checks) {
+  if (validationResult.fault_resolution_score !== undefined && validationResult.fault_resolution_score !== null) {
+    return clampScore(validationResult.fault_resolution_score);
+  }
+
+  if (validationResult.score !== undefined && validationResult.score !== null) {
+    return clampScore(validationResult.score);
+  }
+
+  return getNetworkHealthScore(validationResult, checks);
+}
+
+function normalizeTopicList(value) {
+  if (!value) {
+    return [];
+  }
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "object"
+      ? Object.values(value)
+      : [value];
+
+  return rawItems
+    .map((item) => {
+      if (!item) {
+        return "";
+      }
+
+      if (typeof item === "object") {
+        return item.label || item.topic || item.name || item.id || "";
+      }
+
+      return String(item);
+    })
+    .filter(Boolean)
+    .map((item) => String(item).replace(/_/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+function getCheckSearchText(check) {
+  return [
+    check?.check_id,
+    check?.id,
+    check?.name,
+    check?.label,
+    check?.topic,
+    check?.category,
+    check?.description,
+    check?.message,
+    check?.hint
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+}
+
+function getFocusArea(check) {
+  const text = getCheckSearchText(check);
+
+  const matchedRule = FOCUS_AREA_RULES.find((rule) =>
+    rule.keywords.some((keyword) => text.includes(keyword))
+  );
+
+  return matchedRule?.label || "General Validation";
+}
+
+function getCheckIdentifier(check) {
+  return [
+    check?.check_id,
+    check?.id,
+    check?.name,
+    check?.description,
+    check?.message,
+    check?.topic,
+    check?.category
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+}
+
+function isCampusValidation(validationResult, checks) {
+  const identity = [
+    validationResult?.scenario_id,
+    validationResult?.topology_template,
+    validationResult?.scenario,
+    validationResult?.topology?.name,
+    validationResult?.lab?.scenario_id
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+
+  const checkIdentity = checks.map((check) => getCheckIdentifier(check)).join(" ");
+
+  return (
+    identity.includes(CAMPUS_SCENARIO_ID) ||
+    identity.includes("campus") ||
+    checkIdentity.includes("campus_check") ||
+    (checks.length >= 10 && checkIdentity.includes("client2") && checkIdentity.includes("srl"))
+  );
+}
+
+function buildAreaSummary(failedChecks) {
+  const areaMap = failedChecks.reduce((map, check) => {
+    const area = getFocusArea(check);
+    map.set(area, (map.get(area) || 0) + 1);
+    return map;
+  }, new Map());
+
+  return Array.from(areaMap.entries()).map(([label, count]) => ({
+    label,
+    count
+  }));
+}
+
+function getGuidanceMessage({ allChecksPassed, isCampus, failedAreas }) {
+  if (allChecksPassed && isCampus) {
+    return "Campus validation passed. Client gateways, SR Linux routing, interface state, and end-to-end connectivity are aligned.";
+  }
+
+  if (allChecksPassed) {
+    return "All checks passed. Review the completed checks and recommendations for your final understanding.";
+  }
+
+  const hasDefaultGatewayIssue = failedAreas.some((area) => area.label === "Default Gateway");
+  const hasConnectivityIssue = failedAreas.some((area) => area.label === "Connectivity");
+
+  if (isCampus && (hasDefaultGatewayIssue || hasConnectivityIssue)) {
+    return "Review the client default gateway and retest end-to-end connectivity.";
+  }
+
+  if (isCampus) {
+    return "Review the failed campus areas, compare them with the design guide, and run validation again.";
+  }
+
+  return "Review failed topics and use the general hints before running validation again.";
+}
+
+function getNextSteps({ allChecksPassed, isCampus, failedAreas }) {
+  if (allChecksPassed) {
+    return [
+      "Review the passed checks to confirm the expected network state.",
+      "Finish the lab when you are ready to preserve the successful result."
+    ];
+  }
+
+  const steps = [];
+
+  if (failedAreas.some((area) => area.label === "Default Gateway")) {
+    steps.push("Compare the client default gateway with the Addressing Table.");
+  }
+
+  if (failedAreas.some((area) => area.label === "Connectivity")) {
+    steps.push("Retest client-to-client connectivity after fixing the failed area.");
+  }
+
+  if (failedAreas.some((area) => area.label === "Static Routing")) {
+    steps.push("Inspect static routes and next-hop reachability across the SR Linux core.");
+  }
+
+  if (failedAreas.some((area) => area.label === "Interface State")) {
+    steps.push("Confirm that the relevant SR Linux interfaces are administratively and operationally up.");
+  }
+
+  if (!steps.length) {
+    steps.push("Start with the failed checks, then compare the live state with the scenario design guide.");
+  }
+
+  if (isCampus) {
+    steps.push("Use Web CLI to update the live configuration, then run validation again.");
+  }
+
+  return steps.slice(0, 4);
 }
 
 function ValidationSummary({
   validationResult,
-  isValidating,
-  showDebugEvidence = false
+  isValidating
 }) {
   const { t } = useLanguage();
 
@@ -88,22 +298,44 @@ function ValidationSummary({
     ? validationResult.checks
     : [];
 
+  const computedPassedChecks = checks.filter((check) => isCheckPassed(check)).length;
   const totalChecks = validationResult.total_checks ?? checks.length;
-  const passedChecks =
-    validationResult.passed_checks ??
-    checks.filter((check) => isCheckPassed(check)).length;
-  const failedChecks = Math.max(totalChecks - passedChecks, 0);
-
-  const score = getScore(validationResult, checks);
-  const safeScore = Math.min(Math.max(score, 0), 100);
+  const passedChecks = validationResult.passed_checks ?? computedPassedChecks;
+  const failedChecks = validationResult.failed_checks ?? Math.max(totalChecks - passedChecks, 0);
+  const failedCheckItems = checks.filter((check) => !isCheckPassed(check));
+  const allChecksPassed =
+    validationResult.passed === true || (totalChecks > 0 && failedChecks === 0);
+  const faultResolutionScore = getFaultResolutionScore(validationResult, checks);
+  const affectedTopics = normalizeTopicList(validationResult.affected_topics || validationResult.affectedTopics);
+  const failedTopics = normalizeTopicList(validationResult.failed_topics || validationResult.failedTopics);
+  const resolvedTopics = normalizeTopicList(validationResult.resolved_topics || validationResult.resolvedTopics);
+  const affectedTopicCount = validationResult.affected_topic_count ?? affectedTopics.length;
+  const resolvedTopicCount = validationResult.resolved_topic_count ?? resolvedTopics.length;
+  const failedTopicCount = validationResult.failed_topic_count ?? failedTopics.length;
+  const isCampus = isCampusValidation(validationResult, checks);
+  const failedAreas = buildAreaSummary(failedCheckItems);
+  const guidanceMessage = getGuidanceMessage({
+    allChecksPassed,
+    isCampus,
+    failedAreas
+  });
+  const nextSteps = getNextSteps({
+    allChecksPassed,
+    isCampus,
+    failedAreas
+  });
 
   return (
-    <section className="card validation-summary-card">
-      <div className="section-title-row">
+    <section
+      className={`card validation-summary-card validation-summary-card-polished ${
+        allChecksPassed ? "validation-pass" : "validation-fail"
+      }`}
+    >
+      <div className="section-title-row validation-summary-title-row">
         <div>
           <h3>{t("validationSummary")}</h3>
           <p className="muted">
-            Validation result, topic grouping, points, and learning hints for the current lab session.
+            Fault Resolution Score is the primary result. Network diagnostics are available in the Network Health tab.
           </p>
         </div>
 
@@ -112,63 +344,69 @@ function ValidationSummary({
         </span>
       </div>
 
-      <MessageBox
-        type="info"
-        title="Learner feedback view"
-        message="This view shows only score, check status, topic grouping, and learning hints for students."
-      />
-
-      <div className="validation-status-panel">
-        <div>
+      <div className="validation-result-hero">
+        <div className="validation-result-copy">
+          <span className={`validation-result-state ${allChecksPassed ? "pass" : "fail"}`}>
+            {allChecksPassed ? "PASS" : "FAIL"}
+          </span>
           <h4>
-            {validationResult.passed
-              ? "All checks passed"
-              : "Some checks failed"}
+            {allChecksPassed
+              ? "Validation completed successfully"
+              : "Validation found issues to fix"}
           </h4>
-
-          <p className="muted">
-            Review failed topics and use the general hints before running validation again.
-          </p>
+          <p>{guidanceMessage}</p>
         </div>
 
-        <div className="score-area">
-          <span className="muted">Score</span>
-          <div className="score-box">{safeScore}/100</div>
+        <div className="validation-score-panel">
+          <span>Fault Resolution Score</span>
+          <strong>{faultResolutionScore}/100</strong>
           <div className="score-progress">
             <div
               className="score-progress-fill"
-              style={{ width: `${safeScore}%` }}
+              style={{ width: `${faultResolutionScore}%` }}
             />
           </div>
         </div>
       </div>
 
-      <div className="validation-metrics">
+      <div className="validation-metrics validation-metrics-polished validation-contract-metrics validation-summary-focused-metrics">
         <div className="metric-card">
-          <span>{t("totalChecks")}</span>
-          <strong>{totalChecks}</strong>
+          <span>Affected Topics</span>
+          <strong>{affectedTopicCount}</strong>
         </div>
 
         <div className="metric-card metric-pass">
-          <span>{t("passedChecks")}</span>
-          <strong>{passedChecks}</strong>
+          <span>Resolved Topics</span>
+          <strong>{resolvedTopicCount}</strong>
         </div>
 
         <div className="metric-card metric-fail">
-          <span>{t("failedChecks")}</span>
-          <strong>{failedChecks}</strong>
+          <span>Topics Needing Review</span>
+          <strong>{failedTopicCount}</strong>
         </div>
       </div>
 
-      <h4>Validation Checks</h4>
 
-      <ValidationCheckList
-        checks={checks}
-        showDebugEvidence={showDebugEvidence}
-      />
+      <div className="validation-next-steps-panel">
+        <div>
+          <h4>{allChecksPassed ? "Completion Guidance" : "Recommended Next Steps"}</h4>
+          <p className="muted">
+            Guidance is based on validation status and avoids hidden runtime details.
+          </p>
+        </div>
+
+        <ol className="validation-next-step-list">
+          {nextSteps.map((step, index) => (
+            <li key={step}>
+              <span>{index + 1}</span>
+              <p>{step}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+
     </section>
   );
 }
 
 export default ValidationSummary;
-

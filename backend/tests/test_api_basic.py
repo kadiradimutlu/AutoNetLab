@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 from fastapi.testclient import TestClient
 
@@ -28,7 +29,7 @@ def test_create_lab_medium_returns_success():
         json={
             "student_id": "pytest-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -50,7 +51,7 @@ def test_get_lab_default_response_is_student_safe():
         json={
             "student_id": "pytest-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -80,7 +81,7 @@ def test_get_lab_debug_response_includes_injected_errors():
         json={
             "student_id": "pytest-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -99,7 +100,8 @@ def test_get_lab_debug_response_includes_injected_errors():
     assert data["success"] is True
     assert data["session_id"] == session_id
     assert "injected_errors" in data
-    assert len(data["injected_errors"]) == 3
+    assert len(data["injected_errors"]) == 2
+    assert data["injected_errors"][0]["device"] == "client1"
     assert "hints" in data
 
 
@@ -131,7 +133,7 @@ def test_invalid_difficulty_returns_standard_error():
         json={
             "student_id": "pytest-student",
             "difficulty": "impossible",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -149,7 +151,7 @@ def test_validate_created_lab_returns_validation_result():
         json={
             "student_id": "pytest-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -214,7 +216,7 @@ def test_instructor_analytics_endpoints_after_validation():
         json={
             "student_id": "analytics-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -279,7 +281,7 @@ def test_recommendations_endpoint_before_validation_returns_empty_state():
         json={
             "student_id": "recommendation-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -306,7 +308,7 @@ def test_recommendations_endpoint_after_validation_returns_explanatory_items():
         json={
             "student_id": "recommendation-student",
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -348,7 +350,7 @@ def test_validation_persists_topic_performance_for_ml_ready_history():
         json={
             "student_id": "ml-ready-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -380,7 +382,7 @@ def test_sprint8_validation_checks_include_advanced_fields():
         json={
             "student_id": "sprint8-validation-student",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -399,10 +401,18 @@ def test_sprint8_validation_checks_include_advanced_fields():
 
     allowed_topics = {
         "ip_addressing",
-        "subnetting",
-        "interface_status",
         "default_gateway",
         "static_routing",
+        "interface_state",
+        "connectivity_testing",
+        "network_instance",
+        "terminal_usage",
+        "lab_lifecycle",
+        "general_troubleshooting",
+        # Backward-compatible historical topic keys.
+        "subnetting",
+        "interface_status",
+        "routing",
         "vlan_like",
         "acl_like",
         "connectivity",
@@ -433,7 +443,7 @@ def test_sprint8_validation_checks_include_advanced_fields():
     for check in internal_checks:
         assert "evidence" in check
         assert isinstance(check["evidence"], dict)
-        assert check["evidence"]["validation_mode"] == "config_marker_check"
+        assert check["evidence"]["validation_mode"] == "srlinux_live_state_check"
 
 
 def test_sprint8_cli_access_response_includes_mode_info():
@@ -442,7 +452,7 @@ def test_sprint8_cli_access_response_includes_mode_info():
         json={
             "student_id": "sprint8-cli-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -591,7 +601,7 @@ def test_sprint9_debug_lab_endpoint_requires_instructor_role():
         json={
             "student_id": "sprint9-debug-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -646,7 +656,7 @@ def test_sprint10_instructor_student_detail_endpoints_return_student_history():
         json={
             "student_id": student_id,
             "difficulty": "medium",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -733,7 +743,7 @@ def test_sprint11_web_cli_requires_auth_token():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -756,7 +766,7 @@ def test_sprint11_web_cli_blocks_student_from_other_students_session():
         json={
             "student_id": "another-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -765,7 +775,7 @@ def test_sprint11_web_cli_blocks_student_from_other_students_session():
     session_id = create_response.json()["session_id"]
 
     with client.websocket_connect(
-        f"/api/v1/labs/{session_id}/cli/ws/r1?token=demo-student-token"
+        f"/api/v1/labs/{session_id}/cli/ws/srl1?token=demo-student-token"
     ) as websocket:
         payload = websocket.receive_json()
 
@@ -781,7 +791,7 @@ def test_sprint11_web_cli_requires_deployed_lab_before_runtime_shell():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -790,7 +800,7 @@ def test_sprint11_web_cli_requires_deployed_lab_before_runtime_shell():
     session_id = create_response.json()["session_id"]
 
     with client.websocket_connect(
-        f"/api/v1/labs/{session_id}/cli/ws/r1?token=demo-student-token"
+        f"/api/v1/labs/{session_id}/cli/ws/srl1?token=demo-student-token"
     ) as websocket:
         payload = websocket.receive_json()
 
@@ -806,7 +816,7 @@ def test_sprint11_web_cli_rejects_unknown_device():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -836,7 +846,7 @@ def test_sprint11_web_cli_context_allows_own_deployed_student_session():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -847,12 +857,12 @@ def test_sprint11_web_cli_context_allows_own_deployed_student_session():
 
     context = build_web_cli_context(
         session_id=session_id,
-        device_id="r1",
+        device_id="srl1",
         token="demo-student-token",
     )
 
     assert context.session_id == session_id
-    assert context.device_id == "r1"
+    assert context.device_id == "srl1"
     assert context.container_name.startswith("clab-")
     assert context.username == "student"
     assert context.role == "student"
@@ -864,7 +874,7 @@ def test_sprint12_web_cli_readiness_requires_auth_token():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -883,7 +893,7 @@ def test_sprint12_web_cli_readiness_reports_not_deployed_state():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -916,7 +926,7 @@ def test_sprint12_web_cli_device_readiness_rejects_unknown_device():
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -941,7 +951,7 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
         json={
             "student_id": "demo-student",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -966,7 +976,7 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
     )
 
     response = client.get(
-        f"/api/v1/labs/{session_id}/cli/readiness/r1",
+        f"/api/v1/labs/{session_id}/cli/readiness/srl1",
         headers=STUDENT_AUTH_HEADERS,
     )
 
@@ -979,7 +989,7 @@ def test_sprint12_web_cli_readiness_reports_ready_for_running_container(monkeypa
     assert data["ready"] is True
     assert data["error_code"] is None
     assert len(data["devices"]) == 1
-    assert data["devices"][0]["device_id"] == "r1"
+    assert data["devices"][0]["device_id"] == "srl1"
     assert data["devices"][0]["container_running"] is True
     assert data["devices"][0]["ready"] is True
 
@@ -1157,13 +1167,13 @@ def test_sprint17_instructor_analytics_service_falls_back_to_session_json(monkey
     assert recent["recent_sessions"][0]["session_id"] == "lab-file-fallback"
     assert recent["recent_sessions"][0]["status"] == "created"
 
-def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
+def test_sprint19_hard_topology_returns_srlinux_scenario_and_cli_access():
     response = client.post(
         "/api/v1/labs",
         json={
             "student_id": "sprint19-hard-student",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1172,6 +1182,7 @@ def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
     data = response.json()
     assert data["success"] is True
     assert data["difficulty"] == "hard"
+    assert data["scenario"]["id"] == "srl-edge-link"
     assert "injected_errors" not in data
     assert "expected_fix" not in data
     assert "solution" not in data
@@ -1184,29 +1195,30 @@ def test_sprint19_hard_topology_returns_advanced_ring_and_cli_access():
         for node in topology["nodes"]
     ]
 
-    assert node_ids == ["r1", "r2", "r3", "r4"]
+    assert set(node_ids) == {"srl1", "client1"}
 
     link_pairs = {
-        (
-            link["source"]["node"],
-            link["target"]["node"],
+        frozenset(
+            {
+                link["source"]["node"],
+                link["target"]["node"],
+            }
         )
         for link in topology["links"]
     }
 
     assert link_pairs == {
-        ("r1", "r2"),
-        ("r2", "r3"),
-        ("r3", "r4"),
-        ("r1", "r4"),
+        frozenset({"srl1", "client1"}),
     }
 
-    cli_device_ids = {
-        device["device_id"]
+    cli_by_device = {
+        device["device_id"]: device
         for device in data["cli_access"]
     }
 
-    assert cli_device_ids == {"r1", "r2", "r3", "r4"}
+    assert set(cli_by_device) == {"srl1", "client1"}
+    assert "sr_cli" in cli_by_device["srl1"]["command"]
+    assert cli_by_device["client1"]["command"].endswith(" sh")
 
     for device in data["cli_access"]:
         assert device["container_name"].endswith(f"-{device['device_id']}")
@@ -1235,15 +1247,15 @@ def test_sprint19_hard_error_injection_covers_at_least_three_topology_devices():
     assert len(error_devices) >= 3
 
 
-def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
-    import json
+def test_sprint19_hard_validation_and_metadata_follow_srlinux_scenario():
+    from app.services.session_service import get_lab_session
 
     create_response = client.post(
         "/api/v1/labs",
         json={
             "student_id": "sprint19-validation-student",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1259,30 +1271,41 @@ def test_sprint19_hard_validation_and_metadata_follow_topology_devices():
     assert validation_payload["status"] == "validated"
     assert len(validation_payload["checks"]) == 5
 
+    check_ids = {
+        check["check_id"]
+        for check in validation_payload["checks"]
+    }
+
+    assert check_ids == {
+        "srl_check_1_router_gateway_address",
+        "srl_check_2_router_network_instance",
+        "srl_check_3_client_address",
+        "srl_check_4_client_default_gateway",
+        "srl_check_5_gateway_connectivity",
+    }
+
     for check in validation_payload["checks"]:
         assert "evidence" not in check
 
-    session_dir = GENERATED_DIR / session_id
-    metadata_path = session_dir / "errors" / "injected_errors.json"
-    assert metadata_path.exists()
+    session = get_lab_session(session_id)
+    assert session["topology_template"] == "srl-edge-link"
 
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert metadata["topology_devices"] == ["r1", "r2", "r3", "r4"]
+    topology_file = GENERATED_DIR / session_id / "lab.clab.yml"
+    assert topology_file.exists()
+    assert "nokia_srlinux" in topology_file.read_text(encoding="utf-8")
 
-    injected_devices = {
-        error["device"]
-        for error in metadata["injected_errors"]
-    }
+    injected_errors = session["injected_errors"]
+    assert len(injected_errors) == 3
 
-    assert injected_devices.issubset({"r1", "r2", "r3", "r4"})
-    assert len(injected_devices) >= 3
+    fault = (
+        injected_errors[0].model_dump()
+        if hasattr(injected_errors[0], "model_dump")
+        else injected_errors[0]
+    )
 
-    config_files = {
-        path.name
-        for path in (session_dir / "configs").glob("*.conf")
-    }
+    assert fault["device"] == "client1"
+    assert fault["code"] == "SRLINUX_WRONG_CLIENT_GATEWAY"
 
-    assert config_files == {"r1.conf", "r2.conf", "r3.conf", "r4.conf"}
 
 def _sprint20_register_student(username: str, password: str = "student123"):
     response = client.post(
@@ -1403,7 +1426,7 @@ def test_sprint20_student_ownership_and_my_labs():
         json={
             "student_id": "spoofed-student-id-should-not-win",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1556,7 +1579,7 @@ def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
         json={
             "student_id": "spoofed-student-id-should-not-win",
             "difficulty": "hard",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1571,9 +1594,9 @@ def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
     assert created_lab["score"] is None
     assert created_lab["passed"] is None
     assert created_lab["topology_summary"]["name"]
-    assert created_lab["topology_summary"]["node_count"] == 4
-    assert created_lab["topology_summary"]["link_count"] == 4
-    assert set(created_lab["topology_summary"]["devices"]) == {"r1", "r2", "r3", "r4"}
+    assert created_lab["topology_summary"]["node_count"] == 2
+    assert created_lab["topology_summary"]["link_count"] == 1
+    assert set(created_lab["topology_summary"]["devices"]) == {"srl1", "client1"}
 
     list_response = client.get(
         "/api/v1/labs?limit=10",
@@ -1602,8 +1625,8 @@ def test_sprint21_my_labs_contract_contains_frontend_ready_fields():
     assert listed_lab["completed_at"] is None
     assert listed_lab["score"] is None
     assert listed_lab["passed"] is None
-    assert listed_lab["topology_summary"]["node_count"] == 4
-    assert listed_lab["topology_summary"]["link_count"] == 4
+    assert listed_lab["topology_summary"]["node_count"] == 2
+    assert listed_lab["topology_summary"]["link_count"] == 1
 
     instructor_get_response = client.get(
         f"/api/v1/labs/{session_id}",
@@ -1635,7 +1658,7 @@ def test_sprint21_ownership_forbidden_error_code_is_stable():
         json={
             "student_id": "spoofed-student-id-should-not-win",
             "difficulty": "easy",
-            "topology_template": "basic-two-router",
+            "scenario_id": "srl-edge-link",
         },
     )
 
@@ -1651,3 +1674,406 @@ def test_sprint21_ownership_forbidden_error_code_is_stable():
     assert forbidden_response.status_code == 403
     forbidden_payload = _sprint21_error_payload(forbidden_response)
     assert forbidden_payload["error_code"] == "LAB_OWNERSHIP_FORBIDDEN"
+
+
+
+def test_nr_sprint36a_terminal_context_resolves_trusted_command_from_cli_metadata():
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from app.services.web_cli_service import build_web_cli_context
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "srl-edge-link",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    srl_context = build_web_cli_context(
+        session_id=session_id,
+        device_id="srl1",
+        token="demo-student-token",
+    )
+
+    client_context = build_web_cli_context(
+        session_id=session_id,
+        device_id="client1",
+        token="demo-student-token",
+    )
+
+    assert srl_context.terminal_command == ["sr_cli"]
+    assert client_context.terminal_command == ["sh"]
+
+
+def test_nr_sprint36a_terminal_ws_endpoint_uses_separate_pty_mode(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+
+    async def fake_terminal_bridge(websocket, context):
+        await websocket.send_json(
+            {
+                "type": "terminal_bridge_mock",
+                "success": True,
+                "session_id": context.session_id,
+                "device_id": context.device_id,
+                "terminal_command": context.terminal_command,
+            }
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.run_terminal_pty_bridge",
+        fake_terminal_bridge,
+    )
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "srl-edge-link",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/terminal/ws/srl1?token=demo-student-token"
+    ) as websocket:
+        connected = websocket.receive_json()
+        bridge_payload = websocket.receive_json()
+
+    assert connected["type"] == "terminal_connected"
+    assert connected["success"] is True
+    assert connected["mode"] == "terminal_pty_bridge"
+    assert connected["endpoint"] == "/api/v1/labs/{session_id}/terminal/ws/{device_id}"
+
+    assert bridge_payload["type"] == "terminal_bridge_mock"
+    assert bridge_payload["success"] is True
+    assert bridge_payload["terminal_command"] == ["sr_cli"]
+
+
+def _nr_sprint37a_wait_until(predicate, timeout: float = 1.0) -> bool:
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.01)
+
+    return predicate()
+
+
+def test_nr_sprint37a_terminal_ws_supports_concurrent_devices(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from starlette.websockets import WebSocketDisconnect
+
+    active_devices: set[str] = set()
+    closed_devices: list[str] = []
+
+    async def fake_terminal_bridge(websocket, context):
+        active_devices.add(context.device_id)
+
+        try:
+            await websocket.send_json(
+                {
+                    "type": "terminal_started",
+                    "success": True,
+                    "session_id": context.session_id,
+                    "device_id": context.device_id,
+                    "container_name": context.container_name,
+                    "mode": "terminal_pty_bridge",
+                    "terminal_command": context.terminal_command,
+                }
+            )
+
+            while True:
+                message = await websocket.receive()
+
+                if message.get("type") == "websocket.disconnect":
+                    raise WebSocketDisconnect()
+
+                terminal_input = message.get("bytes")
+                if terminal_input is None and message.get("text") is not None:
+                    terminal_input = message["text"].encode()
+
+                if terminal_input:
+                    await websocket.send_bytes(
+                        f"{context.device_id}:".encode() + terminal_input
+                    )
+        except WebSocketDisconnect:
+            closed_devices.append(context.device_id)
+        finally:
+            active_devices.discard(context.device_id)
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.run_terminal_pty_bridge",
+        fake_terminal_bridge,
+    )
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "campus-core-routing",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/terminal/ws/client2?token=demo-student-token"
+    ) as client2_ws:
+        client2_connected = client2_ws.receive_json()
+        client2_started = client2_ws.receive_json()
+
+        assert client2_connected["type"] == "terminal_connected"
+        assert client2_started["type"] == "terminal_started"
+        assert client2_started["device_id"] == "client2"
+        assert client2_started["terminal_command"] == ["sh"]
+
+        with client.websocket_connect(
+            f"/api/v1/labs/{session_id}/terminal/ws/srl1?token=demo-student-token"
+        ) as srl1_ws:
+            srl1_connected = srl1_ws.receive_json()
+            srl1_started = srl1_ws.receive_json()
+
+            assert srl1_connected["type"] == "terminal_connected"
+            assert srl1_started["type"] == "terminal_started"
+            assert srl1_started["device_id"] == "srl1"
+            assert srl1_started["terminal_command"] == ["sr_cli"]
+
+            assert active_devices == {"client2", "srl1"}
+
+            client2_ws.send_bytes(b"ip route\n")
+            assert client2_ws.receive_bytes() == b"client2:ip route\n"
+
+            srl1_ws.send_text("show version\n")
+            assert srl1_ws.receive_bytes() == b"srl1:show version\n"
+
+        assert _nr_sprint37a_wait_until(lambda: "srl1" in closed_devices)
+
+        client2_ws.send_bytes(b"still-open\n")
+        assert client2_ws.receive_bytes() == b"client2:still-open\n"
+        assert active_devices == {"client2"}
+
+    assert _nr_sprint37a_wait_until(lambda: "client2" in closed_devices)
+    assert active_devices == set()
+
+
+def test_nr_sprint37a_terminal_ws_allows_same_device_parallel_sessions(monkeypatch):
+    from app.schemas.enums import SessionStatus
+    from app.services.session_service import update_session_status
+    from starlette.websockets import WebSocketDisconnect
+
+    connection_counter = {"value": 0}
+    closed_connections: list[str] = []
+
+    async def fake_terminal_bridge(websocket, context):
+        connection_counter["value"] += 1
+        connection_id = f"{context.device_id}-{connection_counter['value']}"
+
+        try:
+            await websocket.send_json(
+                {
+                    "type": "terminal_started",
+                    "success": True,
+                    "session_id": context.session_id,
+                    "device_id": context.device_id,
+                    "connection_id": connection_id,
+                    "mode": "terminal_pty_bridge",
+                    "terminal_command": context.terminal_command,
+                }
+            )
+
+            while True:
+                message = await websocket.receive()
+
+                if message.get("type") == "websocket.disconnect":
+                    raise WebSocketDisconnect()
+
+                terminal_input = message.get("bytes")
+                if terminal_input is None and message.get("text") is not None:
+                    terminal_input = message["text"].encode()
+
+                if terminal_input:
+                    await websocket.send_bytes(
+                        f"{connection_id}:".encode() + terminal_input
+                    )
+        except WebSocketDisconnect:
+            closed_connections.append(connection_id)
+
+    monkeypatch.setattr(
+        "app.api.routes.labs.run_terminal_pty_bridge",
+        fake_terminal_bridge,
+    )
+
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "demo-student",
+            "difficulty": "easy",
+            "scenario_id": "campus-core-routing",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+    update_session_status(session_id, SessionStatus.deployed)
+
+    url = f"/api/v1/labs/{session_id}/terminal/ws/client2?token=demo-student-token"
+
+    with client.websocket_connect(url) as first_ws:
+        first_connected = first_ws.receive_json()
+        first_started = first_ws.receive_json()
+
+        with client.websocket_connect(url) as second_ws:
+            second_connected = second_ws.receive_json()
+            second_started = second_ws.receive_json()
+
+            assert first_connected["type"] == "terminal_connected"
+            assert second_connected["type"] == "terminal_connected"
+
+            assert first_started["connection_id"] == "client2-1"
+            assert second_started["connection_id"] == "client2-2"
+
+            first_ws.send_bytes(b"first\n")
+            second_ws.send_bytes(b"second\n")
+
+            assert first_ws.receive_bytes() == b"client2-1:first\n"
+            assert second_ws.receive_bytes() == b"client2-2:second\n"
+
+        assert _nr_sprint37a_wait_until(
+            lambda: "client2-2" in closed_connections
+        )
+
+        first_ws.send_bytes(b"first-still-open\n")
+        assert first_ws.receive_bytes() == b"client2-1:first-still-open\n"
+
+    assert _nr_sprint37a_wait_until(lambda: "client2-1" in closed_connections)
+
+
+def test_nr_sprint37a_cancel_pending_tasks_drains_task_cancellation():
+    import asyncio
+
+    from app.services.web_cli_service import _cancel_pending_tasks
+
+    events: list[str] = []
+
+    async def wait_forever():
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            events.append("cancelled")
+            raise
+
+    async def scenario():
+        task = asyncio.create_task(wait_forever())
+        await asyncio.sleep(0)
+        await _cancel_pending_tasks({task})
+
+        assert task.cancelled()
+        assert events == ["cancelled"]
+
+    asyncio.run(scenario())
+
+
+def test_nr_sprint36a_terminal_ws_reuses_web_cli_authz_guardrails():
+    create_response = client.post(
+        "/api/v1/labs",
+        json={
+            "student_id": "another-student",
+            "difficulty": "easy",
+            "scenario_id": "srl-edge-link",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(
+        f"/api/v1/labs/{session_id}/terminal/ws/srl1?token=demo-student-token"
+    ) as websocket:
+        payload = websocket.receive_json()
+
+    assert payload["type"] == "error"
+    assert payload["success"] is False
+    assert payload["status_code"] == 403
+    assert payload["error_code"] == "WEB_CLI_FORBIDDEN"
+
+
+def test_nr_sprint36a_terminal_input_parser_preserves_raw_terminal_bytes():
+    from app.services.web_cli_service import _websocket_message_to_terminal_input
+
+    terminal_input, control_message = _websocket_message_to_terminal_input(
+        {"type": "websocket.receive", "bytes": b"\x03"}
+    )
+
+    assert terminal_input == b"\x03"
+    assert control_message is None
+
+    terminal_input, control_message = _websocket_message_to_terminal_input(
+        {"type": "websocket.receive", "text": "\x1b[A"}
+    )
+
+    assert terminal_input == b"\x1b[A"
+    assert control_message is None
+
+    terminal_input, control_message = _websocket_message_to_terminal_input(
+        {
+            "type": "websocket.receive",
+            "text": '{"type":"resize","cols":120,"rows":32}',
+        }
+    )
+
+    assert terminal_input is None
+    assert control_message == {
+        "type": "resize",
+        "cols": 120,
+        "rows": 32,
+    }
+
+
+
+def test_nr_sprint36a_cli_access_modes_metadata_includes_terminal_contract():
+    response = client.get("/api/v1/meta/cli-access-modes")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    modes_by_value = {
+        item["value"]: item
+        for item in data["modes"]
+    }
+
+    assert data["current_mode"] == "browser_cli_mvp"
+    assert data["websocket"]["path_template"] == "/api/v1/labs/{session_id}/cli/ws/{device_id}"
+
+    assert modes_by_value["browser_terminal_pty_bridge"]["status"] == "backend_ready"
+
+    terminal_ws = data["terminal_websocket"]
+    assert terminal_ws["path_template"] == "/api/v1/labs/{session_id}/terminal/ws/{device_id}"
+    assert terminal_ws["auth_query_param"] == "token"
+    assert terminal_ws["status"] == "backend_ready"
+    assert terminal_ws["mode"] == "terminal_pty_bridge"
+    assert terminal_ws["resize_control_message"] == {
+        "type": "resize",
+        "cols": 120,
+        "rows": 32,
+    }

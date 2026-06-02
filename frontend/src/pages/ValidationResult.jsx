@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ValidationSummary from "../components/ValidationSummary";
 import RecommendationCard from "../components/RecommendationCard";
+import NetworkHealthDetails from "../components/NetworkHealthDetails";
 import MessageBox from "../components/MessageBox";
 import {
   finishLab,
@@ -15,6 +16,7 @@ import {
   formatDifficulty,
   formatStatus
 } from "../utils/formatters";
+import { confirmAction } from "../components/ConfirmDialog";
 
 function getRecommendationCount(validationResult) {
   const recommendations =
@@ -75,7 +77,13 @@ function buildSavedValidationResult(labSession, latestAttempt, recommendationPay
     success: true,
     session_id: labSession?.session_id || latestAttempt?.session_id || "",
     status: labSession?.status || "validated",
-    score: latestAttempt?.score ?? labSession?.score ?? 0,
+    score: latestAttempt?.fault_resolution_score ?? latestAttempt?.score ?? labSession?.score ?? 0,
+    score_type: latestAttempt?.score_type || "fault_resolution",
+    fault_resolution_score: latestAttempt?.fault_resolution_score ?? latestAttempt?.score ?? labSession?.score ?? 0,
+    network_health_score: latestAttempt?.network_health_score ?? null,
+    affected_topics: latestAttempt?.affected_topics || [],
+    failed_topics: latestAttempt?.failed_topics || [],
+    resolved_topics: latestAttempt?.resolved_topics || [],
     passed: latestAttempt?.passed ?? labSession?.passed ?? failedChecks === 0,
     checks,
     passed_checks: passedChecks,
@@ -88,8 +96,6 @@ function buildSavedValidationResult(labSession, latestAttempt, recommendationPay
       ...(recommendationPayload || {}),
       recommendations
     },
-    recommendation_source: recommendationPayload?.source || "rule_based",
-    recommendation_fallback_used: Boolean(recommendationPayload?.fallback_used),
     recommendation_message: recommendationPayload?.message || "",
     message: "Saved validation result loaded from history."
   };
@@ -241,9 +247,12 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldFinish = window.confirm(
-      "Finish this lab? Running containers will be stopped, but validation history and results will be preserved."
-    );
+    const shouldFinish = await confirmAction({
+      title: "Finish lab?",
+      message: "Running containers will be stopped, but validation history and results will be preserved.",
+      confirmLabel: "Finish Lab",
+      variant: "destructive"
+    });
 
     if (!shouldFinish) {
       return;
@@ -360,7 +369,7 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
         {!isLabInactive && hasValidationResult && (
           <MessageBox
             type={resultPassed ? "success" : "info"}
-            title={resultPassed ? "All checks passed" : "Continue troubleshooting"}
+            title={resultPassed ? "Validation successful" : "Continue troubleshooting"}
             message={
               resultPassed
                 ? "Great job. You can finish the lab now, or return to the workspace to review the configuration."
@@ -400,6 +409,16 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
           </button>
 
           <button
+            className={activeTab === "networkHealth" ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "networkHealth"}
+            onClick={() => setActiveTab("networkHealth")}
+          >
+            Network Health
+          </button>
+
+          <button
             className={activeTab === "recommendations" ? "active" : ""}
             type="button"
             role="tab"
@@ -407,9 +426,6 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
             onClick={() => setActiveTab("recommendations")}
           >
             Recommendations
-            {recommendationCount > 0 && (
-              <span className="tab-count">{recommendationCount}</span>
-            )}
           </button>
         </div>
 
@@ -419,6 +435,10 @@ function ValidationResult({ labSession, onLabUpdated, onNavigate }) {
               validationResult={validationResult}
               isValidating={isValidating || isLoadingSavedResult}
             />
+          )}
+
+          {activeTab === "networkHealth" && (
+            <NetworkHealthDetails validationResult={validationResult} />
           )}
 
           {activeTab === "recommendations" && (

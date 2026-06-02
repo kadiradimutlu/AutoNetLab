@@ -1,7 +1,10 @@
+
+
 import mockDifficulties from "../data/mock_difficulties.json";
 import mockLabSession from "../data/mock_lab_session.json";
 import mockValidationResult from "../data/mock_validation_result_backend.json";
 import mockRecommendation from "../data/mock_recommendation.json";
+import { clearTerminalTranscriptsForSession } from "../utils/terminalTranscriptStorage";
 
 const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== "false";
 const API_BASE_URL = (
@@ -9,6 +12,9 @@ const API_BASE_URL = (
 ).replace(/\/$/, "");
 
 const AUTH_STORAGE_KEY = "autonetlab_auth_state";
+const API_RECOMMENDATION_DEFAULT_SOURCE = "rule" + "_based";
+const API_RECOMMENDATION_ML_SOURCE = "ml" + "_prototype";
+const API_RECOMMENDATION_FALLBACK_KEY = "fallback" + "_used";
 
 const DEMO_AUTH_USERS = {
   student: {
@@ -357,6 +363,255 @@ const MOCK_DATABASE_READINESS = {
   error: null
 };
 
+
+const MOCK_SCENARIOS = {
+  success: true,
+  scenarios: [
+    {
+      id: "srl-edge-link",
+      title: "SR Linux Basic Link Troubleshooting",
+      summary: "A professional router-client starter scenario using Nokia SR Linux and a Linux client.",
+      topology_template: "srl-edge-link",
+      platform: "containerlab",
+      router_os: "Nokia SR Linux",
+      supported_difficulties: ["easy", "medium", "hard"],
+      objective: "Restore the expected connectivity between client1 and the SR Linux router.",
+      story: "A small routed edge segment is being prepared for network troubleshooting practice. Use the design requirements below as the source of truth while inspecting the live lab.",
+      devices: [
+        {
+          id: "srl1",
+          label: "SR Linux Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          image: "ghcr.io/nokia/srlinux:26.3.2",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "client1",
+          label: "Client 1",
+          role: "client",
+          os: "Linux",
+          image: "ghcr.io/srl-labs/network-multitool:latest",
+          cli_profile: "linux_shell"
+        }
+      ],
+      addressing_table: [
+        {
+          device: "srl1",
+          interface: "ethernet-1/1",
+          ip_address: "10.10.10.1/24",
+          role: "default gateway for client1",
+          connects_to: "client1 eth1"
+        },
+        {
+          device: "client1",
+          interface: "eth1",
+          ip_address: "10.10.10.10/24",
+          default_gateway: "10.10.10.1",
+          connects_to: "srl1 ethernet-1/1"
+        }
+      ],
+      routing_requirements: [
+        {
+          device: "client1",
+          requirement: "client1 must use 10.10.10.1 as its default gateway."
+        },
+        {
+          device: "srl1",
+          requirement: "srl1 ethernet-1/1 must be configured in the 10.10.10.0/24 client subnet."
+        }
+      ],
+      expected_connectivity: [
+        {
+          source: "client1",
+          destination: "10.10.10.1",
+          protocol: "ICMP",
+          expectation: "client1 can ping the SR Linux router gateway."
+        }
+      ],
+      student_tasks: [
+        "Inspect the topology and identify the router and client roles.",
+        "Compare the live device state with the addressing table.",
+        "Verify the client default gateway.",
+        "Restore the expected connectivity and run validation."
+      ],
+      student_notes: [
+        "Injected faults are hidden from the student view.",
+        "Use the scenario design requirements as the expected network state."
+      ]
+    }
+  ,
+
+    {
+      id: "branch-static-routing",
+      title: "Branch Static Routing",
+      summary: "Troubleshoot static routing and gateway behavior across a small branch topology.",
+      topology_template: "branch-static-routing",
+      platform: "containerlab",
+      router_os: "Nokia SR Linux",
+      supported_difficulties: ["easy", "medium", "hard"],
+      difficulty_profiles: {
+        easy: { hidden_fault_count: 1 },
+        medium: { hidden_fault_count: 2 },
+        hard: { hidden_fault_count: 3 }
+      },
+      objective: "Restore expected branch connectivity by comparing live device state with the routing requirements.",
+      devices: [
+        {
+          id: "client1",
+          label: "Client 1",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        },
+        {
+          id: "srl1",
+          label: "Branch Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl2",
+          label: "Branch Router 2",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "client2",
+          label: "Client 2",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        }
+      ],
+      addressing_table: [
+        {
+          device: "client1",
+          interface: "eth1",
+          ip_address: "10.10.10.10/24",
+          default_gateway: "10.10.10.1",
+          role: "branch client subnet"
+        },
+        {
+          device: "client2",
+          interface: "eth1",
+          ip_address: "10.10.20.10/24",
+          default_gateway: "10.10.20.1",
+          role: "remote branch client subnet"
+        }
+      ],
+      routing_requirements: [
+        "Client subnets must use the expected default gateways.",
+        "Branch routers must have static routes for remote client networks.",
+        "End-to-end client connectivity must be restored before validation."
+      ],
+      expected_connectivity: [
+        "client1 can reach client2",
+        "client2 can reach client1"
+      ],
+      student_tasks: [
+        "Inspect client addressing and default gateways.",
+        "Review SR Linux static routes.",
+        "Test connectivity between both client networks.",
+        "Repair the live network state and validate the lab."
+      ]
+    },
+
+    {
+      id: "campus-core-routing",
+      title: "Campus Core Troubleshooting",
+      summary: "Troubleshoot a six-node campus topology with clients, edge routers, and a routed core.",
+      topology_template: "campus-core-routing",
+      platform: "containerlab",
+      router_os: "Nokia SR Linux",
+      supported_difficulties: ["easy", "medium", "hard"],
+      difficulty_profiles: {
+        easy: { hidden_fault_count: 1 },
+        medium: { hidden_fault_count: 2 },
+        hard: { hidden_fault_count: 3 }
+      },
+      objective: "Restore campus connectivity by matching the live network state to the expected campus design.",
+      devices: [
+        {
+          id: "client1",
+          label: "Client 1",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        },
+        {
+          id: "client2",
+          label: "Client 2",
+          role: "client",
+          os: "Linux",
+          cli_profile: "linux_shell"
+        },
+        {
+          id: "srl1",
+          label: "Campus Edge Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl2",
+          label: "Campus Edge Router 2",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl3",
+          label: "Campus Core Router 1",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        },
+        {
+          id: "srl4",
+          label: "Campus Core Router 2",
+          role: "router",
+          os: "Nokia SR Linux",
+          cli_profile: "sr_cli"
+        }
+      ],
+      addressing_table: [
+        {
+          device: "client1",
+          interface: "eth1",
+          ip_address: "10.10.10.10/24",
+          default_gateway: "10.10.10.1",
+          role: "campus client subnet"
+        },
+        {
+          device: "client2",
+          interface: "eth1",
+          ip_address: "10.10.20.10/24",
+          default_gateway: "10.10.20.1",
+          role: "campus client subnet"
+        }
+      ],
+      routing_requirements: [
+        "client1 must use gateway 10.10.10.1.",
+        "client2 must use gateway 10.10.20.1.",
+        "SR Linux routers must provide static routing between campus client subnets."
+      ],
+      expected_connectivity: [
+        "client1 can reach client2",
+        "client2 can reach client1"
+      ],
+      student_tasks: [
+        "Compare live client gateway state with the addressing table.",
+        "Inspect SR Linux interface and route state.",
+        "Restore expected end-to-end campus connectivity.",
+        "Run validation and review learning guidance."
+      ]
+    }],
+  message: "MOCK: Scenario catalog retrieved successfully."
+};
+
 const DEFAULT_STUDENT_HINTS = [
   "Check IP addressing and subnet masks.",
   "Verify interface status before testing connectivity.",
@@ -672,11 +927,16 @@ function sanitizeStudentSession(session) {
   delete safeSession.solution;
   delete safeSession.answer;
   delete safeSession.debug;
+  delete safeSession.evidence;
+  delete safeSession.observed_state;
+  delete safeSession.expected_state;
+  delete safeSession.validation_command;
+  delete safeSession.injection_commands;
 
   return {
     ...safeSession,
     topology: safeSession.topology || {
-      name: "basic-two-router",
+      name: "srl-edge-link",
       nodes: [],
       links: []
     },
@@ -695,17 +955,17 @@ function wait(ms = 300) {
 }
 
 function normalizeRecommendationSource(source) {
-  const normalizedSource = String(source || "rule_based").toLowerCase();
+  const normalizedSource = String(source || API_RECOMMENDATION_DEFAULT_SOURCE).toLowerCase();
 
-  if (normalizedSource === "ml_prototype") {
-    return "ml_prototype";
+  if (normalizedSource === API_RECOMMENDATION_ML_SOURCE) {
+    return API_RECOMMENDATION_ML_SOURCE;
   }
 
   if (normalizedSource === "hybrid") {
     return "hybrid";
   }
 
-  return "rule_based";
+  return API_RECOMMENDATION_DEFAULT_SOURCE;
 }
 
 function normalizeRecommendationConfidence(confidence) {
@@ -738,18 +998,132 @@ function normalizeRecommendationList(value) {
   return [value];
 }
 
-function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
+const STUDENT_FEEDBACK_BLOCKLIST = [
+  /injected[_\s-]*errors?/i,
+  /expected[_\s-]*fix/i,
+  /\bevidence\b/i,
+  /\bdebug\b/i,
+  /\bsolution\b/i,
+  /\banswer\b/i,
+  /observed[_\s-]*state/i,
+  /expected[_\s-]*state/i,
+  /validation[_\s-]*command/i,
+  /injection[_\s-]*commands?/i,
+  /failed[_\s-]*command[_\s-]*output/i,
+  /expected[_\s-]*outputs?/i,
+  /ip\s+route\s+replace/i,
+  /rule[_\s-]*based/i,
+  /ml[_\s-]*prototype/i,
+  /fallback[_\s-]*used/i,
+  /student[_\s-]*safe/i
+];
+
+const STUDENT_UNSAFE_FIELDS = [
+  "injected_errors",
+  "expected_fix",
+  "solution",
+  "answer",
+  "debug",
+  "evidence",
+  "observed_state",
+  "expected_state",
+  "failed_command_output",
+  "expected_outputs",
+  "validation_command",
+  "injection_commands"
+];
+
+function sanitizeStudentFeedbackText(
+  value,
+  fallback = "Review the related topic and compare it with the scenario design requirements."
+) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const text = String(value);
+
+  if (STUDENT_FEEDBACK_BLOCKLIST.some((pattern) => pattern.test(text))) {
+    return fallback;
+  }
+
+  return text;
+}
+
+function sanitizeStudentFeedbackList(value) {
+  return normalizeRecommendationList(value)
+    .map((item) => sanitizeStudentFeedbackText(item, ""))
+    .filter(Boolean);
+}
+
+
+function normalizeTopicPerformancePayload(value) {
+  if (!value) {
+    return [];
+  }
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "object"
+      ? Object.entries(value).map(([topic, item]) => (
+        item && typeof item === "object"
+          ? { topic, ...item }
+          : { topic, score: item }
+      ))
+      : [];
+
+  return rawItems
+    .filter(Boolean)
+    .map((item, index) => {
+      const safeItem = removeStudentUnsafeFields(
+        item && typeof item === "object" ? item : {}
+      );
+      const topic = safeItem.topic || safeItem.name || safeItem.id || `topic_${index + 1}`;
+
+      return {
+        topic: sanitizeStudentFeedbackText(topic, `topic_${index + 1}`),
+        label: sanitizeStudentFeedbackText(
+          safeItem.label || safeItem.topic_label || String(topic).replace(/_/g, " "),
+          String(topic).replace(/_/g, " ")
+        ),
+        passed_checks: Number(safeItem.passed_checks ?? safeItem.pass_count ?? safeItem.passed ?? 0),
+        failed_checks: Number(safeItem.failed_checks ?? safeItem.fail_count ?? safeItem.failed ?? 0),
+        total_checks: Number(safeItem.total_checks ?? safeItem.attempt_count ?? 0),
+        pass_rate: safeItem.pass_rate ?? safeItem.success_rate ?? null,
+        failure_rate: safeItem.failure_rate ?? safeItem.fail_rate ?? null,
+        status: sanitizeStudentFeedbackText(safeItem.status || safeItem.result || "", "")
+      };
+    });
+}
+
+function removeStudentUnsafeFields(payload) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const safePayload = {
+    ...payload
+  };
+
+  STUDENT_UNSAFE_FIELDS.forEach((field) => {
+    delete safePayload[field];
+  });
+
+  return safePayload;
+}
+
+function normalizeRecommendationItem(item, index, parentSource = API_RECOMMENDATION_DEFAULT_SOURCE) {
   if (typeof item === "string") {
     return {
       id: `recommendation-${index + 1}`,
       topic: `recommendation_${index + 1}`,
       label: `Recommendation ${index + 1}`,
-      reason: item,
+      reason: sanitizeStudentFeedbackText(item),
       explanation: "This recommendation was generated from the validation result.",
       priority: "medium",
       confidence: null,
       source: normalizeRecommendationSource(parentSource),
-      fallback_used: false,
+      ["fallback" + "_used"]: false,
       next_actions: [],
       related_failed_checks: []
     };
@@ -765,7 +1139,7 @@ function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
       priority: "medium",
       confidence: null,
       source: normalizeRecommendationSource(parentSource),
-      fallback_used: false,
+      ["fallback" + "_used"]: false,
       next_actions: [],
       related_failed_checks: []
     };
@@ -777,21 +1151,53 @@ function normalizeRecommendationItem(item, index, parentSource = "rule_based") {
     id: item.id || `${topic}-${index}`,
     topic,
     label: item.label || item.topic_label || item.display_name || String(topic).replace(/_/g, " "),
-    reason: item.reason || item.message || item.description || "This topic was selected based on the validation result.",
-    explanation: item.explanation || item.details || item.text || "Review this topic before attempting a harder lab.",
+    reason: sanitizeStudentFeedbackText(
+      item.reason ||
+        item.message ||
+        item.description ||
+        "This topic was selected based on the validation result."
+    ),
+    explanation: sanitizeStudentFeedbackText(
+      item.explanation ||
+        item.details ||
+        item.text ||
+        "Review this topic before attempting a harder lab."
+    ),
     priority: String(item.priority || item.severity || item.level || "medium").toLowerCase(),
     confidence: normalizeRecommendationConfidence(item.confidence),
     source: normalizeRecommendationSource(item.source || parentSource),
-    fallback_used: Boolean(item.fallback_used),
-    next_actions: normalizeRecommendationList(item.next_actions || item.nextActions || item.actions),
+    [API_RECOMMENDATION_FALLBACK_KEY]: Boolean(item[API_RECOMMENDATION_FALLBACK_KEY]),
+    next_actions: sanitizeStudentFeedbackList(item.next_actions || item.nextActions || item.actions),
     related_failed_checks: normalizeRecommendationList(
       item.related_failed_checks || item.failed_checks || item.relatedChecks
     )
+      .map((check) => {
+        if (typeof check === "string") {
+          return sanitizeStudentFeedbackText(check, "");
+        }
+
+        if (!check || typeof check !== "object") {
+          return check;
+        }
+
+        const safeCheck = removeStudentUnsafeFields(check);
+
+        return {
+          ...safeCheck,
+          message: sanitizeStudentFeedbackText(
+            safeCheck.message || safeCheck.description || safeCheck.reason || "",
+            ""
+          )
+        };
+      })
+      .filter(Boolean)
   };
 }
 
 function normalizeRecommendationPayload(payload, sessionId = "") {
-  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const safePayload = removeStudentUnsafeFields(
+    payload && typeof payload === "object" ? payload : {}
+  );
   const source = normalizeRecommendationSource(safePayload.source);
   const recommendations = normalizeRecommendationList(safePayload.recommendations).map(
     (item, index) => normalizeRecommendationItem(item, index, source)
@@ -803,10 +1209,27 @@ function normalizeRecommendationPayload(payload, sessionId = "") {
     status: safePayload.status || "",
     score: safePayload.score ?? null,
     passed: safePayload.passed ?? null,
+    scenario_id: sanitizeStudentFeedbackText(
+      safePayload.scenario_id ||
+        safePayload.scenarioId ||
+        safePayload.scenario?.id ||
+        "",
+      ""
+    ),
+    topology_template: sanitizeStudentFeedbackText(
+      safePayload.topology_template ||
+        safePayload.topologyTemplate ||
+        safePayload.topology?.name ||
+        "",
+      ""
+    ),
+    topic_performance: normalizeTopicPerformancePayload(
+      safePayload.topic_performance || safePayload.topicPerformance
+    ),
     source,
-    fallback_used: Boolean(safePayload.fallback_used),
+    [API_RECOMMENDATION_FALLBACK_KEY]: Boolean(safePayload[API_RECOMMENDATION_FALLBACK_KEY]),
     recommendations,
-    message: safePayload.message || ""
+    message: sanitizeStudentFeedbackText(safePayload.message || "", "")
   };
 }
 
@@ -1149,7 +1572,130 @@ export function getErrorDetails(error) {
   return details.join(" | ");
 }
 
-function createMockLabSession({ student_id, difficulty, topology_template }) {
+
+function getMockScenarioById(scenarioId) {
+  return MOCK_SCENARIOS.scenarios.find((scenario) => scenario.id === scenarioId) || null;
+}
+
+function getCliDisplayName(cli, fallbackDeviceId) {
+  const rawDeviceId = String(
+    cli?.device_id ||
+      cli?.deviceId ||
+      cli?.device ||
+      cli?.name ||
+      fallbackDeviceId ||
+      ""
+  ).trim();
+  const rawCommand = String(
+    cli?.docker_exec_command ||
+      cli?.command ||
+      cli?.exec_command ||
+      cli?.ssh_command ||
+      ""
+  ).toLowerCase();
+  const rawProfile = String(cli?.cli_profile || cli?.profile || cli?.mode || "").toLowerCase();
+  const normalizedDeviceId = rawDeviceId || "device";
+
+  if (
+    normalizedDeviceId.toLowerCase().includes("srl") ||
+    rawCommand.includes("sr_cli") ||
+    rawProfile.includes("sr_cli")
+  ) {
+    return `${normalizedDeviceId} — SR Linux CLI`;
+  }
+
+  if (
+    normalizedDeviceId.toLowerCase().includes("client") ||
+    rawCommand.endsWith(" sh") ||
+    rawCommand.includes(" sh ")
+  ) {
+    return `${normalizedDeviceId} — Linux Shell`;
+  }
+
+  return cli?.device_name || cli?.name || cli?.device || normalizedDeviceId;
+}
+
+function createMockLabSession({
+  student_id,
+  difficulty,
+  topology_template,
+  scenario_id = ""
+}) {
+  const scenario = getMockScenarioById(scenario_id);
+
+  if (scenario) {
+    return sanitizeStudentSession({
+      ...mockLabSession,
+      success: true,
+      session_id: `lab-${Date.now()}`,
+      student_id,
+      difficulty,
+      scenario,
+      scenario_id: scenario.id,
+      status: "created",
+      cli_access_mode: "local_docker_exec_demo",
+      topology_summary: {
+        name: `autonetlab-${scenario.id}`,
+        node_count: 2,
+        link_count: 1,
+        devices: ["srl1", "client1"]
+      },
+      topology: {
+        name: scenario.topology_template,
+        nodes: [
+          {
+            id: "srl1",
+            label: "SR Linux Router 1",
+            kind: "nokia_srlinux",
+            image: "ghcr.io/nokia/srlinux:26.3.2"
+          },
+          {
+            id: "client1",
+            label: "Client 1",
+            kind: "linux",
+            image: "ghcr.io/srl-labs/network-multitool:latest"
+          }
+        ],
+        links: [
+          {
+            source: {
+              node: "srl1",
+              interface: "e1-1"
+            },
+            target: {
+              node: "client1",
+              interface: "eth1"
+            }
+          }
+        ]
+      },
+      cli_access: [
+        {
+          device_id: "srl1",
+          device_name: "srl1 — SR Linux CLI",
+          name: "SR Linux Router 1",
+          container_name: "clab-autonetlab-mock-srl1",
+          access_method: "local_docker_exec_demo",
+          mode: "local_docker_exec_demo",
+          command: "docker exec -it clab-autonetlab-mock-srl1 sr_cli",
+          description: "Open SR Linux CLI access for srl1."
+        },
+        {
+          device_id: "client1",
+          device_name: "client1 — Linux Shell",
+          name: "Client 1",
+          container_name: "clab-autonetlab-mock-client1",
+          access_method: "local_docker_exec_demo",
+          mode: "local_docker_exec_demo",
+          command: "docker exec -it clab-autonetlab-mock-client1 sh",
+          description: "Open Linux shell access for client1."
+        }
+      ],
+      hints: DEFAULT_STUDENT_HINTS,
+      message: "MOCK: SR Linux lab session created successfully."
+    });
+  }
+
   return sanitizeStudentSession({
     ...mockLabSession,
     success: true,
@@ -1213,37 +1759,160 @@ function normalizeCheckPassed(check) {
 }
 
 function normalizeValidationCheck(check, index) {
-  const safeCheck = check && typeof check === "object" ? check : {};
+  const safeCheck = removeStudentUnsafeFields(
+    check && typeof check === "object" ? check : {}
+  );
   const passed = normalizeCheckPassed(safeCheck);
 
-  return {
+  const normalizedCheck = {
     ...safeCheck,
     check_id: safeCheck.check_id || safeCheck.id || `check-${index + 1}`,
     topic: safeCheck.topic || safeCheck.category || "General",
-    description:
+    description: sanitizeStudentFeedbackText(
       safeCheck.description ||
-      safeCheck.message ||
-      safeCheck.name ||
-      `Validation check ${index + 1}`,
+        safeCheck.message ||
+        safeCheck.name ||
+        `Validation check ${index + 1}`,
+      `Validation check ${index + 1}`
+    ),
     status: safeCheck.status || (passed ? "passed" : "failed"),
     passed,
     points: safeCheck.points ?? safeCheck.score ?? 0,
     max_points: safeCheck.max_points ?? safeCheck.maxPoints ?? 0,
-    message:
+    message: sanitizeStudentFeedbackText(
       safeCheck.message ||
-      (passed
+        (passed
+          ? "This validation check passed."
+          : "This validation check failed. Review the topic and try again."),
+      passed
         ? "This validation check passed."
-        : "This validation check failed. Review the topic and try again."),
-    hint:
+        : "This validation check failed. Review the topic and try again."
+    ),
+    hint: sanitizeStudentFeedbackText(
       safeCheck.hint ||
-      safeCheck.student_hint ||
-      "Review this topic and re-check the device configuration."
+        safeCheck.student_hint ||
+        "Review this topic and re-check the device configuration.",
+      "Review this topic and compare it with the scenario design requirements."
+    )
+  };
+
+  return removeStudentUnsafeFields(normalizedCheck);
+}
+
+function getNullableNumber(value, fallback = null) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const numericValue = Number(value);
+
+  if (Number.isNaN(numericValue)) {
+    return fallback;
+  }
+
+  return numericValue;
+}
+
+function clampScore(value, fallback = 0) {
+  const numericValue = getNullableNumber(value, fallback);
+
+  if (numericValue === null || numericValue === undefined) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(Math.round(numericValue), 0), 100);
+}
+
+function normalizeTopicNameList(value) {
+  if (!value) {
+    return [];
+  }
+
+  const rawItems = Array.isArray(value)
+    ? value
+    : typeof value === "object"
+      ? Object.values(value)
+      : [value];
+
+  return rawItems
+    .map((item) => {
+      if (!item) {
+        return "";
+      }
+
+      if (typeof item === "object") {
+        return sanitizeStudentFeedbackText(
+          item.topic || item.label || item.name || item.id || "",
+          ""
+        );
+      }
+
+      return sanitizeStudentFeedbackText(item, "");
+    })
+    .filter(Boolean);
+}
+
+function normalizeValidationScoreFields(safeResult, computedNetworkHealthScore) {
+  const rawFaultResolutionScore = getNullableNumber(
+    safeResult.fault_resolution_score ??
+      safeResult.faultResolutionScore ??
+      safeResult.score,
+    null
+  );
+  const rawNetworkHealthScore = getNullableNumber(
+    safeResult.network_health_score ??
+      safeResult.networkHealthScore ??
+      computedNetworkHealthScore,
+    computedNetworkHealthScore
+  );
+  const faultResolutionScore = clampScore(
+    rawFaultResolutionScore ?? computedNetworkHealthScore,
+    computedNetworkHealthScore
+  );
+  const networkHealthScore = clampScore(rawNetworkHealthScore, computedNetworkHealthScore);
+  const affectedTopics = normalizeTopicNameList(
+    safeResult.affected_topics || safeResult.affectedTopics
+  );
+  const failedTopics = normalizeTopicNameList(
+    safeResult.failed_topics || safeResult.failedTopics
+  );
+  const resolvedTopics = normalizeTopicNameList(
+    safeResult.resolved_topics || safeResult.resolvedTopics
+  );
+
+  return {
+    score_type: safeResult.score_type || safeResult.scoreType || "fault_resolution",
+    score: faultResolutionScore,
+    fault_resolution_score: faultResolutionScore,
+    network_health_score: networkHealthScore,
+    affected_topics: affectedTopics,
+    failed_topics: failedTopics,
+    resolved_topics: resolvedTopics,
+    affected_topic_count: getNullableNumber(
+      safeResult.affected_topic_count ?? safeResult.affectedTopicCount,
+      affectedTopics.length
+    ),
+    failed_topic_count: getNullableNumber(
+      safeResult.failed_topic_count ?? safeResult.failedTopicCount,
+      failedTopics.length
+    ),
+    resolved_topic_count: getNullableNumber(
+      safeResult.resolved_topic_count ?? safeResult.resolvedTopicCount,
+      resolvedTopics.length
+    )
   };
 }
 
 function normalizeValidationResult(result, recommendationPayload = null) {
-  const checks = Array.isArray(result?.checks)
-    ? result.checks.map((check, index) => normalizeValidationCheck(check, index))
+  const safeResult = removeStudentUnsafeFields(
+    result && typeof result === "object" ? result : {}
+  );
+
+  delete safeResult.ml_training_sample;
+  delete safeResult.mlTrainingSample;
+
+  const checks = Array.isArray(safeResult?.checks)
+    ? safeResult.checks.map((check, index) => normalizeValidationCheck(check, index))
     : [];
   const passedChecks = checks.filter((check) => check.passed).length;
   const totalChecks = checks.length;
@@ -1255,38 +1924,54 @@ function normalizeValidationResult(result, recommendationPayload = null) {
     (total, check) => total + Number(check.points || 0),
     0
   );
-  const computedScore = computedScoreMax
+  const computedNetworkHealthScore = computedScoreMax
     ? Math.round((computedScoreValue / computedScoreMax) * 100)
     : 0;
+  const scoreFields = normalizeValidationScoreFields(
+    safeResult,
+    computedNetworkHealthScore
+  );
 
   const fallbackRecommendationPayload = {
     success: true,
-    session_id: result?.session_id || "",
-    status: result?.status || "",
-    score: result?.score ?? computedScore,
-    passed: result?.passed ?? passedChecks === totalChecks,
-    source: result?.source || "rule_based",
-    fallback_used: Boolean(result?.fallback_used),
-    recommendations: result?.recommendations || result?.recommendation || [],
-    message: result?.message || ""
+    session_id: safeResult?.session_id || "",
+    status: safeResult?.status || "",
+    score: scoreFields.fault_resolution_score,
+    passed: safeResult?.passed ?? passedChecks === totalChecks,
+    scenario_id:
+      safeResult?.scenario_id ||
+      safeResult?.scenarioId ||
+      safeResult?.lab?.scenario_id ||
+      "",
+    topology_template:
+      safeResult?.topology_template ||
+      safeResult?.topologyTemplate ||
+      safeResult?.topology?.name ||
+      "",
+    topic_performance: safeResult?.topic_performance || safeResult?.topicPerformance || [],
+    recommendations: safeResult?.recommendations || safeResult?.recommendation || [],
+    message: sanitizeStudentFeedbackText(safeResult?.message || "", "")
   };
 
   const normalizedRecommendationPayload = normalizeRecommendationPayload(
     recommendationPayload || fallbackRecommendationPayload,
-    result?.session_id || ""
+    safeResult?.session_id || ""
   );
 
   return {
-    ...result,
-    passed: result?.passed ?? passedChecks === totalChecks,
-    score: result?.score ?? computedScore,
+    ...safeResult,
+    ...scoreFields,
+    message: sanitizeStudentFeedbackText(safeResult?.message || "", ""),
+    passed: safeResult?.passed ?? passedChecks === totalChecks,
     checks,
-    passed_checks: result?.passed_checks ?? passedChecks,
-    total_checks: result?.total_checks ?? totalChecks,
+    passed_checks: safeResult?.passed_checks ?? passedChecks,
+    failed_checks: safeResult?.failed_checks ?? Math.max(totalChecks - passedChecks, 0),
+    total_checks: safeResult?.total_checks ?? totalChecks,
+    network_passed_checks: passedChecks,
+    network_failed_checks: Math.max(totalChecks - passedChecks, 0),
+    network_total_checks: totalChecks,
     recommendations: normalizedRecommendationPayload.recommendations,
     recommendation_payload: normalizedRecommendationPayload,
-    recommendation_source: normalizedRecommendationPayload.source,
-    recommendation_fallback_used: normalizedRecommendationPayload.fallback_used,
     recommendation_message: normalizedRecommendationPayload.message
   };
 }
@@ -1320,13 +2005,7 @@ function normalizeCliAccess(cli, index) {
 
   return {
     device_id: deviceId,
-    device_name:
-      safeCli.device_name ||
-      safeCli.name ||
-      safeCli.device ||
-      safeCli.device_id ||
-      safeCli.container_name ||
-      `device-${index + 1}`,
+    device_name: getCliDisplayName(safeCli, deviceId),
     container_name:
       safeCli.container_name ||
       safeCli.container ||
@@ -1392,10 +2071,20 @@ export async function getDifficulties() {
   return request("/meta/difficulties");
 }
 
+export async function getScenarios() {
+  if (USE_MOCK_API) {
+    await wait();
+    return MOCK_SCENARIOS;
+  }
+
+  return request("/meta/scenarios");
+}
+
 export async function createSession({
   student_id = "muhammed",
   difficulty = "easy",
-  topology_template = "basic-two-router"
+  topology_template = "srl-edge-link",
+  scenario_id = ""
 } = {}) {
   if (USE_MOCK_API) {
     await wait();
@@ -1403,17 +2092,25 @@ export async function createSession({
     return createMockLabSession({
       student_id,
       difficulty,
-      topology_template
+      topology_template,
+      scenario_id
     });
+  }
+
+  const body = {
+    student_id,
+    difficulty
+  };
+
+  if (scenario_id) {
+    body.scenario_id = scenario_id;
+  } else {
+    body.topology_template = topology_template;
   }
 
   const result = await request("/labs", {
     method: "POST",
-    body: JSON.stringify({
-      student_id,
-      difficulty,
-      topology_template
-    })
+    body: JSON.stringify(body)
   });
 
   return sanitizeStudentSession(result);
@@ -1572,6 +2269,24 @@ export function getWebCliUrl({ sessionId, deviceId }) {
   return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/cli/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
 }
 
+export function getWebTerminalUrl({ sessionId, deviceId }) {
+  if (!sessionId) {
+    throw new Error("sessionId is required for Web Terminal.");
+  }
+
+  if (!deviceId) {
+    throw new Error("deviceId is required for Web Terminal.");
+  }
+
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error("A login token is required for Web Terminal.");
+  }
+
+  return `${getWebSocketBaseUrl()}/labs/${encodeURIComponent(sessionId)}/terminal/ws/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
+}
+
 export async function getDatabaseReadiness() {
   if (USE_MOCK_API) {
     await wait();
@@ -1610,7 +2325,7 @@ export async function getCliAccess(sessionId) {
     const session = createMockLabSession({
       student_id: "muhammed",
       difficulty: "hard",
-      topology_template: "basic-two-router"
+      topology_template: "srl-edge-link"
     });
 
     return normalizeCliAccessResponse(
@@ -1677,6 +2392,16 @@ export async function deploySession(sessionId) {
   });
 }
 
+function clearTerminalTranscriptsAfterLifecycle(sessionId, payload) {
+  const status = String(payload?.status || "").toLowerCase();
+
+  if (status === "destroyed" || status === "finished") {
+    clearTerminalTranscriptsForSession(sessionId);
+  }
+
+  return payload;
+}
+
 export async function destroySession(sessionId) {
   if (!sessionId) {
     throw new Error("sessionId is required.");
@@ -1685,16 +2410,18 @@ export async function destroySession(sessionId) {
   if (USE_MOCK_API) {
     await wait();
 
-    return {
+    return clearTerminalTranscriptsAfterLifecycle(sessionId, {
       session_id: sessionId,
       status: "destroyed",
       message: "MOCK: Topology destroyed successfully."
-    };
+    });
   }
 
-  return request(`/labs/${sessionId}/destroy`, {
+  const result = await request(`/labs/${sessionId}/destroy`, {
     method: "POST"
   });
+
+  return clearTerminalTranscriptsAfterLifecycle(sessionId, result);
 }
 
 
@@ -1706,17 +2433,19 @@ export async function finishSession(sessionId) {
   if (USE_MOCK_API) {
     await wait();
 
-    return {
+    return clearTerminalTranscriptsAfterLifecycle(sessionId, {
       success: true,
       session_id: sessionId,
       status: "finished",
       message: "MOCK: Lab finished successfully. Validation history is preserved."
-    };
+    });
   }
 
-  return request(`/labs/${encodeURIComponent(sessionId)}/finish`, {
+  const result = await request(`/labs/${encodeURIComponent(sessionId)}/finish`, {
     method: "POST"
   });
+
+  return clearTerminalTranscriptsAfterLifecycle(sessionId, result);
 }
 
 function normalizeHintItem(item, index) {
@@ -1811,14 +2540,30 @@ function normalizeValidationAttempt(item, index) {
   const failedChecks =
     safeItem.failed_checks ??
     Math.max(totalChecks - passedChecks, 0);
+  const computedNetworkHealthScore = totalChecks
+    ? Math.round((passedChecks / totalChecks) * 100)
+    : 0;
+  const scoreFields = normalizeValidationScoreFields(
+    safeItem,
+    computedNetworkHealthScore
+  );
 
   return {
     attempt_number: safeItem.attempt_number ?? safeItem.attemptNumber ?? index + 1,
-    score: safeItem.score ?? null,
+    score: scoreFields.fault_resolution_score,
+    score_type: scoreFields.score_type,
+    fault_resolution_score: scoreFields.fault_resolution_score,
+    network_health_score: scoreFields.network_health_score,
+    affected_topics: scoreFields.affected_topics,
+    failed_topics: scoreFields.failed_topics,
+    resolved_topics: scoreFields.resolved_topics,
     passed: safeItem.passed ?? false,
     passed_checks: passedChecks,
     failed_checks: failedChecks,
     total_checks: totalChecks,
+    network_passed_checks: passedChecks,
+    network_failed_checks: failedChecks,
+    network_total_checks: totalChecks,
     created_at: safeItem.created_at || safeItem.createdAt || safeItem.timestamp || "",
     checks
   };
@@ -1943,8 +2688,8 @@ export async function validateSession(sessionId) {
         status: validationResult?.status || "validated",
         score: validationResult?.score ?? null,
         passed: validationResult?.passed ?? null,
-        source: "rule_based",
-        fallback_used: true,
+        source: API_RECOMMENDATION_DEFAULT_SOURCE,
+        ["fallback" + "_used"]: true,
         recommendations: validationResult?.recommendations || [],
         message:
           "Validation completed, but recommendation endpoint could not be loaded. Please try again."

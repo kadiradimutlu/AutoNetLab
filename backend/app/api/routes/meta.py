@@ -10,6 +10,7 @@ from app.db.session import get_database_readiness
 
 from app.schemas.enums import Difficulty
 from app.services.containerlab_adapter import GENERATED_DIR, PROJECT_ROOT, TEMPLATES_DIR
+from app.services.scenario_catalog import list_scenarios
 
 router = APIRouter(prefix="/meta", tags=["Metadata"])
 
@@ -41,6 +42,15 @@ def get_difficulties() -> dict:
     }
 
 
+@router.get("/scenarios")
+def get_scenarios() -> dict:
+    return {
+        "success": True,
+        "scenarios": list_scenarios(),
+        "message": "Scenario catalog retrieved successfully.",
+    }
+
+
 @router.get("/cli-access-modes")
 def get_cli_access_modes() -> dict:
     return {
@@ -57,6 +67,16 @@ def get_cli_access_modes() -> dict:
                     "Sprint 11 active CLI access mode. The frontend connects to a "
                     "backend WebSocket endpoint and the backend bridges the session "
                     "to the lab container CLI."
+                ),
+            },
+            {
+                "value": "browser_terminal_pty_bridge",
+                "label": "Browser terminal PTY bridge",
+                "status": "backend_ready",
+                "description": (
+                    "NR-Sprint36A backend terminal bridge. The frontend can connect "
+                    "xterm.js to a raw WebSocket terminal endpoint backed by Docker "
+                    "exec TTY and a backend PTY."
                 ),
             },
             {
@@ -102,6 +122,19 @@ def get_cli_access_modes() -> dict:
             "example": (
                 "ws://127.0.0.1:8000/api/v1/labs/"
                 "lab-abc12345/cli/ws/r1?token=demo-student-token"
+            ),
+        },
+        "terminal_websocket": {
+            "path_template": "/api/v1/labs/{session_id}/terminal/ws/{device_id}",
+            "auth_query_param": "token",
+            "status": "backend_ready",
+            "mode": "terminal_pty_bridge",
+            "input": "binary frames or text frames are forwarded as raw terminal bytes",
+            "output": "terminal output is sent as binary frames",
+            "resize_control_message": {"type": "resize", "cols": 120, "rows": 32},
+            "example": (
+                "ws://127.0.0.1:8000/api/v1/labs/"
+                "lab-abc12345/terminal/ws/srl1?token=demo-student-token"
             ),
         },
         "decision": (

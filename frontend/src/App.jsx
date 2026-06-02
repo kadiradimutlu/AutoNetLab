@@ -13,6 +13,7 @@ import {
   getCurrentUser,
   getLab,
   isMockApiEnabled,
+  listLabSessions,
   logoutUser
 } from "./services/apiService";
 import { clearTerminalTranscriptsForSession } from "./utils/terminalTranscriptStorage";
@@ -23,8 +24,103 @@ function getDefaultPageForRole(role) {
   return role === "instructor" ? "instructor" : "home";
 }
 
+function getNormalizedLabStatus(status) {
+  return String(status || "").toLowerCase();
+}
+
 function isInactiveLabStatus(status) {
-  return ["finished", "destroyed"].includes(String(status || "").toLowerCase());
+  return ["finished", "destroyed"].includes(getNormalizedLabStatus(status));
+}
+
+function isWorkspaceRestorableLab(labSession) {
+  if (!labSession?.session_id) {
+    return false;
+  }
+
+  const normalizedStatus = getNormalizedLabStatus(labSession.status);
+
+  if (["created", "deployed", "active", "error"].includes(normalizedStatus)) {
+    return true;
+  }
+
+  if (normalizedStatus === "validated") {
+    return labSession.passed !== true;
+  }
+
+  return false;
+}
+
+function getLabSessionTimestamp(labSession) {
+  const candidates = [
+    labSession?.updated_at,
+    labSession?.completed_at,
+    labSession?.created_at,
+    labSession?.started_at
+  ];
+
+  for (const candidate of candidates) {
+    const time = new Date(candidate || 0).getTime();
+
+    if (Number.isFinite(time) && time > 0) {
+      return time;
+    }
+  }
+
+  return 0;
+}
+
+function getSessionListFromResponse(result) {
+  if (Array.isArray(result)) {
+    return result;
+  }
+
+  if (Array.isArray(result?.sessions)) {
+    return result.sessions;
+  }
+
+  if (Array.isArray(result?.items)) {
+    return result.items;
+  }
+
+  return [];
+}
+
+function sortNewestLabSessions(sessions) {
+  return [...sessions].sort((left, right) => {
+    const rightTime = getLabSessionTimestamp(right);
+    const leftTime = getLabSessionTimestamp(left);
+
+    if (rightTime !== leftTime) {
+      return rightTime - leftTime;
+    }
+
+    return String(right?.session_id || "").localeCompare(String(left?.session_id || ""));
+  });
+}
+
+function selectInitialLabSession(sessions) {
+  const newestSessions = sortNewestLabSessions(sessions).filter((session) => session?.session_id);
+  const restorableSession = newestSessions.find((session) => isWorkspaceRestorableLab(session));
+
+  return restorableSession || newestSessions[0] || null;
+}
+
+function persistActiveSessionReference(labSession) {
+  if (!labSession?.session_id) {
+    localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+    return;
+  }
+
+  if (isWorkspaceRestorableLab(labSession)) {
+    localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, labSession.session_id);
+    return;
+  }
+
+  if (isInactiveLabStatus(labSession.status)) {
+    clearTerminalTranscriptsForSession(labSession.session_id);
+  }
+
+  localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
 }
 
 function scrollToPageTop() {
@@ -90,26 +186,51 @@ function App() {
         if (isMockApiEnabled()) {
           const labData = await getLab("lab-demo-001");
           setLabSession(labData);
+          persistActiveSessionReference(labData);
           return;
         }
 
         const savedSessionId = localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
 
-        if (!savedSessionId) {
+        if (savedSessionId) {
+          try {
+            const savedLabSession = await getLab(savedSessionId);
+
+            setLabSession(savedLabSession);
+            persistActiveSessionReference(savedLabSession);
+
+            if (isWorkspaceRestorableLab(savedLabSession)) {
+              setCurrentPage("workspace");
+            }
+
+            return;
+          } catch (savedSessionError) {
+            console.error("Saved lab session could not be restored.", savedSessionError);
+            localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+          }
+        }
+
+        const labHistory = await listLabSessions({ limit: 20 });
+        const initialLabSession = selectInitialLabSession(getSessionListFromResponse(labHistory));
+
+        if (!initialLabSession?.session_id) {
           return;
         }
 
-        const savedLabSession = await getLab(savedSessionId);
+        let fullLabSession = initialLabSession;
 
-        if (isInactiveLabStatus(savedLabSession.status)) {
-          clearTerminalTranscriptsForSession(savedSessionId);
-          localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-          setLabSession(savedLabSession);
-          return;
+        try {
+          fullLabSession = await getLab(initialLabSession.session_id);
+        } catch (fullLabError) {
+          console.error("Initial lab detail could not be loaded. Using list response.", fullLabError);
         }
 
-        setLabSession(savedLabSession);
-        setCurrentPage("workspace");
+        setLabSession(fullLabSession);
+        persistActiveSessionReference(fullLabSession);
+
+        if (isWorkspaceRestorableLab(fullLabSession)) {
+          setCurrentPage("workspace");
+        }
       } catch (error) {
         console.error("Initial lab session could not be loaded.", error);
         localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
@@ -157,18 +278,7 @@ function App() {
   function handleLabCreated(newLabSession) {
     setLabSession(newLabSession);
 
-    if (newLabSession?.session_id && !isInactiveLabStatus(newLabSession.status)) {
-      localStorage.setItem(
-        ACTIVE_SESSION_STORAGE_KEY,
-        newLabSession.session_id
-      );
-    } else {
-      if (newLabSession?.session_id) {
-        clearTerminalTranscriptsForSession(newLabSession.session_id);
-      }
-
-      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-    }
+    persistActiveSessionReference(newLabSession);
 
     setCurrentPage("workspace");
     scrollToPageTop();
@@ -177,18 +287,7 @@ function App() {
   function handleLabUpdated(updatedLabSession) {
     setLabSession(updatedLabSession);
 
-    if (updatedLabSession?.session_id && !isInactiveLabStatus(updatedLabSession.status)) {
-      localStorage.setItem(
-        ACTIVE_SESSION_STORAGE_KEY,
-        updatedLabSession.session_id
-      );
-    } else {
-      if (updatedLabSession?.session_id) {
-        clearTerminalTranscriptsForSession(updatedLabSession.session_id);
-      }
-
-      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-    }
+    persistActiveSessionReference(updatedLabSession);
   }
 
   async function handleLabSelectedFromHistory(labSummary, targetPage = "session") {
@@ -201,12 +300,7 @@ function App() {
     const fullLabSession = await getLab(sessionId);
     setLabSession(fullLabSession);
 
-    if (!isInactiveLabStatus(fullLabSession.status)) {
-      localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, sessionId);
-    } else {
-      clearTerminalTranscriptsForSession(sessionId);
-      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
-    }
+    persistActiveSessionReference(fullLabSession);
 
     setCurrentPage(targetPage);
     scrollToPageTop();

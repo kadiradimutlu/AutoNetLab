@@ -74,7 +74,7 @@ def test_sprint26_validated_lab_is_runtime_active_for_web_cli_readiness(monkeypa
     )
 
     response = client.get(
-        f"/api/v1/labs/{session_id}/cli/readiness/r1",
+        f"/api/v1/labs/{session_id}/cli/readiness/srl1",
         headers=STUDENT_AUTH_HEADERS,
     )
 

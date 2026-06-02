@@ -1,3 +1,4 @@
+
 const LINK_ARROW = "\u2194";
 const LINK_MARKER = "\u2501";
 const DEVICE_COUNT_SEPARATOR = "\u00b7";
@@ -101,24 +102,81 @@ function findCliAccessForNode(node, cliAccess = []) {
   });
 }
 
+function getNodeCategory(node) {
+  const kind = String(node.kind || "").toLowerCase();
+  const id = String(node.id || "").toLowerCase();
+  const label = String(node.label || "").toLowerCase();
+
+  if (kind.includes("srl") || kind.includes("router") || label.includes("router") || id.startsWith("r")) {
+    return "router";
+  }
+
+  if (kind.includes("linux") || kind.includes("client") || label.includes("client") || id.includes("client")) {
+    return "client";
+  }
+
+  if (kind.includes("switch") || id.startsWith("s")) {
+    return "switch";
+  }
+
+  return "device";
+}
+
 function getDeviceIconLabel(node) {
+  const category = getNodeCategory(node);
   const kind = String(node.kind || "").toLowerCase();
 
-  if (kind.includes("router") || node.id.startsWith("r")) {
+  if (kind.includes("srl")) {
+    return "SR";
+  }
+
+  if (category === "router") {
     return "R";
   }
 
-  if (kind.includes("switch") || node.id.startsWith("s")) {
+  if (category === "switch") {
     return "S";
+  }
+
+  if (category === "client") {
+    return "C";
   }
 
   return "D";
 }
 
 function getReadableKind(kind) {
-  const normalizedKind = String(kind || "network-device").replace(/_/g, " ");
+  const normalizedKind = String(kind || "network-device").toLowerCase();
 
-  return normalizedKind.charAt(0).toUpperCase() + normalizedKind.slice(1);
+  if (normalizedKind.includes("srl")) {
+    return "Nokia SR Linux";
+  }
+
+  if (normalizedKind === "linux") {
+    return "Linux Client";
+  }
+
+  const readableKind = normalizedKind.replace(/_/g, " ");
+
+  return readableKind.charAt(0).toUpperCase() + readableKind.slice(1);
+}
+
+function getNodeCardClass(node) {
+  const category = getNodeCategory(node);
+
+  if (String(node.kind || "").toLowerCase().includes("srl")) {
+    return "topology-node-srlinux";
+  }
+
+  if (category === "client") {
+    return "topology-node-linux";
+  }
+
+  if (category === "router") {
+    return "topology-node-router";
+  }
+
+  return "topology-node-generic";
 }
 
 function normalizeTopologyKey(value) {
@@ -218,7 +276,7 @@ function TopologyNode({ node, cliInfo }) {
   const containerName = cliInfo?.containerName || cliInfo?.container_name || "-";
 
   return (
-    <article className="network-node-card">
+    <article className={`network-node-card ${getNodeCardClass(node)}`}>
       <div className="network-device-shell">
         <div className="network-device-icon">
           <span>{getDeviceIconLabel(node)}</span>
@@ -285,9 +343,9 @@ function TopologyLinkBridge({ links }) {
       <div className="network-link-line" />
 
       <div className="network-link-label">
-        <strong>{primaryLink.sourceInterface}</strong>
+        <strong>{primaryLink.sourceNode} {primaryLink.sourceInterface}</strong>
         <span>{LINK_ARROW}</span>
-        <strong>{primaryLink.targetInterface}</strong>
+        <strong>{primaryLink.targetNode} {primaryLink.targetInterface}</strong>
       </div>
     </div>
   );
@@ -335,9 +393,9 @@ function TopologyInlineLink({ link, leftNode, rightNode }) {
       <div className="network-link-label">
         {link ? (
           <>
-            <strong>{link.sourceInterface}</strong>
+            <strong>{link.sourceNode} {link.sourceInterface}</strong>
             <span>{LINK_ARROW}</span>
-            <strong>{link.targetInterface}</strong>
+            <strong>{link.targetNode} {link.targetInterface}</strong>
           </>
         ) : (
           <span>No link metadata</span>
@@ -458,11 +516,222 @@ function RingTopologyDiagram({ nodes, links, cliAccess }) {
   );
 }
 
+
+const CAMPUS_NODE_ORDER = ["client1", "srl1", "srl3", "srl2", "client2", "srl4"];
+
+const CAMPUS_EDGE_CLASSES = {
+  "client1-srl1": "client1-srl1",
+  "srl1-client1": "client1-srl1",
+  "srl1-srl3": "srl1-srl3",
+  "srl3-srl1": "srl1-srl3",
+  "srl3-srl2": "srl3-srl2",
+  "srl2-srl3": "srl3-srl2",
+  "srl2-client2": "srl2-client2",
+  "client2-srl2": "srl2-client2",
+  "srl1-srl4": "srl1-srl4",
+  "srl4-srl1": "srl1-srl4",
+  "srl4-srl2": "srl4-srl2",
+  "srl2-srl4": "srl4-srl2"
+};
+
+function getCampusNodeSet(nodes) {
+  return new Set(nodes.map((node) => normalizeTopologyKey(node.id)));
+}
+
+function isCampusTopology(topology, nodes, links) {
+  const topologyName = normalizeTopologyKey(topology?.name || topology?.id || topology?.scenario_id || "");
+  const nodeSet = getCampusNodeSet(nodes);
+  const hasCampusNodes = CAMPUS_NODE_ORDER.every((nodeId) => nodeSet.has(nodeId));
+  const hasCampusName = topologyName.includes("campus-core-routing") || topologyName.includes("campus");
+
+  return hasCampusNodes && (hasCampusName || links.length >= 5);
+}
+
+function orderCampusNodes(nodes) {
+  const nodeMap = nodes.reduce((result, node) => {
+    result.set(normalizeTopologyKey(node.id), node);
+    return result;
+  }, new Map());
+
+  const orderedNodes = CAMPUS_NODE_ORDER
+    .map((nodeId) => nodeMap.get(nodeId))
+    .filter(Boolean);
+  const orderedNodeIds = new Set(orderedNodes.map((node) => normalizeTopologyKey(node.id)));
+  const remainingNodes = nodes.filter((node) => !orderedNodeIds.has(normalizeTopologyKey(node.id)));
+
+  return [...orderedNodes, ...remainingNodes];
+}
+
+function getCampusEdgeClass(link, index) {
+  const sourceKey = normalizeTopologyKey(link.sourceNode);
+  const targetKey = normalizeTopologyKey(link.targetNode);
+  const pairKey = `${sourceKey}-${targetKey}`;
+
+  return CAMPUS_EDGE_CLASSES[pairKey] || `extra-${index}`;
+}
+
+function getCampusLineCoordinates(edgeClass) {
+  const coordinatesByEdge = {
+    "client1-srl1": { x1: 20, y1: 48, x2: 29, y2: 38 },
+    "srl1-srl3": { x1: 38, y1: 32, x2: 46, y2: 24 },
+    "srl3-srl2": { x1: 54, y1: 24, x2: 62, y2: 32 },
+    "srl2-client2": { x1: 71, y1: 38, x2: 80, y2: 48 },
+    "srl1-srl4": { x1: 38, y1: 42, x2: 47, y2: 66 },
+    "srl4-srl2": { x1: 53, y1: 66, x2: 62, y2: 42 }
+  };
+
+  return coordinatesByEdge[edgeClass] || { x1: 50, y1: 50, x2: 50, y2: 50 };
+}
+
+function getCampusLinkLabel(link) {
+  return `${getSafeText(link.sourceNode)} ${getSafeText(link.sourceInterface)} ${LINK_ARROW} ${getSafeText(link.targetNode)} ${getSafeText(link.targetInterface)}`;
+}
+
+function getCampusNodeById(nodes, nodeId) {
+  const normalizedNodeId = normalizeTopologyKey(nodeId);
+
+  return nodes.find((node) =>
+    normalizeTopologyKey(node.id) === normalizedNodeId ||
+    normalizeTopologyKey(node.label) === normalizedNodeId
+  ) || null;
+}
+
+function CampusStructuredNode({ node, cliAccess, className }) {
+  if (!node) {
+    return (
+      <div className={`campus-structured-node missing ${className || ""}`}>
+        <strong>Missing device</strong>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`campus-structured-node ${className || ""}`}>
+      <TopologyNode
+        node={node}
+        cliInfo={findCliAccessForNode(node, cliAccess)}
+      />
+    </div>
+  );
+}
+
+function CampusStructuredLink({ leftNode, rightNode, links, className }) {
+  const link = leftNode && rightNode ? findLinkBetweenNodes(links, leftNode, rightNode) : null;
+
+  return (
+    <div className={`campus-structured-link ${className || ""}`}>
+      <TopologyInlineLink
+        link={link}
+        leftNode={leftNode}
+        rightNode={rightNode}
+      />
+    </div>
+  );
+}
+
+function CampusTopologyDiagram({ nodes, links, cliAccess }) {
+  const campusNodes = orderCampusNodes(nodes);
+  const client1 = getCampusNodeById(campusNodes, "client1");
+  const srl1 = getCampusNodeById(campusNodes, "srl1");
+  const srl3 = getCampusNodeById(campusNodes, "srl3");
+  const srl2 = getCampusNodeById(campusNodes, "srl2");
+  const client2 = getCampusNodeById(campusNodes, "client2");
+  const srl4 = getCampusNodeById(campusNodes, "srl4");
+
+  return (
+    <div className="campus-structured-diagram" aria-label="Campus core static routing topology diagram">
+      <div className="campus-structured-grid">
+        <CampusStructuredNode
+          className="campus-slot-client1"
+          node={client1}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-client1-srl1"
+          leftNode={client1}
+          rightNode={srl1}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl1"
+          node={srl1}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl1-srl3"
+          leftNode={srl1}
+          rightNode={srl3}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl3"
+          node={srl3}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl3-srl2"
+          leftNode={srl3}
+          rightNode={srl2}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl2"
+          node={srl2}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl2-client2"
+          leftNode={srl2}
+          rightNode={client2}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-client2"
+          node={client2}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl1-srl4"
+          leftNode={srl1}
+          rightNode={srl4}
+          links={links}
+        />
+
+        <CampusStructuredNode
+          className="campus-slot-srl4"
+          node={srl4}
+          cliAccess={cliAccess}
+        />
+
+        <CampusStructuredLink
+          className="campus-link-srl4-srl2"
+          leftNode={srl4}
+          rightNode={srl2}
+          links={links}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TopologyLegend() {
   const items = [
     {
-      marker: "R",
-      label: "Router / Device"
+      marker: "SR",
+      label: "SR Linux Router"
+    },
+    {
+      marker: "C",
+      label: "Linux Client"
     },
     {
       marker: LINK_MARKER,
@@ -517,7 +786,8 @@ function TopologyCard({
   const hasNodes = nodes.length > 0;
   const isSimplePair = nodes.length === 2;
   const isFourNodeRing = nodes.length === 4 && links.length >= 4;
-  const isLinearMultiNode = nodes.length > 2 && !isFourNodeRing;
+  const isCampusTopologyDiagram = isCampusTopology(topology, nodes, links);
+  const isLinearMultiNode = nodes.length > 2 && !isFourNodeRing && !isCampusTopologyDiagram;
 
   return (
     <section className={`card topology-card topology-card-polished ${variant === "workspace" ? "topology-card-workspace" : ""}`}>
@@ -580,7 +850,7 @@ function TopologyCard({
             </strong>
           </div>
 
-          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""} ${isLinearMultiNode ? "linear" : ""}`}>
+          <div className={`network-diagram-canvas ${isSimplePair ? "pair" : "multi"} ${isFourNodeRing ? "ring" : ""} ${isCampusTopologyDiagram ? "campus" : ""} ${isLinearMultiNode ? "linear" : ""}`}>
             {isSimplePair ? (
               <>
                 <TopologyNode
@@ -597,6 +867,12 @@ function TopologyCard({
               </>
             ) : isFourNodeRing ? (
               <RingTopologyDiagram
+                nodes={nodes}
+                links={links}
+                cliAccess={cliAccess}
+              />
+            ) : isCampusTopologyDiagram ? (
+              <CampusTopologyDiagram
                 nodes={nodes}
                 links={links}
                 cliAccess={cliAccess}

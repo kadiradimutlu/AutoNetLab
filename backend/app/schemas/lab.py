@@ -18,7 +18,21 @@ CliAccessMode = Literal[
 class CreateLabRequest(BaseModel):
     student_id: str | None = Field(default=None, examples=["kadir"])
     difficulty: Difficulty = Field(default=Difficulty.easy, examples=["easy"])
-    topology_template: str = Field(default="basic-two-router", examples=["basic-two-router"])
+    topology_template: str | None = Field(
+        default=None,
+        examples=["srl-edge-link"],
+        description=(
+            "Deprecated compatibility field. New student-facing lab creation uses scenario_id."
+        ),
+    )
+    scenario_id: str | None = Field(
+        default="srl-edge-link",
+        examples=["srl-edge-link"],
+        description=(
+            "Professional network scenario identifier. "
+            "The current student-facing flow defaults to the edge link troubleshooting scenario."
+        ),
+    )
 
 
 class ErrorItem(BaseModel):
@@ -162,6 +176,13 @@ class LabSessionResponse(BaseModel):
                 "devices": ["r1", "r2"],
             }
         ],
+    )
+    scenario: dict | None = Field(
+        default=None,
+        description=(
+            "Student-safe scenario design data such as objective, addressing table, "
+            "routing requirements, and expected connectivity. It must not include injected errors."
+        ),
     )
     topology: Topology
     cli_access: list[CliAccess]

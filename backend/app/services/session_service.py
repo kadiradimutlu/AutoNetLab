@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -24,9 +25,16 @@ from app.schemas.lab import (
     LabSessionResponse,
 )
 from app.schemas.topology import Topology
-from app.services.error_injection import apply_error_injection
 from app.services.topology_generator import GENERATED_DIR, generate_session_topology
 from app.services.recommendation.features import build_topic_performance
+from app.services.scenario_catalog import (
+    CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID,
+    DEFAULT_SCENARIO_ID,
+    SR_BASIC_LINK_SCENARIO_ID,
+    get_scenario,
+    is_deploy_only_scenario,
+)
+from app.services.srlinux_runtime_setup import build_srlinux_runtime_faults
 
 
 _sessions: dict[str, dict] = {}
@@ -90,26 +98,34 @@ def create_lab_session(
             detail=_build_blocking_lab_create_detail(blocking_session),
         )
 
+    scenario_id = request.scenario_id or DEFAULT_SCENARIO_ID
+    scenario = get_scenario(scenario_id)
+    topology_template = (
+        scenario.get("topology_template")
+        if isinstance(scenario, dict)
+        else None
+    ) or request.topology_template or SR_BASIC_LINK_SCENARIO_ID
+
     generated_topology = generate_session_topology(
         session_id=session_id,
         difficulty=request.difficulty,
-        topology_template=request.topology_template,
+        topology_template=topology_template,
+        scenario_id=scenario_id,
     )
 
     topology = generated_topology["topology"]
-    session_dir = Path(generated_topology["topology_file"]).parent
 
-    topology_devices = [
-        node.id
-        for node in topology.nodes
-    ]
-
-    injected_errors = apply_error_injection(
-        difficulty=request.difficulty,
-        seed=session_id,
-        session_dir=session_dir,
-        topology_devices=topology_devices,
-    )
+    # Sprint 32B: New lab creation is SR Linux scenario-first.
+    # NR-Sprint34B: Campus static-routing scenarios now start from a golden
+    # baseline and then receive hidden, scenario-specific runtime fault metadata.
+    if is_deploy_only_scenario(scenario_id) and scenario_id != CAMPUS_CORE_STATIC_ROUTING_SCENARIO_ID:
+        injected_errors = []
+    else:
+        injected_errors = build_srlinux_runtime_faults(
+            difficulty=request.difficulty,
+            seed=session_id,
+            scenario_id=scenario_id,
+        )
 
     cli_access = build_cli_access(
         lab_name=generated_topology["lab_name"],
@@ -124,6 +140,7 @@ def create_lab_session(
         "topology": topology,
         "topology_file": generated_topology["topology_file"],
         "topology_template": generated_topology["topology_template"],
+        "scenario": scenario,
         "lab_name": generated_topology["lab_name"],
         "injected_errors": injected_errors,
         "cli_access": cli_access,
@@ -291,6 +308,8 @@ def _load_db_lab_session_metadata(session_id: str) -> dict | None:
 
 
 def _db_session_record_to_session(record: LabSessionRecord) -> dict:
+    scenario = _scenario_from_topology_template(record.topology_template)
+
     topology_payload = record.topology_json or {
         "name": record.lab_name,
         "nodes": [],
@@ -327,6 +346,7 @@ def _db_session_record_to_session(record: LabSessionRecord) -> dict:
         "topology": topology,
         "topology_file": record.topology_file,
         "topology_template": record.topology_template,
+        "scenario": scenario,
         "lab_name": record.lab_name,
         "injected_errors": [
             ErrorItem(**error)
@@ -390,6 +410,7 @@ def _merge_session_records(primary: dict, fallback: dict) -> dict:
         "score",
         "passed",
         "runtime_cleanup_history",
+        "scenario",
     )
 
     for key in enrichment_keys:
@@ -420,6 +441,102 @@ def _datetime_to_iso(value) -> str | None:
         return value.isoformat()
 
     return str(value)
+
+
+
+def remove_generated_session_folder(
+    session_id: str,
+    topology_file: str | None = None,
+) -> dict:
+    """
+    Safely removes the generated Containerlab session folder after a successful
+    lifecycle cleanup.
+
+    This helper intentionally removes only direct lab-* children under
+    containerlab/generated. It never deletes arbitrary paths from topology_file.
+    """
+
+    session_id_value = str(session_id or "")
+
+    if (
+        not _is_safe_session_id(session_id_value)
+        or not session_id_value.startswith("lab-")
+    ):
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": None,
+            "message": "Generated lab folder cleanup rejected an unsafe session_id.",
+            "error_code": "UNSAFE_GENERATED_SESSION_ID",
+        }
+
+    generated_root = GENERATED_DIR.resolve()
+    session_dir = GENERATED_DIR / session_id_value
+    resolved_session_dir = session_dir.resolve()
+
+    if (
+        resolved_session_dir.parent != generated_root
+        or resolved_session_dir.name != session_id_value
+        or session_dir.is_symlink()
+    ):
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab folder cleanup rejected an unsafe path.",
+            "error_code": "UNSAFE_GENERATED_SESSION_PATH",
+        }
+
+    if topology_file:
+        topology_parent = Path(str(topology_file)).parent
+        if not topology_parent.is_absolute():
+            topology_parent = (Path.cwd() / topology_parent)
+        # topology_file is treated as advisory context only. The deletion target
+        # remains GENERATED_DIR / session_id_value to avoid arbitrary path delete.
+
+    if not session_dir.exists():
+        return {
+            "success": True,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab folder is already absent.",
+            "error_code": None,
+        }
+
+    if not session_dir.is_dir():
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab cleanup target is not a directory.",
+            "error_code": "GENERATED_SESSION_PATH_NOT_DIRECTORY",
+        }
+
+    try:
+        shutil.rmtree(session_dir)
+    except OSError as exc:
+        return {
+            "success": False,
+            "session_id": session_id_value,
+            "removed": False,
+            "path": str(session_dir),
+            "message": "Generated lab folder cleanup failed.",
+            "error_code": "GENERATED_SESSION_FOLDER_CLEANUP_FAILED",
+            "detail": str(exc),
+        }
+
+    return {
+        "success": True,
+        "session_id": session_id_value,
+        "removed": True,
+        "path": str(session_dir),
+        "message": "Generated lab folder removed successfully.",
+        "error_code": None,
+    }
 
 
 def update_session_status(session_id: str, new_status: SessionStatus) -> dict:
@@ -493,11 +610,17 @@ def update_session_validation_result(session_id: str, validation_result) -> dict
     result_payload["created_at"] = attempt_payload["created_at"]
     result_payload["passed_checks"] = attempt_payload["passed_checks"]
     result_payload["failed_checks"] = attempt_payload["failed_checks"]
+    result_payload.setdefault("score_type", "fault_resolution")
+    result_payload.setdefault("fault_resolution_score", result_payload.get("score"))
+    result_payload.setdefault("network_health_score", result_payload.get("score"))
 
     session["status"] = SessionStatus.validated
     session["validation_result"] = result_payload
     session["validation_attempts"] = validation_attempts
     session["score"] = result_payload.get("score")
+    session["score_type"] = result_payload.get("score_type")
+    session["fault_resolution_score"] = result_payload.get("fault_resolution_score")
+    session["network_health_score"] = result_payload.get("network_health_score")
     session["passed"] = result_payload.get("passed")
     session["topic_performance"] = build_topic_performance(result_payload)
     session["completed_at"] = attempt_payload["created_at"]
@@ -540,6 +663,7 @@ def to_lab_session_response(session: dict, message: str) -> LabSessionResponse:
         completed_at=session.get("completed_at"),
         finished_at=session.get("finished_at"),
         topology_summary=build_topology_summary(session),
+        scenario=session.get("scenario"),
         topology=session["topology"],
         cli_access=session["cli_access"],
         hints=build_student_hints(session["difficulty"]),
@@ -829,16 +953,29 @@ def _build_validation_attempt_payload(
     failed_checks = sum(1 for check in checks if check.get("passed") is False)
     previous_attempts = list(session.get("validation_attempts") or [])
 
-    return {
+    attempt_payload = {
         "attempt_number": len(previous_attempts) + 1,
         "session_id": session["session_id"],
         "score": int(result_payload.get("score", 0)),
+        "score_type": str(result_payload.get("score_type") or "fault_resolution"),
+        "fault_resolution_score": result_payload.get("fault_resolution_score"),
+        "network_health_score": result_payload.get("network_health_score"),
+        "affected_topics": list(result_payload.get("affected_topics") or []),
+        "failed_topics": list(result_payload.get("failed_topics") or []),
+        "resolved_topics": list(result_payload.get("resolved_topics") or []),
+        "ml_training_sample": result_payload.get("ml_training_sample"),
         "passed": bool(result_payload.get("passed", False)),
         "passed_checks": passed_checks,
         "failed_checks": failed_checks,
         "created_at": _utc_now_iso(),
         "checks": checks,
     }
+
+    if isinstance(attempt_payload["ml_training_sample"], dict):
+        attempt_payload["ml_training_sample"]["attempt_number"] = attempt_payload["attempt_number"]
+        attempt_payload["ml_training_sample"]["created_at"] = attempt_payload["created_at"]
+
+    return attempt_payload
 
 
 def _student_safe_check_payload(check) -> dict:
@@ -906,21 +1043,24 @@ def _topic_hint_message(topic: str) -> str:
 
 def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
     """
-    Builds CLI access / CLI eriÅŸimi information for each Containerlab node.
+    Builds CLI access metadata for each Containerlab node.
 
     Containerlab container naming format:
     clab-<lab_name>-<node_id>
-
-    Example:
-    lab_name = autonetlab-lab-12345678
-    node_id = r1
-    container_name = clab-autonetlab-lab-12345678-r1
     """
 
     cli_items: list[CliAccess] = []
 
     for node in topology.nodes:
         container_name = f"clab-{lab_name}-{node.id}"
+        node_kind = str(getattr(node, "kind", "") or "")
+
+        if node_kind == "nokia_srlinux":
+            command = f"docker exec -it {container_name} sr_cli"
+            description = f"Open the Nokia SR Linux CLI on {node.id}."
+        else:
+            command = f"docker exec -it {container_name} sh"
+            description = f"Open a Linux shell on {node.id}."
 
         cli_items.append(
             CliAccess(
@@ -929,10 +1069,8 @@ def build_cli_access(lab_name: str, topology: Topology) -> list[CliAccess]:
                 container_name=container_name,
                 access_method="docker_exec",
                 mode="local_docker_exec_demo",
-                command=f"docker exec -it {container_name} sh",
-                description=(
-                    f"Use this command to open a CLI shell on {node.id.upper()}."
-                ),
+                command=command,
+                description=description,
             )
         )
 
@@ -953,6 +1091,7 @@ def _save_session_metadata(session: dict) -> None:
         "topology": session["topology"].model_dump(),
         "topology_file": session["topology_file"],
         "topology_template": session["topology_template"],
+        "scenario": session.get("scenario"),
         "lab_name": session["lab_name"],
         "injected_errors": [
             error.model_dump() if hasattr(error, "model_dump") else error
@@ -969,6 +1108,9 @@ def _save_session_metadata(session: dict) -> None:
         "validation_attempts": session.get("validation_attempts", []),
         "topic_performance": session.get("topic_performance"),
         "score": session.get("score"),
+        "score_type": session.get("score_type"),
+        "fault_resolution_score": session.get("fault_resolution_score"),
+        "network_health_score": session.get("network_health_score"),
         "passed": session.get("passed"),
         "runtime_cleanup_history": session.get("runtime_cleanup_history", []),
     }
@@ -1012,6 +1154,11 @@ def _load_session_metadata(session_id: str) -> dict | None:
             topology=topology,
         )
 
+    scenario = (
+        payload.get("scenario")
+        or _scenario_from_topology_template(payload.get("topology_template"))
+    )
+
     session = {
         "session_id": payload["session_id"],
         "student_id": payload["student_id"],
@@ -1020,6 +1167,7 @@ def _load_session_metadata(session_id: str) -> dict | None:
         "topology": topology,
         "topology_file": payload["topology_file"],
         "topology_template": payload["topology_template"],
+        "scenario": scenario,
         "lab_name": lab_name,
         "injected_errors": [
             ErrorItem(**error)
@@ -1038,6 +1186,17 @@ def _load_session_metadata(session_id: str) -> dict | None:
     }
 
     return session
+
+
+def _scenario_from_topology_template(topology_template: str | None) -> dict | None:
+    if not topology_template:
+        return None
+
+    try:
+        return get_scenario(topology_template)
+    except HTTPException:
+        return None
+
 
 
 def _normalize_cli_access_item(raw_cli: dict, lab_name: str) -> CliAccess:

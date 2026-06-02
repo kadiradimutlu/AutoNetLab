@@ -1,3 +1,4 @@
+﻿
 * {
   box-sizing: border-box;
 }
@@ -5,7 +6,7 @@
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  background: #f4f6f8;
+  background: #e9edf2;
   color: #1f2937;
 }
 
@@ -186,6 +187,7 @@ select {
   display: inline-block;
   padding: 5px 9px;
   border-radius: 999px;
+  border: 1px solid transparent;
   font-size: 13px;
   font-weight: 700;
 }
@@ -968,7 +970,7 @@ select {
     flex-direction: column;
   }
 }
-/* Sprint 7 recommendation UI / Ã¶neri arayÃ¼zÃ¼ */
+/* Sprint 7 recommendation UI / ÃƒÆ’Ã‚Â¶neri arayÃƒÆ’Ã‚Â¼zÃƒÆ’Ã‚Â¼ */
 .recommendation-source-panel {
   display: grid;
   grid-template-columns: 1fr;
@@ -1293,7 +1295,7 @@ select {
   padding: 28px;
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 32%),
-    #f4f6f8;
+    #e9edf2;
 }
 
 .login-card {
@@ -1642,7 +1644,7 @@ select {
   }
 }
 
-/* Sprint 11 Web CLI MVP */
+/* Sprint 11 Web CLI */
 .web-cli-panel {
   margin: 18px 0;
   border: 1px solid #dbeafe;
@@ -1991,8 +1993,8 @@ button:disabled,
   }
 }
 
-/* Sprint 16 database readiness */
-.demo-readiness-grid {
+/* Database readiness */
+.readiness-overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(360px, 1fr));
   gap: 16px;
@@ -2047,7 +2049,7 @@ button:disabled,
 }
 
 @media (max-width: 1100px) {
-  .demo-readiness-grid {
+  .readiness-overview-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -5063,3 +5065,4026 @@ html {
   color: #b91c1c;
 }
 /* End Sprint 29 My Labs conditional stat emphasis */
+
+
+
+/* Sprint 31 SR Linux scenario selection and network realism polish */
+.lab-choice-section {
+  display: grid;
+  gap: 12px;
+}
+
+.lab-type-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.scenario-card-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.lab-type-card {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  min-height: 190px;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.lab-type-card:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+}
+
+.lab-type-card.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.16);
+}
+
+.lab-type-card.muted-card {
+  cursor: default;
+  background: #f8fafc;
+  border-style: dashed;
+  color: #64748b;
+}
+
+.lab-type-card.muted-card:hover {
+  transform: none;
+  border-color: #e5e7eb;
+  box-shadow: none;
+}
+
+.lab-type-card strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.lab-type-card p,
+.lab-type-card small {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.55;
+}
+
+.scenario-card-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.scenario-card-meta-grid div {
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 9px;
+  min-width: 0;
+}
+
+.scenario-card-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.scenario-card-meta-grid strong {
+  display: block;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.scenario-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 16px 0 18px;
+}
+
+.scenario-detail-card {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 14px;
+  min-width: 0;
+}
+
+.scenario-detail-card-wide {
+  grid-column: 1 / -1;
+}
+
+.scenario-detail-card h4 {
+  margin: 0 0 10px;
+}
+
+.scenario-detail-card p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.scenario-table-scroll {
+  overflow-x: auto;
+}
+
+.scenario-data-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.scenario-data-table th,
+.scenario-data-table td {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.scenario-data-table th {
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.scenario-data-table td {
+  background: #ffffff;
+  color: #334155;
+}
+
+.scenario-device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.scenario-device-card {
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.scenario-device-card strong,
+.scenario-device-card span,
+.scenario-device-card p {
+  display: block;
+}
+
+.scenario-device-card p {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.scenario-device-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.scenario-device-meta span {
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.scenario-requirement-list,
+.scenario-note-list,
+.scenario-task-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #334155;
+  line-height: 1.65;
+}
+
+.scenario-requirement-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.scenario-requirement-list li {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.scenario-requirement-list strong,
+.scenario-requirement-list span {
+  display: block;
+}
+
+.scenario-requirement-list strong {
+  margin-bottom: 4px;
+}
+
+.scenario-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+  color: #64748b;
+}
+
+.network-node-card.topology-node-srlinux {
+  border-color: #bfdbfe;
+}
+
+.network-node-card.topology-node-linux {
+  border-color: #bbf7d0;
+}
+
+.network-node-card.topology-node-srlinux .network-device-icon {
+  background: linear-gradient(180deg, #1d4ed8 0%, #0f172a 100%);
+}
+
+.network-node-card.topology-node-linux .network-device-icon {
+  background: linear-gradient(180deg, #16a34a 0%, #166534 100%);
+}
+
+.network-node-card.topology-node-srlinux .network-node-title-row p,
+.network-node-card.topology-node-linux .network-node-title-row p {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1150px) {
+  .lab-type-grid,
+  .scenario-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .scenario-card-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-type-card {
+    min-height: 0;
+  }
+}
+
+
+/* NR-Sprint32B campus topology frontend foundation */
+.scenario-card-grid-selectable {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.scenario-card-grid-selectable .scenario-select-card {
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenario-card-grid-selectable .scenario-select-card.selected {
+  border-color: #2563eb;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.14);
+}
+
+.network-diagram-canvas.campus {
+  min-height: 700px;
+  padding: 1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.campus-topology-diagram {
+  position: relative;
+  min-width: 1220px;
+  min-height: 640px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 25% 20%, rgba(59, 130, 246, 0.08), transparent 30%),
+    radial-gradient(circle at 75% 75%, rgba(34, 197, 94, 0.08), transparent 28%),
+    #f8fafc;
+}
+
+.campus-topology-svg {
+  position: absolute;
+  inset: 24px;
+  width: calc(100% - 48px);
+  height: calc(100% - 48px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.campus-topology-line {
+  stroke: #334155;
+  stroke-width: 0.75;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.campus-topology-endpoint {
+  fill: #2563eb;
+  stroke: #ffffff;
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.campus-node-layer,
+.campus-link-label-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.campus-node {
+  position: absolute;
+  width: 200px;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+.campus-node .network-node-card {
+  min-height: 0;
+  padding: 0.65rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.campus-node .network-device-shell {
+  min-height: 48px;
+}
+
+.campus-node .network-device-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.campus-node .network-node-title-row strong,
+.campus-node .network-node-detail-grid strong {
+  font-size: 0.76rem;
+}
+
+.campus-node .network-node-title-row p,
+.campus-node .network-node-detail-grid span {
+  font-size: 0.68rem;
+}
+
+.campus-node .network-node-detail-grid {
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.campus-node .network-node-detail-grid > div:nth-child(2),
+.campus-node .network-node-detail-grid > div:nth-child(4) {
+  display: none;
+}
+
+.campus-node-client1 { left: 12%; top: 66%; }
+.campus-node-srl1 { left: 30%; top: 38%; }
+.campus-node-srl3 { left: 50%; top: 24%; }
+.campus-node-srl2 { left: 70%; top: 38%; }
+.campus-node-client2 { left: 88%; top: 66%; }
+.campus-node-srl4 { left: 50%; top: 79%; }
+
+.campus-link-label {
+  display: none;
+}
+
+.campus-link-label-client1-srl1 { left: 22%; top: 44%; }
+.campus-link-label-srl1-srl3 { left: 40%; top: 17%; }
+.campus-link-label-srl3-srl2 { left: 60%; top: 17%; }
+.campus-link-label-srl2-client2 { left: 78%; top: 44%; }
+.campus-link-label-srl1-srl4 { left: 40%; top: 58%; }
+.campus-link-label-srl4-srl2 { left: 60%; top: 58%; }
+
+@media (max-width: 900px) {
+  .network-diagram-canvas.campus {
+    min-height: 680px;
+  }
+
+  .campus-topology-diagram {
+    min-width: 1180px;
+  }
+}
+
+/* NR-Sprint33B scenario guidance frontend polish */
+.scenario-overview-polished {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-design-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.03)),
+    #ffffff;
+}
+
+.scenario-design-hero h4 {
+  margin: 4px 0 8px;
+  font-size: 1.15rem;
+}
+
+.scenario-design-hero p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.scenario-eyebrow {
+  display: inline-flex;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.scenario-meta-grid-enhanced {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.scenario-campus-guidance-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.08), transparent 30%),
+    radial-gradient(circle at 85% 80%, rgba(34, 197, 94, 0.08), transparent 30%),
+    #f8fafc;
+}
+
+.scenario-guidance-summary-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 1.2fr;
+  gap: 12px;
+}
+
+.scenario-guidance-card {
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 14px;
+  min-width: 0;
+}
+
+.scenario-guidance-card > span {
+  display: block;
+  margin-bottom: 10px;
+  color: #1e3a8a;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.scenario-guidance-list {
+  display: grid;
+  gap: 10px;
+}
+
+.scenario-guidance-list strong {
+  display: block;
+  color: #0f172a;
+}
+
+.scenario-guidance-list p {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.scenario-role-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.scenario-role-summary-grid div {
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 10px;
+  text-align: center;
+}
+
+.scenario-role-summary-grid strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.scenario-role-summary-grid small {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.scenario-campus-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scenario-campus-flow article {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-campus-flow span,
+.scenario-step-number,
+.scenario-task-list-polished span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
+.scenario-campus-flow p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.scenario-detail-grid-polished {
+  gap: 16px;
+}
+
+.scenario-highlight-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.scenario-device-grid-polished {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.scenario-device-card-polished {
+  display: grid;
+  gap: 10px;
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+.scenario-device-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.scenario-role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.24rem 0.52rem;
+  font-size: 0.66rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.scenario-role-badge.client {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.scenario-role-badge.edge,
+.scenario-role-badge.router {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.scenario-role-badge.core {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.scenario-role-badge.device {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.scenario-device-card-polished.role-client {
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+.scenario-device-card-polished.role-edge,
+.scenario-device-card-polished.role-router {
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+.scenario-device-card-polished.role-core {
+  border-color: rgba(124, 58, 237, 0.22);
+}
+
+.scenario-table-scroll-polished {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.scenario-addressing-table {
+  min-width: 880px;
+}
+
+.scenario-addressing-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.scenario-addressing-table td strong,
+.scenario-addressing-table td small {
+  display: block;
+}
+
+.scenario-addressing-table td small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.scenario-addressing-table code {
+  display: inline-flex;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 0.16rem 0.38rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.scenario-network-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #ecfeff;
+  color: #155e75;
+  padding: 0.18rem 0.48rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.scenario-requirement-card-grid,
+.scenario-connectivity-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.scenario-requirement-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-requirement-card strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.scenario-requirement-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.scenario-connectivity-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(22, 163, 74, 0.22);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-connectivity-path {
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.scenario-connectivity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scenario-connectivity-meta span {
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 0.18rem 0.48rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.scenario-connectivity-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.scenario-task-list-polished {
+  display: grid;
+  gap: 10px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.scenario-task-list-polished li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.scenario-task-list-polished p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.scenario-note-list-polished {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+}
+
+@media (max-width: 1150px) {
+  .scenario-guidance-summary-grid,
+  .scenario-campus-flow,
+  .scenario-meta-grid-enhanced {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .scenario-design-hero {
+    flex-direction: column;
+  }
+
+  .scenario-guidance-summary-grid,
+  .scenario-campus-flow,
+  .scenario-meta-grid-enhanced,
+  .scenario-role-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* NR-Sprint35A campus validation result UX frontend polish */
+.validation-summary-card-polished {
+  display: grid;
+  gap: 16px;
+}
+
+.validation-summary-title-row {
+  margin-bottom: 0;
+}
+
+.validation-result-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.35fr);
+  gap: 16px;
+  align-items: stretch;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.08), transparent 30%),
+    #f8fafc;
+  padding: 18px;
+}
+
+.validation-summary-card-polished.validation-pass .validation-result-hero {
+  border-color: rgba(22, 163, 74, 0.24);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(22, 163, 74, 0.09), transparent 30%),
+    #f8fafc;
+}
+
+.validation-summary-card-polished.validation-fail .validation-result-hero {
+  border-color: rgba(220, 38, 38, 0.24);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(220, 38, 38, 0.08), transparent 30%),
+    #f8fafc;
+}
+
+.validation-result-copy {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.validation-result-copy h4 {
+  margin: 0;
+  font-size: 1.24rem;
+}
+
+.validation-result-copy p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.validation-result-state {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.64rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.validation-result-state.pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.validation-result-state.fail {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.validation-score-panel {
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 16px;
+  text-align: right;
+}
+
+.validation-score-panel span {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.validation-score-panel strong {
+  display: block;
+  color: #0f172a;
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-top: 8px;
+}
+
+.validation-metrics-polished {
+  margin: 0;
+}
+
+.validation-focus-panel,
+.validation-next-steps-panel {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.validation-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.validation-focus-card {
+  border: 1px solid rgba(254, 202, 202, 0.9);
+  border-radius: 16px;
+  background: #fff7f7;
+  padding: 13px;
+}
+
+.validation-focus-card strong,
+.validation-focus-card span {
+  display: block;
+}
+
+.validation-focus-card strong {
+  color: #991b1b;
+}
+
+.validation-focus-card span {
+  margin-top: 4px;
+  color: #7f1d1d;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.validation-next-steps-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  background: #f8fafc;
+}
+
+.validation-next-steps-panel h4,
+.validation-check-section-header h4 {
+  margin: 0 0 6px;
+}
+
+.validation-next-step-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.validation-next-step-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.validation-next-step-list span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.validation-next-step-list p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.validation-check-section-header {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+}
+
+.validation-topic-list-polished {
+  gap: 16px;
+}
+
+.validation-topic-group-polished {
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.validation-topic-group-polished.has-failures {
+  border-color: rgba(254, 202, 202, 0.9);
+  background: #fffafa;
+}
+
+.validation-topic-group-polished.all-passed {
+  border-color: rgba(187, 247, 208, 0.9);
+  background: #f7fff9;
+}
+
+.validation-topic-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.validation-priority-checks {
+  margin-bottom: 10px;
+}
+
+.validation-check-card-polished {
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.validation-check-card-polished.failed-check-card {
+  border-color: #fecaca;
+  background: #fff7f7;
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.08);
+}
+
+.validation-check-card-polished.passed-check-card {
+  border-color: #bbf7d0;
+  background: #f7fff9;
+}
+
+.validation-check-card-polished.compact {
+  padding: 11px;
+  box-shadow: none;
+}
+
+.validation-check-title-row strong {
+  color: #0f172a;
+}
+
+.validation-check-grid-polished {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.validation-check-grid-polished div {
+  background: #ffffff;
+}
+
+.validation-check-grid-polished span,
+.validation-check-grid-polished strong {
+  display: block;
+}
+
+.validation-check-grid-polished span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.validation-check-grid-polished strong {
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.validation-passed-checks-panel {
+  margin-top: 10px;
+  border: 1px solid rgba(187, 247, 208, 0.9);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.74);
+  padding: 10px 12px;
+}
+
+.validation-passed-checks-panel summary {
+  cursor: pointer;
+  color: #166534;
+  font-weight: 900;
+}
+
+.validation-passed-checks-list {
+  margin-top: 10px;
+}
+
+@media (max-width: 1050px) {
+  .validation-result-hero,
+  .validation-next-steps-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .validation-score-panel {
+    text-align: left;
+  }
+
+  .validation-check-grid-polished {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .validation-check-grid-polished,
+  .validation-focus-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .validation-topic-badge-row {
+    justify-content: flex-start;
+  }
+}
+
+
+/* NR-Sprint36B xterm.js real web terminal frontend integration */
+.web-terminal-panel {
+  gap: 16px;
+}
+
+.web-terminal-shell-card {
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 20px;
+  background: #020617;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+}
+
+.web-terminal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  background: linear-gradient(135deg, #0f172a, #111827);
+  color: #e2e8f0;
+  padding: 12px 14px;
+}
+
+.web-terminal-toolbar span,
+.web-terminal-toolbar strong {
+  display: block;
+}
+
+.web-terminal-toolbar .muted {
+  color: #94a3b8;
+}
+
+.xterm-shell-container {
+  min-height: 430px;
+  height: 52vh;
+  max-height: 620px;
+  width: 100%;
+  padding: 12px;
+  background: #020617;
+}
+
+.xterm-shell-container .xterm {
+  height: 100%;
+}
+
+.xterm-shell-container .xterm-viewport {
+  overflow-y: auto;
+}
+
+.xterm-shell-container:focus-within {
+  outline: 3px solid rgba(37, 99, 235, 0.32);
+  outline-offset: -3px;
+}
+
+.web-terminal-panel .web-cli-selected-device {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.web-terminal-panel .web-cli-controls {
+  align-items: end;
+}
+
+@media (max-width: 1050px) {
+  .web-terminal-panel .web-cli-selected-device {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .xterm-shell-container {
+    min-height: 360px;
+    height: 48vh;
+  }
+}
+
+@media (max-width: 700px) {
+  .web-terminal-toolbar,
+  .web-terminal-panel .web-cli-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .web-terminal-panel .web-cli-selected-device {
+    grid-template-columns: 1fr;
+  }
+
+  .xterm-shell-container {
+    min-height: 320px;
+    height: 46vh;
+  }
+}
+
+
+/* NR-Sprint37B multi-terminal workspace tabs */
+.terminal-workspace-panel {
+  gap: 18px;
+}
+
+.terminal-workspace-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.terminal-workspace-summary > div {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.88);
+  padding: 12px;
+}
+
+.terminal-workspace-summary span,
+.terminal-workspace-summary strong {
+  display: block;
+}
+
+.terminal-workspace-summary span {
+  color: #64748b;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.terminal-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.terminal-device-tab {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  align-items: start;
+  min-height: 96px;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.terminal-device-tab:hover {
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.11);
+  transform: translateY(-1px);
+}
+
+.terminal-device-tab.active {
+  border-color: rgba(37, 99, 235, 0.8);
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.16);
+}
+
+.terminal-device-tab.connected {
+  border-color: rgba(22, 163, 74, 0.68);
+}
+
+.terminal-device-tab.error {
+  border-color: rgba(220, 38, 38, 0.68);
+}
+
+.terminal-tab-title {
+  font-weight: 800;
+}
+
+.terminal-tab-device-id {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.terminal-tab-status {
+  justify-self: start;
+}
+
+.terminal-workspace-panels {
+  min-width: 0;
+}
+
+.terminal-tab-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.terminal-tab-panel[hidden] {
+  display: none;
+}
+
+.terminal-workspace-toolbar {
+  align-items: center;
+}
+
+.terminal-workspace-toolbar-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.terminal-workspace-selected-device {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.terminal-workspace-controls {
+  align-items: end;
+}
+
+.multi-terminal-xterm-container {
+  min-height: 430px;
+}
+
+@media (max-width: 1050px) {
+  .terminal-workspace-summary,
+  .terminal-workspace-selected-device {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .terminal-workspace-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .terminal-workspace-summary,
+  .terminal-workspace-selected-device,
+  .terminal-workspace-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-workspace-toolbar,
+  .terminal-workspace-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .terminal-workspace-toolbar-badges {
+    justify-content: flex-start;
+  }
+
+  .multi-terminal-xterm-container {
+    min-height: 330px;
+  }
+}
+
+
+/* NR-Sprint38B recommendation and analytics v2 */
+.recommendation-card-v2 {
+  gap: 18px;
+}
+
+.recommendation-context-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.07), rgba(14, 165, 233, 0.03));
+  padding: 14px;
+}
+
+.recommendation-context-grid,
+.analytics-mini-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.recommendation-context-grid > div,
+.analytics-mini-metric-grid > div {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 10px;
+}
+
+.recommendation-context-grid span,
+.analytics-mini-metric-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.recommendation-context-grid strong,
+.analytics-mini-metric-grid strong {
+  color: #0f172a;
+}
+
+.topic-performance-mini-grid,
+.scenario-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.topic-performance-mini-card,
+.scenario-performance-card-item {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.topic-performance-mini-card p,
+.scenario-performance-card-item p {
+  color: #475569;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+
+.topic-performance-stats,
+.analytics-bar-meta-v2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.recommendation-source-panel-v2 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.recommendation-item-v2 {
+  border-left: 5px solid rgba(37, 99, 235, 0.3);
+}
+
+.recommendation-item-v2.high-priority {
+  border-left-color: #dc2626;
+}
+
+.recommendation-item-v2.medium-priority {
+  border-left-color: #d97706;
+}
+
+.recommendation-item-v2.low-priority {
+  border-left-color: #16a34a;
+}
+
+.recommendation-meta-grid-v2 {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.analytics-summary-card-v2 .analytics-summary-metric-grid-v2 {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.analytics-table-wide {
+  min-width: 1040px;
+}
+
+.analytics-code-pill {
+  display: inline-flex;
+  max-width: 220px;
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1e3a8a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 0.24rem 0.5rem;
+}
+
+.analytics-code-pill.neutral {
+  border-color: rgba(100, 116, 139, 0.18);
+  background: rgba(100, 116, 139, 0.08);
+  color: #334155;
+}
+
+.repeated-topic-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.cleanup-incident-card .analytics-empty-state,
+.repeated-topic-card .analytics-empty-state,
+.scenario-performance-card .analytics-empty-state {
+  background: #f8fafc;
+}
+
+@media (max-width: 800px) {
+  .recommendation-context-grid,
+  .analytics-mini-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topic-performance-mini-grid,
+  .scenario-performance-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* NR-Sprint41A Network Health tab polish */
+.network-health-details {
+  display: grid;
+  gap: 1rem;
+}
+
+.network-health-details-card {
+  background: #ffffff;
+  border: 1px solid #dfe7f3;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.05);
+}
+
+.network-health-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.95fr);
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.network-health-hero h3 {
+  margin: 0.8rem 0 0.45rem;
+  font-size: 1.35rem;
+}
+
+.network-health-hero p {
+  margin: 0;
+  color: #526074;
+  line-height: 1.55;
+}
+
+.network-health-hero.pass {
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.network-health-hero.fail {
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7f7 100%);
+}
+
+.network-health-hero-score-grid,
+.network-health-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.network-health-hero-score-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.network-health-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.network-health-score-card,
+.network-health-metric-card {
+  border: 1px solid #dfe7f3;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.network-health-score-card span,
+.network-health-metric-card span,
+.network-health-check-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.network-health-score-card strong,
+.network-health-metric-card strong {
+  display: block;
+  color: #07111f;
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.network-health-score-card p,
+.network-health-metric-card p {
+  margin: 0.5rem 0 0;
+  color: #526074;
+  line-height: 1.45;
+}
+
+.network-health-metric-card.pass {
+  border-color: #bbf7d0;
+  background: #f7fef9;
+}
+
+.network-health-metric-card.fail {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.network-health-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.network-health-chip {
+  border: 1px solid #d7e3f8;
+  border-radius: 999px;
+  background: #f7fbff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+}
+
+.network-health-check-list {
+  display: grid;
+  gap: 0.8rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.network-health-check-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  border: 1px solid #dfe7f3;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.network-health-check-card strong {
+  display: block;
+  color: #07111f;
+  font-size: 1rem;
+  word-break: break-word;
+}
+
+.network-health-check-card p {
+  margin: 0.45rem 0 0;
+  color: #526074;
+  line-height: 1.5;
+}
+
+.network-health-check-card.pass {
+  border-color: #bbf7d0;
+  background: #fbfffc;
+}
+
+.network-health-check-card.fail {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.network-health-check-card .badge {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .network-health-hero,
+  .network-health-hero-score-grid,
+  .network-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-health-check-card {
+    flex-direction: column;
+  }
+}
+
+
+/* NR-Sprint41B student list containment */
+.instructor-student-list-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 140px);
+  overflow: hidden;
+}
+
+.instructor-student-list-card > .section-title-row {
+  flex-shrink: 0;
+}
+
+.instructor-student-list-card .analytics-empty-state,
+.instructor-student-list-card > .muted {
+  flex-shrink: 0;
+}
+
+.student-list {
+  overflow-y: auto;
+  padding-right: 4px;
+  max-height: min(560px, calc(100vh - 260px));
+}
+
+.session-scenario-line {
+  margin: 4px 0;
+  font-weight: 700;
+  color: #374151;
+}
+
+@media (max-width: 900px) {
+  .instructor-student-list-card {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .student-list {
+    max-height: 420px;
+  }
+}
+
+
+/* NR-Sprint41B session table readability */
+.session-title-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.session-title-cell strong {
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.session-title-cell span {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.table-action-button {
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+
+
+/* NR-Sprint41B session review panel */
+.session-review-panel {
+  margin-top: 16px;
+}
+
+.session-review-grid,
+.session-review-metric-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.session-review-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.session-review-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.session-review-grid > div,
+.session-review-metric-grid > div {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.session-review-grid span,
+.session-review-metric-grid span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.session-review-grid strong,
+.session-review-metric-grid strong {
+  display: block;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.session-review-topic-section {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.session-review-topic-section > div,
+.session-review-section {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.session-review-topic-section h4,
+.session-review-section h4 {
+  margin: 0 0 10px;
+}
+
+.topic-pill-list.compact {
+  margin: 0;
+}
+
+.session-review-attempt-list,
+.session-review-check-list {
+  display: grid;
+  gap: 12px;
+}
+
+.session-review-attempt-card,
+.session-review-check-card {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.session-review-check-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.session-review-check-card strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.session-review-check-card p {
+  margin: 5px 0 0;
+}
+
+@media (max-width: 900px) {
+  .session-review-grid,
+  .session-review-metric-grid,
+  .session-review-topic-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* NR-Sprint41B analytics readability cleanup */
+.analytics-summary-metric {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  min-height: 96px;
+  padding: 14px 16px;
+}
+
+.analytics-summary-metric-label {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+}
+
+.analytics-summary-metric-value {
+  color: #111827;
+  font-size: 26px;
+  font-weight: 850;
+  line-height: 1.05;
+}
+
+.analytics-summary-metric-helper {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.scenario-performance-title-block {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scenario-performance-title-block strong {
+  display: block;
+  color: #111827;
+  font-size: 16px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.scenario-performance-title-block p {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.scenario-performance-context {
+  font-weight: 700;
+}
+
+
+/* NR-Sprint41B pre-PR UI fit fixes */
+.student-list {
+  padding: 3px 4px 4px 2px;
+  box-sizing: border-box;
+  scroll-padding-top: 4px;
+}
+
+.student-list > *:first-child {
+  margin-top: 2px;
+}
+
+.badge.finished {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.student-session-history-card {
+  overflow: hidden;
+}
+
+.student-session-table-wrapper {
+  overflow-x: visible;
+}
+
+.student-session-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.student-session-table th,
+.student-session-table td {
+  padding: 9px 8px;
+  vertical-align: top;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 24%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 10%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 10%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6),
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 9%;
+}
+
+.student-session-table .session-title-cell {
+  min-width: 0;
+  gap: 3px;
+}
+
+.student-session-table .session-title-cell strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.student-session-table .session-title-cell span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.table-action-button-stacked {
+  display: inline-grid;
+  gap: 0;
+  justify-items: center;
+  min-width: 66px;
+  padding: 7px 9px;
+  line-height: 1.05;
+  white-space: normal;
+}
+
+.table-action-button-stacked span {
+  display: block;
+}
+
+@media (max-width: 1100px) {
+  .student-session-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .student-session-table {
+    min-width: 780px;
+  }
+}
+
+
+/* NR-Sprint41B final badge/action and analytics table polish */
+.badge.status-created {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.badge.status-active {
+  background: #ecfeff;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+}
+
+.badge.status-validated {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badge.status-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge.result-pass {
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.badge.result-fail {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.badge.result-pending {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.badge.medium {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.badge.hard {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.badge.easy {
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.table-action-button-stacked {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  box-shadow: none;
+}
+
+.table-action-button-stacked:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 25%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 10%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6),
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 12%;
+  text-align: right;
+}
+
+.student-session-table th:nth-child(8) {
+  padding-right: 20px;
+}
+
+.student-session-table td:nth-child(8) {
+  padding-right: 18px;
+}
+
+.analytics-recent-sessions-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding-right: 4px;
+}
+
+.analytics-recent-sessions-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.analytics-recent-sessions-table th,
+.analytics-recent-sessions-table td {
+  padding: 10px 9px;
+  vertical-align: top;
+}
+
+.analytics-recent-sessions-table th:nth-child(1),
+.analytics-recent-sessions-table td:nth-child(1) {
+  width: 24%;
+}
+
+.analytics-recent-sessions-table th:nth-child(2),
+.analytics-recent-sessions-table td:nth-child(2) {
+  width: 11%;
+}
+
+.analytics-recent-sessions-table th:nth-child(3),
+.analytics-recent-sessions-table td:nth-child(3) {
+  width: 11%;
+}
+
+.analytics-recent-sessions-table th:nth-child(4),
+.analytics-recent-sessions-table td:nth-child(4) {
+  width: 11%;
+}
+
+.analytics-recent-sessions-table th:nth-child(5),
+.analytics-recent-sessions-table td:nth-child(5) {
+  width: 10%;
+}
+
+.analytics-recent-sessions-table th:nth-child(6),
+.analytics-recent-sessions-table td:nth-child(6) {
+  width: 12%;
+}
+
+.analytics-recent-sessions-table th:nth-child(7),
+.analytics-recent-sessions-table td:nth-child(7) {
+  width: 12%;
+}
+
+.analytics-recent-sessions-table th:nth-child(8),
+.analytics-recent-sessions-table td:nth-child(8) {
+  width: 9%;
+  text-align: right;
+}
+
+.analytics-recent-sessions-table .session-title-cell {
+  min-width: 0;
+  gap: 3px;
+}
+
+.analytics-recent-sessions-table .session-title-cell strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.analytics-recent-sessions-table .session-title-cell span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+
+/* NR-Sprint41B final selected palette and contained scroll behavior */
+.badge.easy {
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.badge.medium {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.badge.hard {
+  background: #fce7f3;
+  color: #be185d;
+  border: 1px solid #fbcfe8;
+}
+
+.badge.status-created {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge.status-active {
+  background: #cffafe;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+}
+
+.badge.status-validated {
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+.badge.finished {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.badge.status-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge.result-pass {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badge.result-fail {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge.result-pending {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.table-action-button-stacked {
+  background: #ffffff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+}
+
+.table-action-button-stacked:hover {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  color: #1e40af;
+  transform: translateY(-1px);
+}
+
+.student-list,
+.student-session-table-wrapper,
+.analytics-recent-sessions-scroll {
+  overscroll-behavior: contain;
+}
+
+.student-session-table-wrapper {
+  max-height: 640px;
+  overflow-y: auto;
+  overflow-x: visible;
+  scroll-padding-top: 8px;
+}
+
+.analytics-recent-sessions-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  overflow-x: auto;
+  scroll-padding-top: 8px;
+}
+
+.student-list {
+  overscroll-behavior-y: contain;
+}
+
+.student-session-table-wrapper,
+.analytics-recent-sessions-scroll {
+  overscroll-behavior-y: contain;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 11%;
+  text-align: right;
+}
+
+.student-session-table td:nth-child(8) {
+  padding-right: 10px;
+}
+
+.student-session-table th:nth-child(8) {
+  padding-right: 12px;
+}
+
+.analytics-recent-sessions-table th:nth-child(8),
+.analytics-recent-sessions-table td:nth-child(8) {
+  width: 10%;
+  text-align: right;
+}
+
+.analytics-recent-sessions-table td:nth-child(8) {
+  padding-right: 10px;
+}
+
+.analytics-recent-sessions-table th:nth-child(8) {
+  padding-right: 12px;
+}
+
+
+/* NR-Sprint41B table tube fit correction */
+.student-session-table-wrapper {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  max-height: 640px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+}
+
+.student-session-table {
+  width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.student-session-table th,
+.student-session-table td {
+  padding: 10px 7px;
+  vertical-align: top;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 23%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 11%;
+  text-align: right;
+}
+
+.student-session-table th:nth-child(8) {
+  padding-right: 10px;
+}
+
+.student-session-table td:nth-child(8) {
+  padding-right: 8px;
+}
+
+.student-session-table .session-title-cell {
+  min-width: 0;
+  gap: 3px;
+}
+
+.student-session-table .session-title-cell strong {
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.student-session-table .session-title-cell span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: normal;
+}
+
+.student-session-table .table-action-button-stacked {
+  min-width: 64px;
+  max-width: 72px;
+  padding: 7px 8px;
+}
+
+@media (max-width: 1100px) {
+  .student-session-table-wrapper {
+    overflow-x: hidden !important;
+  }
+
+  .student-session-table {
+    min-width: 0 !important;
+  }
+}
+
+
+/* NR-Sprint41B student identity and search polish */
+.student-search-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 12px;
+}
+
+.student-search-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #102033;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 10px 12px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.student-search-input::placeholder {
+  color: #8a98aa;
+}
+
+.student-search-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+  background: #f8fbff;
+}
+
+.student-search-clear {
+  border: 1px solid #dbe4f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 11px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+.student-search-clear:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.student-list-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.student-list-primary {
+  color: #102033;
+  font-size: 14px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.student-list-secondary {
+  display: block;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.selected-student-identity-meta {
+  margin-top: 2px;
+}
+
+
+/* NR-Sprint41B student list 8-item tube, action inset, and scroll stability */
+.instructor-student-list-card {
+  align-self: start;
+}
+
+.instructor-student-list-card .student-list {
+  max-height: min(720px, calc(100vh - 248px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  padding-right: 6px;
+  margin-right: -2px;
+  scrollbar-gutter: stable;
+}
+
+.instructor-student-list-card .student-list-item {
+  min-height: 76px;
+  padding: 12px 14px;
+  gap: 8px;
+}
+
+.instructor-student-list-card .student-list-primary {
+  font-size: 14px;
+  line-height: 1.18;
+}
+
+.instructor-student-list-card .student-list-secondary {
+  font-size: 12px;
+  line-height: 1.24;
+}
+
+.instructor-student-list-card .student-list-metrics {
+  margin-top: 6px;
+  gap: 6px;
+}
+
+.instructor-student-list-card .student-list-metrics span {
+  padding: 5px 9px;
+  line-height: 1.1;
+}
+
+.student-session-table-wrapper {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  padding-right: 8px;
+}
+
+.student-session-table {
+  width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.student-session-table th,
+.student-session-table td {
+  box-sizing: border-box;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 22%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 8%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 11%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(8) {
+  text-align: center;
+  padding-right: 26px;
+}
+
+.student-session-table td:nth-child(8) {
+  text-align: left;
+  padding-left: 4px;
+  padding-right: 30px;
+}
+
+.student-session-table .table-action-button-stacked {
+  min-width: 66px;
+  max-width: 76px;
+  margin-right: 16px;
+}
+
+.instructor-student-detail::after,
+.analytics-detail-shell::after {
+  content: "";
+  display: block;
+  height: clamp(260px, 32vh, 420px);
+  pointer-events: none;
+}
+
+@media (max-width: 1200px) {
+  .instructor-student-list-card .student-list {
+    max-height: min(660px, calc(100vh - 236px));
+  }
+
+  .student-session-table td:nth-child(8) {
+    padding-right: 26px;
+  }
+
+  .student-session-table .table-action-button-stacked {
+    margin-right: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .instructor-student-list-card .student-list {
+    max-height: 560px;
+  }
+
+  .instructor-student-detail::after,
+  .analytics-detail-shell::after {
+    height: 220px;
+  }
+}
+
+
+/* NR-Sprint41B final session review badge and action alignment polish */
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(8) {
+  text-align: right;
+  padding-right: 18px;
+}
+
+.student-session-table td:nth-child(8) {
+  text-align: right;
+  padding-left: 0;
+  padding-right: 16px;
+}
+
+.student-session-table .table-action-button-stacked {
+  margin-right: 0;
+}
+
+.session-review-panel .session-review-value-badge {
+  width: fit-content;
+  min-width: 72px;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.session-review-panel .badge.result-pass,
+.session-review-panel .badge.pass {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.session-review-panel .badge.result-fail,
+.session-review-panel .badge.fail {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.session-review-panel .badge.result-pending {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.session-review-panel .badge.status-created {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.session-review-panel .badge.status-active {
+  background: #cffafe;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+}
+
+.session-review-panel .badge.status-validated {
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+
+.session-review-panel .badge.finished {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.session-review-panel .badge.status-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.session-review-panel .badge.easy {
+  background: #dcfce7;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.session-review-panel .badge.medium {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.session-review-panel .badge.hard {
+  background: #fce7f3;
+  color: #be185d;
+  border: 1px solid #fbcfe8;
+}
+
+.session-review-panel .badge.neutral {
+  background: #e5e7eb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+
+/* NR-Sprint41B session history search and balanced final table layout */
+.session-history-search-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 12px;
+  max-width: 360px;
+}
+
+.session-history-search-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #102033;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 10px 12px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.session-history-search-input::placeholder {
+  color: #8a98aa;
+}
+
+.session-history-search-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+  background: #f8fbff;
+}
+
+.session-history-search-clear {
+  border: 1px solid #dbe4f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+
+.session-history-search-clear:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.session-history-empty-cell {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 18px 12px;
+  text-align: center;
+}
+
+.student-session-table-wrapper {
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  padding-right: 10px;
+  scrollbar-gutter: stable;
+}
+
+.student-session-table {
+  width: calc(100% - 10px);
+  min-width: 0 !important;
+  table-layout: fixed;
+  margin-right: 10px;
+}
+
+.student-session-table th,
+.student-session-table td {
+  box-sizing: border-box;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.student-session-table th:nth-child(1),
+.student-session-table td:nth-child(1) {
+  width: 16%;
+}
+
+.student-session-table th:nth-child(2),
+.student-session-table td:nth-child(2) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(3),
+.student-session-table td:nth-child(3) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(4),
+.student-session-table td:nth-child(4) {
+  width: 9%;
+}
+
+.student-session-table th:nth-child(5),
+.student-session-table td:nth-child(5) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(6),
+.student-session-table td:nth-child(6) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(7),
+.student-session-table td:nth-child(7) {
+  width: 13%;
+}
+
+.student-session-table th:nth-child(8),
+.student-session-table td:nth-child(8) {
+  width: 12%;
+}
+
+.student-session-table th:nth-child(8) {
+  text-align: left;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.student-session-table td:nth-child(8) {
+  text-align: left;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.student-session-table .table-action-button-stacked {
+  min-width: 70px;
+  max-width: 78px;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.student-session-table .session-title-cell strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1100px) {
+  .session-history-search-control {
+    max-width: 100%;
+  }
+
+  .student-session-table {
+    width: calc(100% - 8px);
+    margin-right: 8px;
+  }
+
+  .student-session-table th,
+  .student-session-table td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+/* NR-Sprint41C student home status badge cleanup */
+.student-home-info-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 190px;
+}
+
+.student-home-card-title {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.student-home-current-lab-card {
+  gap: 12px;
+}
+
+.student-home-current-lab-content {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.student-home-current-lab-title {
+  color: #111827;
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.student-home-lab-id {
+  align-self: flex-start;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #374151;
+  display: inline-flex;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 7px 10px;
+}
+
+.student-home-badge {
+  align-self: flex-start;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 9px 13px;
+}
+
+.student-home-difficulty-badge.easy,
+.student-home-status-badge.success {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.student-home-difficulty-badge.medium,
+.student-home-status-badge.warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.student-home-difficulty-badge.hard,
+.student-home-status-badge.cleanup {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.student-home-status-badge.active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.student-home-difficulty-badge.neutral,
+.student-home-status-badge.neutral {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+/* End NR-Sprint41C student home status badge cleanup */
+
+/* NR-Sprint41C Create Lab functional UX cleanup */
+.scenario-card-grid-selectable {
+  align-items: stretch;
+}
+
+.scenario-select-card-functional {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 260px;
+  text-align: left;
+}
+
+.scenario-select-card-functional.selected {
+  border-color: #2563eb;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.16);
+}
+
+.scenario-select-card-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+}
+
+.scenario-select-card-header strong {
+  line-height: 1.18;
+}
+
+.scenario-select-summary {
+  color: #4b5563;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.difficulty-card-badge-row,
+.selected-scenario-badge-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.difficulty-fault-count {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #374151;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 7px 9px;
+}
+
+.difficulty-select-card {
+  min-height: 180px;
+}
+
+.difficulty-select-card.selected {
+  border-color: #2563eb;
+  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
+}
+/* End NR-Sprint41C Create Lab functional UX cleanup */
+
+/* NR-Sprint41C My Labs functional UX cleanup */
+.my-labs-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.my-labs-toolbar-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.my-labs-toolbar-label {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.my-labs-filter-row {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(260px, 1fr) minmax(170px, 220px);
+  width: min(100%, 680px);
+}
+
+.my-labs-filter-row label {
+  display: grid;
+  gap: 6px;
+}
+
+.my-labs-filter-row label span {
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.my-labs-search-input,
+.my-labs-sort-select {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  color: #111827;
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.my-labs-list.my-labs-scroll-tube {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 32px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  max-height: min(68vh, 860px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  scrollbar-gutter: stable;
+}
+
+.my-labs-list.my-labs-scroll-tube .my-lab-card {
+  background: #ffffff;
+}
+
+.my-labs-list.my-labs-scroll-tube::-webkit-scrollbar {
+  width: 10px;
+}
+
+.my-labs-list.my-labs-scroll-tube::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 3px solid #f8fafc;
+  border-radius: 999px;
+}
+
+.my-labs-list.my-labs-scroll-tube::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.my-lab-card-functional {
+  gap: 16px;
+}
+
+.my-lab-card-functional .my-lab-card-header {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.my-lab-session-id {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  color: #374151;
+  display: inline-flex;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 7px 9px;
+}
+
+.my-lab-card-functional h3 {
+  line-height: 1.18;
+  margin: 0 0 6px;
+}
+
+.my-lab-card-functional .my-lab-detail-grid {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.my-lab-card-functional .my-lab-detail-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.my-lab-score-value {
+  color: #111827;
+}
+
+@media (max-width: 900px) {
+  .my-labs-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-labs-filter-row {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .my-labs-list.my-labs-scroll-tube {
+    border-radius: 24px;
+    max-height: 70vh;
+    padding: 12px;
+  }
+
+  .my-lab-card-functional .my-lab-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .my-lab-card-functional .my-lab-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* End NR-Sprint41C My Labs functional UX cleanup */
+
+/* NR-Sprint41C shared badge palette alignment */
+.badge.easy,
+.student-home-difficulty-badge.easy {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.badge.medium,
+.student-home-difficulty-badge.medium {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.badge.hard,
+.student-home-difficulty-badge.hard {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
+.badge.created,
+.student-home-status-badge.created {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.badge.active,
+.badge.deployed,
+.student-home-status-badge.active {
+  background: #ecfeff;
+  border-color: #a5f3fc;
+  color: #0e7490;
+}
+
+.badge.validated,
+.student-home-status-badge.validated {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+  color: #0f766e;
+}
+
+.badge.finished,
+.student-home-status-badge.finished {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.badge.destroyed,
+.student-home-status-badge.destroyed,
+.badge.neutral,
+.badge.not-validated {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.badge.error,
+.student-home-status-badge.error,
+.badge.fail,
+.badge.failed,
+.badge.failure,
+.badge.danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.badge.pass,
+.badge.passed,
+.badge.success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+
+.my-lab-card-functional .secondary-button,
+.my-lab-card-functional .outline-button {
+  background: #ffffff;
+  border: 1px solid #2563eb;
+  color: #2563eb;
+}
+
+.my-lab-card-functional .secondary-button:hover,
+.my-lab-card-functional .outline-button:hover {
+  background: #eff6ff;
+}
+/* End NR-Sprint41C shared badge palette alignment */
+
+/* NR-Sprint41C workspace guide mini-tabs */
+.scenario-guide-tabs-card {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-guide-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.scenario-guide-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  font-weight: 800;
+  padding: 9px 13px;
+  cursor: pointer;
+}
+
+.scenario-guide-tabs button strong {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+}
+
+.scenario-guide-tabs button.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.scenario-guide-tabs button.active strong {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.scenario-guide-tab-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.scenario-guide-section-heading {
+  padding: 4px 2px;
+}
+
+.scenario-expected-state-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(37, 99, 235, 0.04)),
+    #ffffff;
+}
+
+.scenario-expected-state-hero h4 {
+  margin: 4px 0 8px;
+}
+
+.scenario-expected-state-hero p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.scenario-expected-state-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scenario-expected-state-metrics div {
+  padding: 12px;
+  border: 1px solid #e0f2fe;
+  border-radius: 16px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.scenario-expected-state-metrics strong,
+.scenario-expected-state-metrics span {
+  display: block;
+}
+
+.scenario-expected-state-metrics strong {
+  color: #0369a1;
+  font-size: 1.3rem;
+}
+
+.scenario-expected-state-metrics span {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.scenario-expected-state-card {
+  border-color: rgba(14, 165, 233, 0.2);
+}
+
+@media (max-width: 900px) {
+  .scenario-expected-state-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-expected-state-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-guide-tabs {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .scenario-guide-tabs button {
+    justify-content: space-between;
+  }
+}
+/* End NR-Sprint41C workspace guide mini-tabs */
+
+/* NR-Sprint41C workspace guide tab visual polish START */
+.scenario-guide-tabs button strong {
+  display: none;
+}
+
+.scenario-guide-tabs button {
+  gap: 0;
+  padding: 0.85rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  background: rgba(255, 255, 255, 0.78);
+  color: #334155;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+
+.scenario-guide-tabs button span {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #334155;
+  letter-spacing: 0.01em;
+}
+
+.scenario-guide-tabs button:hover {
+  border-color: rgba(37, 99, 235, 0.32);
+  background: #f8fbff;
+  color: #1d4ed8;
+}
+
+.scenario-guide-tabs button:hover span {
+  color: #1d4ed8;
+}
+
+.scenario-guide-tabs button.active {
+  border-color: rgba(37, 99, 235, 0.44);
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+.scenario-guide-tabs button.active span {
+  color: #1d4ed8;
+}
+
+.scenario-design-hero {
+  align-items: flex-start;
+}
+
+.scenario-design-hero .badge,
+.scenario-design-hero .badge.easy,
+.scenario-design-hero .badge.medium,
+.scenario-design-hero .badge.hard {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 0;
+  height: auto;
+  line-height: 1;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+/* NR-Sprint41C workspace guide tab visual polish END */
+
+/* NR-Sprint41C topology branch and campus repair START */
+.network-diagram-canvas.linear {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 18px;
+}
+
+.network-diagram-canvas.linear .topology-linear-diagram {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 18px;
+  width: max-content;
+  min-width: max-content;
+  padding: 8px 6px 10px;
+}
+
+.network-diagram-canvas.linear .topology-linear-node {
+  flex: 0 0 320px;
+  width: 320px;
+  min-width: 320px;
+}
+
+.network-diagram-canvas.linear .network-node-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 228px;
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.network-diagram-canvas.linear .network-node-title-row,
+.network-diagram-canvas.linear .network-node-content,
+.network-diagram-canvas.linear .network-node-detail-grid,
+.network-diagram-canvas.linear .network-node-detail-grid > div {
+  min-width: 0;
+}
+
+.network-diagram-canvas.linear .network-node-title-row strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.network-diagram-canvas.linear .topology-linear-link {
+  flex: 0 0 140px;
+  width: 140px;
+  min-width: 140px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-line {
+  width: 140px;
+  min-width: 140px;
+}
+
+.network-diagram-canvas.linear .topology-linear-link .network-link-label {
+  width: 152px;
+  max-width: 152px;
+  font-size: 0.74rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Campus: deterministic grid chain layout */
+.network-diagram-canvas.campus {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 18px;
+}
+
+.campus-structured-diagram {
+  width: max-content;
+  min-width: max-content;
+  padding: 28px 28px 34px;
+}
+
+.campus-structured-grid {
+  display: grid;
+  grid-template-columns:
+    320px 150px
+    320px 150px
+    320px 150px
+    320px 150px
+    320px;
+  grid-template-rows: auto 92px auto;
+  gap: 18px;
+  align-items: center;
+  width: max-content;
+  min-width: max-content;
+}
+
+.campus-structured-node {
+  width: 320px;
+  min-width: 320px;
+  position: relative;
+  z-index: 2;
+}
+
+.campus-structured-node .network-node-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 228px;
+  grid-template-columns: 76px minmax(0, 1fr);
+}
+
+.campus-structured-node .network-node-title-row,
+.campus-structured-node .network-node-content,
+.campus-structured-node .network-node-detail-grid,
+.campus-structured-node .network-node-detail-grid > div {
+  min-width: 0;
+}
+
+.campus-structured-node .network-node-title-row strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.campus-structured-link {
+  width: 150px;
+  min-width: 150px;
+  position: relative;
+  z-index: 1;
+  align-self: center;
+}
+
+.campus-structured-link .network-link-bridge {
+  width: 150px;
+  min-width: 150px;
+  min-height: 74px;
+  padding-inline: 0;
+}
+
+.campus-structured-link .network-link-line {
+  width: 150px;
+  min-width: 150px;
+}
+
+.campus-structured-link .network-link-label {
+  width: 160px;
+  max-width: 160px;
+  padding: 7px 8px;
+  overflow: hidden;
+  font-size: 0.73rem;
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campus-slot-client1 { grid-column: 1; grid-row: 1; }
+.campus-link-client1-srl1 { grid-column: 2; grid-row: 1; }
+.campus-slot-srl1 { grid-column: 3; grid-row: 1; }
+.campus-link-srl1-srl3 { grid-column: 4; grid-row: 1; }
+.campus-slot-srl3 { grid-column: 5; grid-row: 1; }
+.campus-link-srl3-srl2 { grid-column: 6; grid-row: 1; }
+.campus-slot-srl2 { grid-column: 7; grid-row: 1; }
+.campus-link-srl2-client2 { grid-column: 8; grid-row: 1; }
+.campus-slot-client2 { grid-column: 9; grid-row: 1; }
+
+.campus-link-srl1-srl4 {
+  grid-column: 4;
+  grid-row: 2;
+}
+
+.campus-slot-srl4 {
+  grid-column: 5;
+  grid-row: 3;
+}
+
+.campus-link-srl4-srl2 {
+  grid-column: 6;
+  grid-row: 2;
+}
+
+.campus-structured-node.missing {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.84);
+  color: #64748b;
+}
+
+@media (max-width: 1120px) {
+  .network-diagram-canvas.linear .topology-linear-diagram {
+    min-width: max-content;
+  }
+
+  .campus-structured-diagram,
+  .campus-structured-grid {
+    min-width: max-content;
+  }
+}
+/* NR-Sprint41C topology branch and campus repair END */
+
+/* NR-Sprint41C campus diagonal lower links START */
+.campus-link-srl1-srl4,
+.campus-link-srl4-srl2 {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 104px;
+}
+
+.campus-link-srl1-srl4 .network-link-bridge,
+.campus-link-srl4-srl2 .network-link-bridge {
+  position: relative;
+  display: block;
+  width: 190px;
+  min-width: 190px;
+  height: 104px;
+  min-height: 104px;
+  padding: 0;
+}
+
+.campus-link-srl1-srl4 .network-link-line,
+.campus-link-srl4-srl2 .network-link-line {
+  position: absolute;
+  left: 50%;
+  top: 40px;
+  width: 190px;
+  min-width: 190px;
+  margin: 0;
+  transform-origin: center center;
+  z-index: 1;
+}
+
+.campus-link-srl1-srl4 .network-link-line {
+  transform: translateX(-50%) rotate(34deg);
+}
+
+.campus-link-srl4-srl2 .network-link-line {
+  transform: translateX(-50%) rotate(-34deg);
+}
+
+.campus-link-srl1-srl4 .network-link-label,
+.campus-link-srl4-srl2 .network-link-label {
+  position: absolute;
+  top: 72px;
+  z-index: 2;
+  width: 176px;
+  max-width: 176px;
+  transform-origin: center center;
+}
+
+.campus-link-srl1-srl4 .network-link-label {
+  left: calc(50% - 24px);
+  transform: translateX(-50%) rotate(34deg);
+}
+
+.campus-link-srl4-srl2 .network-link-label {
+  left: calc(50% + 24px);
+  transform: translateX(-50%) rotate(-34deg);
+}
+/* NR-Sprint41C campus diagonal lower links END */
+
+/* NR-Sprint41D register page functional UI cleanup START */
+.message-box.success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.login-form,
+.auth-message-region,
+.auth-switch-panel {
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.auth-message-region {
+  width: 100%;
+  min-height: 88px;
+  margin-bottom: 12px;
+  display: grid;
+  align-content: start;
+}
+
+.auth-message-region .message-box {
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.auth-message-region .technical-detail-box {
+  margin-top: 8px;
+}
+
+.field-feedback-slot {
+  min-height: 22px;
+  margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.field-feedback-slot .form-helper,
+.field-feedback-slot .field-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.form-group.has-error input {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
+}
+
+@media (max-width: 760px) {
+  .auth-message-region {
+    min-height: 104px;
+  }
+}
+/* NR-Sprint41D register page functional UI cleanup END */
+
+
+.back-to-top-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 900;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.back-to-top-button:hover {
+  background: #1f2937;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.26);
+  transform: translateY(-2px);
+}
+
+.back-to-top-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.36);
+  outline-offset: 3px;
+}
+
+.confirm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.confirm-dialog {
+  width: min(440px, 100%);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.confirm-dialog-content {
+  padding: 24px 24px 10px;
+}
+
+.confirm-dialog-content h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 20px;
+}
+
+.confirm-dialog-content p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.55;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 24px 24px;
+}
+
+.confirm-dialog-button {
+  min-width: 96px;
+}
+
+@media (max-width: 640px) {
+  .back-to-top-button {
+    right: 18px;
+    bottom: 18px;
+  }
+
+  .confirm-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-dialog-button {
+    width: 100%;
+  }
+}

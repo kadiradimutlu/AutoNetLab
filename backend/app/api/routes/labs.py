@@ -20,6 +20,8 @@ from app.schemas.validation import StudentValidationResult, ValidationHistoryRes
 from app.services.containerlab_adapter import containerlab_adapter
 from app.services.recommendation.engine import build_recommendations_for_session
 from app.services.runtime_error_injection import apply_runtime_error_injection
+from app.services.scenario_catalog import is_deploy_only_scenario, is_srlinux_scenario
+from app.services.srlinux_runtime_setup import apply_srlinux_runtime_setup
 from app.services.session_service import (
     build_lab_hints_response,
     create_lab_session,
@@ -29,6 +31,7 @@ from app.services.session_service import (
     get_lab_session,
     list_lab_sessions,
     record_runtime_cleanup_result,
+    remove_generated_session_folder,
     to_lab_session_debug_response,
     to_lab_session_response,
     update_session_status,
@@ -39,6 +42,7 @@ from app.services.web_cli_service import (
     WebCliError,
     build_web_cli_context,
     get_web_cli_readiness,
+    run_terminal_pty_bridge,
     run_web_cli_bridge,
 )
 
@@ -205,6 +209,45 @@ async def web_cli_socket(
     )
 
 
+@router.websocket("/{session_id}/terminal/ws/{device_id}")
+async def web_terminal_socket(
+    websocket: WebSocket,
+    session_id: str,
+    device_id: str,
+    token: str | None = None,
+) -> None:
+    await websocket.accept()
+
+    try:
+        context = build_web_cli_context(
+            session_id=session_id,
+            device_id=device_id,
+            token=token,
+        )
+    except WebCliError as exc:
+        await websocket.send_json(exc.to_payload())
+        await websocket.close(code=exc.websocket_code)
+        return
+
+    await websocket.send_json(
+        {
+            "type": "terminal_connected",
+            "success": True,
+            "session_id": context.session_id,
+            "device_id": context.device_id,
+            "container_name": context.container_name,
+            "mode": "terminal_pty_bridge",
+            "endpoint": "/api/v1/labs/{session_id}/terminal/ws/{device_id}",
+            "message": "Real terminal connection accepted by backend.",
+        }
+    )
+
+    await run_terminal_pty_bridge(
+        websocket=websocket,
+        context=context,
+    )
+
+
 @router.post("/{session_id}/deploy", response_model=ActionResponse)
 def deploy_lab(
     session_id: str,
@@ -220,37 +263,63 @@ def deploy_lab(
         topology_file=session["topology_file"],
     )
 
+    if _should_cleanup_partial_runtime_after_deploy_failure(
+        session=session,
+        result=result,
+    ):
+        result = _attempt_partial_runtime_cleanup_after_deploy_failure(
+            session=session,
+            failure_result=result,
+        )
+
     if result["success"]:
-        runtime_result = apply_runtime_error_injection(session)
+        runtime_result = None
+        runtime_success_message = None
 
-        if not runtime_result["success"]:
-            runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
-                session=session,
-                failure_result=runtime_result,
+        if _is_srlinux_session(session):
+            runtime_result = apply_srlinux_runtime_setup(session)
+            runtime_success_message = (
+                runtime_result.get("message")
+                or "SR Linux runtime setup applied successfully."
             )
-            update_session_status(session_id, runtime_result["status"])
-            return ActionResponse(**runtime_result)
+        elif _is_deploy_only_session(session):
+            result["message"] = (
+                result["message"]
+                + " Scenario deployed in foundation mode without runtime fault injection."
+            )
+        else:
+            runtime_result = apply_runtime_error_injection(session)
+            runtime_success_message = "Runtime error injection applied successfully."
 
-        result["message"] = (
-            result["message"]
-            + " Runtime error injection applied successfully."
-        )
-        result["stdout"] = "\n\n".join(
-            value
-            for value in [
-                result.get("stdout", ""),
-                runtime_result.get("stdout", ""),
-            ]
-            if value
-        )
-        result["stderr"] = "\n\n".join(
-            value
-            for value in [
-                result.get("stderr", ""),
-                runtime_result.get("stderr", ""),
-            ]
-            if value
-        )
+        if runtime_result is not None:
+            if not runtime_result["success"]:
+                runtime_result = _attempt_runtime_cleanup_after_deploy_failure(
+                    session=session,
+                    failure_result=runtime_result,
+                )
+                update_session_status(session_id, runtime_result["status"])
+                return ActionResponse(**runtime_result)
+
+            result["message"] = (
+                result["message"]
+                + f" {runtime_success_message}"
+            )
+            result["stdout"] = "\n\n".join(
+                value
+                for value in [
+                    result.get("stdout", ""),
+                    runtime_result.get("stdout", ""),
+                ]
+                if value
+            )
+            result["stderr"] = "\n\n".join(
+                value
+                for value in [
+                    result.get("stderr", ""),
+                    runtime_result.get("stderr", ""),
+                ]
+                if value
+            )
 
     update_session_status(session_id, result["status"])
 
@@ -299,18 +368,46 @@ def destroy_lab(
         result=result,
     ):
         result = containerlab_adapter.destroy_runtime_containers(session)
-    elif _is_historical_error_cleanup_already_complete(
+    elif _is_idempotent_destroy_cleanup_already_complete(
         session=session,
         result=result,
     ):
-        result = _historical_error_cleanup_completed_response(
+        result = _idempotent_destroy_cleanup_completed_response(
             session_id=session_id,
             result=result,
         )
 
     update_session_status(session_id, result["status"])
 
+    if _is_successful_destroy_result(result):
+        _cleanup_generated_folder_after_successful_destroy(session)
+
     return ActionResponse(**result)
+
+
+
+def _is_successful_destroy_result(result: dict) -> bool:
+    return (
+        bool(result.get("success"))
+        and _session_status_value(result.get("status")) == SessionStatus.destroyed.value
+    )
+
+
+def _cleanup_generated_folder_after_successful_destroy(session: dict) -> None:
+    cleanup_result = remove_generated_session_folder(
+        session_id=str(session["session_id"]),
+        topology_file=session.get("topology_file"),
+    )
+
+    if not cleanup_result.get("success"):
+        logger.warning(
+            "Generated lab folder cleanup after destroy did not complete.",
+            extra={
+                "session_id": session.get("session_id"),
+                "cleanup_error_code": cleanup_result.get("error_code"),
+                "cleanup_path": cleanup_result.get("path"),
+            },
+        )
 
 
 def _should_fallback_destroy_runtime_containers(
@@ -330,20 +427,26 @@ def _is_topology_file_missing_destroy_result(result: dict) -> bool:
     )
 
 
-def _is_historical_error_cleanup_already_complete(
+def _is_idempotent_destroy_cleanup_already_complete(
     session: dict,
     result: dict,
 ) -> bool:
     if not _is_topology_file_missing_destroy_result(result):
         return False
 
-    if _session_status_value(session.get("status")) != SessionStatus.error.value:
+    status_value = _session_status_value(session.get("status"))
+
+    if status_value not in {
+        SessionStatus.error.value,
+        SessionStatus.destroyed.value,
+        SessionStatus.finished.value,
+    }:
         return False
 
     return not containerlab_adapter.runtime_containers_exist(session)
 
 
-def _historical_error_cleanup_completed_response(
+def _idempotent_destroy_cleanup_completed_response(
     session_id: str,
     result: dict,
 ) -> dict:
@@ -352,7 +455,7 @@ def _historical_error_cleanup_completed_response(
         "session_id": session_id,
         "status": SessionStatus.destroyed,
         "message": (
-            "Historical error-state lab cleanup is already complete. "
+            "Lab runtime cleanup is already complete. "
             "Topology metadata is missing and no runtime containers were found."
         ),
         "command": result.get("command"),
@@ -443,6 +546,8 @@ def finish_lab(
     result["status"] = finished_session["status"]
     result["message"] = "Lab finished successfully. Validation history is preserved."
 
+    _cleanup_generated_folder_after_successful_destroy(session)
+
     return ActionResponse(**result)
 
 
@@ -459,6 +564,108 @@ def get_lab_recommendations(
     return RecommendationResponse(
         **build_recommendations_for_session(session)
     )
+
+
+
+def _should_cleanup_partial_runtime_after_deploy_failure(
+    session: dict,
+    result: dict,
+) -> bool:
+    if bool(result.get("success")):
+        return False
+
+    cleanup_candidate_error_codes = {
+        "CONTAINERLAB_DEPLOY_TIMEOUT",
+        "CONTAINERLAB_DEPLOY_FAILED",
+        "CONTAINER_NOT_RUNNING",
+    }
+
+    if result.get("error_code") not in cleanup_candidate_error_codes:
+        return False
+
+    return containerlab_adapter.runtime_containers_exist(session)
+
+
+def _attempt_partial_runtime_cleanup_after_deploy_failure(
+    session: dict,
+    failure_result: dict,
+) -> dict:
+    session_id = str(session["session_id"])
+    cleanup_result = containerlab_adapter.destroy_runtime_containers(session)
+
+    record_runtime_cleanup_result(
+        session_id=session_id,
+        trigger="containerlab_deploy_failed_partial_runtime",
+        cleanup_result=cleanup_result,
+    )
+
+    cleaned = bool(cleanup_result.get("success"))
+    cleanup_summary = (
+        "Partial runtime cleanup after failed deploy: completed successfully."
+        if cleaned
+        else (
+            "Partial runtime cleanup after failed deploy: attempted but failed "
+            f"({cleanup_result.get('error_code') or 'UNKNOWN_CLEANUP_ERROR'})."
+        )
+    )
+
+    logger_method = logger.warning if cleaned else logger.error
+    logger_method(
+        "Containerlab deploy failed after creating runtime containers; fallback cleanup recorded.",
+        extra={
+            "session_id": session_id,
+            "cleanup_success": cleaned,
+            "cleanup_error_code": cleanup_result.get("error_code"),
+            "cleanup_return_code": cleanup_result.get("return_code"),
+        },
+    )
+
+    response = dict(failure_result)
+    response["status"] = SessionStatus.destroyed if cleaned else SessionStatus.error
+    response["message"] = (
+        "Containerlab deploy failed. Partial runtime cleanup completed."
+        if cleaned
+        else (
+            "Containerlab deploy failed. Partial runtime cleanup was attempted "
+            "but did not complete."
+        )
+    )
+    response["stderr"] = "\n\n".join(
+        value
+        for value in [
+            str(response.get("stderr") or "").strip(),
+            cleanup_summary,
+        ]
+        if value
+    )
+    response["suggestion"] = (
+        "Retry deployment with a new lab session. The partial runtime was cleaned up."
+        if cleaned
+        else (
+            "Retry cleanup from the lab action, then check Docker and Containerlab "
+            "state if resources remain."
+        )
+    )
+
+    return response
+
+
+def _is_deploy_only_session(session: dict) -> bool:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict):
+        return is_deploy_only_scenario(scenario.get("id"))
+
+    return False
+
+
+def _is_srlinux_session(session: dict) -> bool:
+    scenario = session.get("scenario")
+
+    if isinstance(scenario, dict):
+        return is_srlinux_scenario(scenario.get("id"))
+
+    return False
 
 
 def _attempt_runtime_cleanup_after_deploy_failure(

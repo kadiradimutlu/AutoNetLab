@@ -1,7 +1,6 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import MessageBox from "../components/MessageBox";
 import {
-  getErrorDetails,
   getErrorMessage,
   loginUser
 } from "../services/apiService";
@@ -11,15 +10,15 @@ const DEMO_ACCOUNTS = [
     role: "Student",
     username: "student",
     password: "student123",
-    title: "Use Demo Student",
-    description: "Fill in the student demo credentials for lab creation, My Labs, Web CLI, validation, and recommendations."
+    title: "Use Student Profile",
+    description: "Fill in the student credentials for lab creation, My Labs, Web CLI, validation, and recommendations."
   },
   {
     role: "Instructor",
     username: "instructor",
     password: "instructor123",
-    title: "Use Demo Instructor",
-    description: "Fill in the instructor demo credentials for analytics, student progress, and system readiness views."
+    title: "Use Instructor Profile",
+    description: "Fill in the instructor credentials for analytics, student progress, and system readiness views."
   }
 ];
 
@@ -44,14 +43,12 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [errorDetails, setErrorDetails] = useState("");
 
   async function submitLogin(credentials) {
     const validationErrors = validateLoginForm(credentials);
 
     setFieldErrors(validationErrors);
     setErrorMessage("");
-    setErrorDetails("");
 
     if (Object.keys(validationErrors).length > 0) {
       return;
@@ -64,7 +61,6 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
       onLoginSuccess(authState);
     } catch (error) {
       setErrorMessage(getErrorMessage(error, "Login failed. Please check your credentials and try again."));
-      setErrorDetails(getErrorDetails(error));
       console.error("Login failed.", error);
     } finally {
       setIsSubmitting(false);
@@ -84,7 +80,6 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
     setPassword(account.password);
     setFieldErrors({});
     setErrorMessage("");
-    setErrorDetails("");
   }
 
   function updateUsername(value) {
@@ -114,22 +109,18 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
           </p>
         </div>
 
-        {errorMessage && (
-          <>
+        <div
+          className={`auth-message-region login-auth-message-region ${errorMessage ? "has-message" : ""}`}
+          aria-live="polite"
+        >
+          {errorMessage && (
             <MessageBox
               type="error"
               title="Sign in failed"
               message={errorMessage}
             />
-
-            {errorDetails && (
-              <details className="technical-detail-box auth-technical-details">
-                <summary>Show diagnostics</summary>
-                <p>{errorDetails}</p>
-              </details>
-            )}
-          </>
-        )}
+          )}
+        </div>
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className={`form-group ${fieldErrors.username ? "has-error" : ""}`}>
@@ -142,9 +133,11 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
               placeholder="Enter your username"
               aria-invalid={Boolean(fieldErrors.username)}
             />
-            {fieldErrors.username && (
-              <p className="field-error">{fieldErrors.username}</p>
-            )}
+            <div className="field-feedback-slot" aria-live="polite">
+              {fieldErrors.username ? (
+                <p className="field-error">{fieldErrors.username}</p>
+              ) : null}
+            </div>
           </div>
 
           <div className={`form-group ${fieldErrors.password ? "has-error" : ""}`}>
@@ -168,9 +161,11 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
-            {fieldErrors.password && (
-              <p className="field-error">{fieldErrors.password}</p>
-            )}
+            <div className="field-feedback-slot" aria-live="polite">
+              {fieldErrors.password ? (
+                <p className="field-error">{fieldErrors.password}</p>
+              ) : null}
+            </div>
           </div>
 
           <button
@@ -195,8 +190,8 @@ function LoginPage({ onLoginSuccess, onNavigateRegister }) {
 
         <div className="demo-account-section">
           <div className="demo-account-heading">
-            <strong>Demo credentials</strong>
-            <span>Choose a demo profile to fill the form, then press Sign in.</span>
+            <strong>Quick sign-in profiles</strong>
+            <span>Choose a profile to fill the form, then press Sign in.</span>
           </div>
 
           <div className="demo-account-grid">

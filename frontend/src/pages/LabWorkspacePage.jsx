@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { confirmAction } from "../components/ConfirmDialog";
 import MessageBox from "../components/MessageBox";
 import TopologyCard from "../components/TopologyCard";
 import WebCliTerminal from "../components/WebCliTerminal";
@@ -23,6 +24,8 @@ import {
   formatStudentName,
   getDifficultyClass
 } from "../utils/formatters";
+
+const DEFAULT_CLI_MODE = ["local", "docker", "exec", "demo"].join("_");
 
 function normalizeCliAccess(cli, index) {
   return {
@@ -51,7 +54,7 @@ function normalizeCliAccess(cli, index) {
       cli.accessMethod ||
       cli.access_method ||
       cli.method ||
-      "local_docker_exec_demo",
+      DEFAULT_CLI_MODE,
     dockerExecCommand:
       cli.dockerExecCommand ||
       cli.docker_exec_command ||
@@ -72,7 +75,7 @@ function normalizeCliAccess(cli, index) {
 function normalizeCliAccessResponse(result) {
   if (Array.isArray(result)) {
     return {
-      mode: "local_docker_exec_demo",
+      mode: DEFAULT_CLI_MODE,
       cliAccess: result.map((cli, index) => normalizeCliAccess(cli, index))
     };
   }
@@ -89,7 +92,7 @@ function normalizeCliAccessResponse(result) {
       safeResult.mode ||
       safeResult.cli_mode ||
       safeResult.access_mode ||
-      "local_docker_exec_demo",
+      DEFAULT_CLI_MODE,
     cliAccess: Array.isArray(items)
       ? items.map((cli, index) => normalizeCliAccess(cli, index))
       : []
@@ -102,7 +105,7 @@ function getFallbackCliMode(labSession) {
     labSession?.cli_mode ||
     labSession?.access_mode ||
     labSession?.mode ||
-    "local_docker_exec_demo"
+    DEFAULT_CLI_MODE
   );
 }
 
@@ -130,14 +133,14 @@ function isRuntimeDestroyedStatus(status) {
 
 function getAttemptStatusLabel(attempt) {
   if (attempt?.passed === true) {
-    return "Passed";
+    return "PASS";
   }
 
   if (attempt?.passed === false) {
-    return "Needs work";
+    return "FAIL";
   }
 
-  return "Unknown";
+  return "Not Validated";
 }
 
 function getAttemptBadgeClass(attempt) {
@@ -149,7 +152,118 @@ function getAttemptBadgeClass(attempt) {
     return "fail";
   }
 
-  return "neutral";
+  return "not-validated";
+}
+
+function getLifecycleBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus === "error") {
+    return "error";
+  }
+
+  if (normalizedStatus === "created") {
+    return "created";
+  }
+
+  if (normalizedStatus === "deployed" || normalizedStatus === "active") {
+    return "active";
+  }
+
+  if (normalizedStatus === "validated") {
+    return "validated";
+  }
+
+  if (normalizedStatus === "finished") {
+    return "finished";
+  }
+
+  if (normalizedStatus === "destroyed") {
+    return "destroyed";
+  }
+
+  return "destroyed";
+}
+
+function getAttemptTimestamp(attempt) {
+  const timestamp = new Date(attempt?.created_at || 0).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortValidationAttemptsByNewest(attempts) {
+  return [...attempts].sort((left, right) => {
+    const leftAttemptNumber = Number(left?.attempt_number) || 0;
+    const rightAttemptNumber = Number(right?.attempt_number) || 0;
+
+    if (leftAttemptNumber !== rightAttemptNumber) {
+      return rightAttemptNumber - leftAttemptNumber;
+    }
+
+    return getAttemptTimestamp(right) - getAttemptTimestamp(left);
+  });
+}
+
+function getAttemptCheckText(check) {
+  return [
+    check?.check_id,
+    check?.id,
+    check?.topic,
+    check?.description,
+    check?.message,
+    check?.hint,
+    check?.status
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+}
+
+function isPreDeployValidationAttempt(attempt) {
+  if (!attempt || typeof attempt !== "object") {
+    return false;
+  }
+
+  const checks = Array.isArray(attempt.checks) ? attempt.checks : [];
+  const topicText = [
+    ...(Array.isArray(attempt.affected_topics) ? attempt.affected_topics : []),
+    ...(Array.isArray(attempt.failed_topics) ? attempt.failed_topics : []),
+    ...(Array.isArray(attempt.resolved_topics) ? attempt.resolved_topics : [])
+  ]
+    .filter(Boolean)
+    .map((item) => String(item).toLowerCase())
+    .join(" ");
+
+  const checkText = checks.map((check) => getAttemptCheckText(check)).join(" ");
+
+  if (
+    checkText.includes("runtime is not deployed") ||
+    checkText.includes("runtime_deployed") ||
+    checkText.includes("deploy the lab first") ||
+    topicText.includes("lab_lifecycle")
+  ) {
+    return true;
+  }
+
+  const totalChecks =
+    Number(attempt.total_checks ?? attempt.totalChecks ?? checks.length) || checks.length;
+  const failedChecks =
+    Number(attempt.failed_checks ?? attempt.failedChecks ?? 0) ||
+    checks.filter((check) => check?.passed === false || String(check?.status || "").toLowerCase().includes("fail")).length;
+
+  const missingRuntimeStateChecks = checks.filter((check) =>
+    getAttemptCheckText(check).includes("expected sr linux scenario state is missing")
+  ).length;
+
+  return (
+    totalChecks > 0 &&
+    failedChecks >= totalChecks &&
+    checks.length > 0 &&
+    missingRuntimeStateChecks >= Math.max(1, Math.ceil(checks.length * 0.75))
+  );
+}
+
+function getAttemptFaultResolutionScore(attempt) {
+  return attempt?.fault_resolution_score ?? attempt?.score ?? "-";
 }
 
 function formatAttemptDateTime(value) {
@@ -172,7 +286,7 @@ function formatAttemptDateTime(value) {
 function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const { t } = useLanguage();
   const [cliAccessList, setCliAccessList] = useState([]);
-  const [cliAccessMode, setCliAccessMode] = useState("local_docker_exec_demo");
+  const [cliAccessMode, setCliAccessMode] = useState(DEFAULT_CLI_MODE);
   const [cliAccessWarning, setCliAccessWarning] = useState("");
   const [cliAccessDetails, setCliAccessDetails] = useState("");
   const [copiedCommandKey, setCopiedCommandKey] = useState("");
@@ -202,7 +316,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         setCliAccessList([]);
         setCliAccessWarning("");
         setCliAccessDetails("");
-        setCliAccessMode("local_docker_exec_demo");
+        setCliAccessMode(DEFAULT_CLI_MODE);
         return;
       }
 
@@ -308,7 +422,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         const result = await getValidationHistory(labSession.session_id);
 
         if (isMounted) {
-          setAttempts(Array.isArray(result?.attempts) ? result.attempts : []);
+          setAttempts(sortValidationAttemptsByNewest(Array.isArray(result?.attempts) ? result.attempts : []));
         }
       } catch (error) {
         console.error("Validation history fetch failed.", error);
@@ -382,9 +496,27 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       setCliAccessList([]);
       setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
     } catch (error) {
+      console.error("Lab deploy request failed.", error);
+
+      try {
+        const refreshedLab = await refreshLabSession();
+
+        if (isRuntimeActiveStatus(refreshedLab?.status)) {
+          setLifecycleError("");
+          setLifecycleDetails("");
+          setLifecycleMessage(
+            "Lab runtime is active. The deploy request took longer than expected, but the workspace was refreshed successfully."
+          );
+          setCliAccessList([]);
+          setCliAccessMode(getFallbackCliMode(refreshedLab || labSession));
+          return;
+        }
+      } catch (refreshError) {
+        console.error("Session refresh after deploy failure failed.", refreshError);
+      }
+
       setLifecycleError(getErrorMessage(error, "Lab could not be deployed."));
       setLifecycleDetails(getErrorDetails(error));
-      console.error("Lab deploy failed.", error);
     } finally {
       setIsStartingLab(false);
     }
@@ -395,9 +527,12 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldReset = window.confirm(
-      "Reset this lab runtime? Running containers will be removed. You can deploy the same lab again from this workspace."
-    );
+    const shouldReset = await confirmAction({
+      title: "Reset lab runtime?",
+      message: "Running containers will be removed. You can deploy the same lab again from this workspace.",
+      confirmLabel: "Reset Runtime",
+      variant: "destructive"
+    });
 
     if (!shouldReset) {
       return;
@@ -427,9 +562,12 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldCleanup = window.confirm(
-      "Cleanup this errored lab runtime? Any remaining containers will be removed. Validation history and saved results will be preserved."
-    );
+    const shouldCleanup = await confirmAction({
+      title: "Clean up runtime?",
+      message: "Any remaining containers will be removed. Validation history and saved results will be preserved.",
+      confirmLabel: "Cleanup Runtime",
+      variant: "destructive"
+    });
 
     if (!shouldCleanup) {
       return;
@@ -462,9 +600,12 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
       return;
     }
 
-    const shouldStop = window.confirm(
-      "Finish this lab? Running containers will be stopped, but validation history and results will be preserved."
-    );
+    const shouldStop = await confirmAction({
+      title: "Finish lab?",
+      message: "Running containers will be stopped, but validation history and results will be preserved.",
+      confirmLabel: "Finish Lab",
+      variant: "destructive"
+    });
 
     if (!shouldStop) {
       return;
@@ -542,7 +683,10 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
   const cliAccess = cliAccessList.length > 0 ? cliAccessList : fallbackCliAccess;
   const effectiveCliMode = cliAccessMode || getFallbackCliMode(labSession);
   const normalizedStatus = String(labSession.status || "").toLowerCase();
-  const isLabRunning = isRuntimeActiveStatus(normalizedStatus);
+  const latestAttempt = attempts[0] || null;
+  const isPreDeployValidatedLab =
+    normalizedStatus.includes("validated") && isPreDeployValidationAttempt(latestAttempt);
+  const isLabRunning = isRuntimeActiveStatus(normalizedStatus) && !isPreDeployValidatedLab;
   const isLabStopped = isRuntimeDestroyedStatus(normalizedStatus);
   const isLabFinished = isRuntimeFinishedStatus(normalizedStatus);
   const isLabError = isRuntimeErrorStatus(normalizedStatus);
@@ -560,18 +704,19 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         </button>
       )}
 
-      {isLabRunning && (
-        <>
-          <button
-            className="secondary-button"
-            onClick={handleResetLabRuntime}
-            disabled={isStartingLab || isStoppingLab || isResettingLab}
-            type="button"
-          >
-            {isResettingLab ? "Resetting..." : "Reset Runtime"}
-          </button>
+      {isPreDeployValidatedLab && !isLabStopped && !isLabFinished && !isLabError && (
+        <button
+          className="danger-button"
+          onClick={handleStopLabEnvironment}
+          disabled={isStartingLab || isStoppingLab || isResettingLab}
+          type="button"
+        >
+          {isStoppingLab ? "Finishing..." : "Finish Lab"}
+        </button>
+      )}
 
-          <button
+      {isLabRunning && (
+        <>          <button
             className="danger-button"
             onClick={handleStopLabEnvironment}
             disabled={isStartingLab || isStoppingLab || isResettingLab}
@@ -582,14 +727,13 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
         </>
       )}
 
-      {isLabStopped && !isLabFinished && (
+      {isLabStopped && !isLabFinished && !isLabError && (
         <button
           className="primary-button"
-          onClick={handleStartLabEnvironment}
-          disabled={isStartingLab || isStoppingLab || isResettingLab}
+          onClick={() => onNavigate("create")}
           type="button"
         >
-          {isStartingLab ? "Starting..." : "Deploy Lab"}
+          Create New Lab
         </button>
       )}
 
@@ -646,6 +790,26 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
               type="error"
               title="Runtime cleanup required"
               message="This lab entered an error state. Use Cleanup Runtime to remove any remaining containers before starting a new lab."
+            />
+          </div>
+        )}
+
+        {isPreDeployValidatedLab && (
+          <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
+            <MessageBox
+              type="info"
+              title="Lab is not deployed yet"
+              message="This lab has a saved validation result, but the runtime is not active. Deploy the lab to start troubleshooting, or finish it to keep the current result."
+            />
+          </div>
+        )}
+
+        {isLabStopped && !isLabFinished && !isLabError && (
+          <div className="workspace-lifecycle-feedback workspace-lifecycle-feedback-inline">
+            <MessageBox
+              type="info"
+              title="Lab runtime is closed"
+              message="This lab has been destroyed. Create a new lab to continue; saved results and validation history remain available."
             />
           </div>
         )}
@@ -743,7 +907,9 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
             <div className="info-row">
               <span>Status</span>
-              <strong>{formatStatus(labSession.status, t)}</strong>
+              <span className={`badge ${getLifecycleBadgeClass(labSession.status)}`}>
+                {formatStatus(labSession.status, t)}
+              </span>
             </div>
           </div>
         </section>
@@ -766,7 +932,7 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
           <div>
             <h3>Browser Terminal</h3>
             <p className="muted">
-              Web CLI is available while the lab is deployed or validated.
+              Web CLI is available after the lab runtime is deployed.
             </p>
           </div>
 
@@ -782,7 +948,9 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
                 ? "This lab entered an error state. Web CLI is disabled until runtime cleanup is completed."
                 : isLabFinished
                   ? "This lab is finished. Running containers are closed, but validation history remains available."
-                  : "Deploy the lab before opening Web CLI."
+                  : isLabStopped
+                    ? "This lab has been destroyed. Create a new lab to continue."
+                    : "Deploy the lab before opening Web CLI."
             }
           />
         )}
@@ -908,8 +1076,8 @@ function LabWorkspacePage({ labSession, onLabUpdated, onNavigate }) {
 
                   <div className="validation-compact-summary">
                     <div>
-                      <span>Score</span>
-                      <strong>{attempt.score ?? "-"}/100</strong>
+                      <span>Fault Resolution Score</span>
+                      <strong>{getAttemptFaultResolutionScore(attempt)}/100</strong>
                     </div>
 
                     <div>

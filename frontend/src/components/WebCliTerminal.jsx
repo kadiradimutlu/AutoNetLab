@@ -1,51 +1,47 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import "@xterm/xterm/css/xterm.css";
 import MessageBox from "./MessageBox";
+import {
+  cleanupExpiredTerminalTranscripts,
+  readTerminalTranscript,
+  removeTerminalTranscript,
+  writeTerminalTranscript
+} from "../utils/terminalTranscriptStorage";
 import {
   getAuthToken,
   getErrorDetails,
   getErrorMessage,
   getWebCliDeviceReadiness,
-  getWebCliUrl
+  getWebTerminalUrl
 } from "../services/apiService";
-import {
-  cleanupExpiredTerminalTranscripts,
-  readTerminalTranscript,
-  removeTerminalTranscript,
-  trimTerminalTranscriptLines,
-  writeTerminalTranscript
-} from "../utils/terminalTranscriptStorage";
 
 const READABLE_WEB_CLI_ERRORS = {
-  WEB_CLI_AUTH_REQUIRED: "Authentication is required before opening Web CLI.",
+  WEB_CLI_AUTH_REQUIRED: "Authentication is required before opening Web Terminal.",
   WEB_CLI_INVALID_TOKEN: "Your login token is invalid. Please log out and sign in again.",
   WEB_CLI_FORBIDDEN: "This user is not allowed to access the selected lab device.",
   WEB_CLI_SESSION_NOT_FOUND: "The selected lab session could not be found.",
   WEB_CLI_DEVICE_NOT_FOUND: "The selected device is not available for this lab session.",
-  LAB_NOT_DEPLOYED_FOR_WEB_CLI: "Deploy the lab before opening Web CLI.",
+  LAB_NOT_DEPLOYED_FOR_WEB_CLI: "Deploy the lab before opening Web Terminal.",
   WEB_CLI_CONTAINER_METADATA_MISSING: "Container metadata is missing for the selected device.",
-  DOCKER_NOT_FOUND_FOR_WEB_CLI: "Docker is not available for Web CLI on the application host.",
-  DOCKER_PERMISSION_DENIED_FOR_WEB_CLI: "The application service does not have permission to access Docker for Web CLI.",
+  DOCKER_NOT_FOUND_FOR_WEB_CLI: "Docker is not available for Web Terminal on the application host.",
+  DOCKER_PERMISSION_DENIED_FOR_WEB_CLI: "The application service does not have permission to access Docker for Web Terminal.",
   WEB_CLI_CONTAINER_CHECK_TIMEOUT: "The application service timed out while checking the selected device container.",
   WEB_CLI_CONTAINER_CHECK_FAILED: "The application service could not check the selected device container.",
   WEB_CLI_CONTAINER_NOT_RUNNING: "The selected device container is not running.",
-  WEB_CLI_PROCESS_START_FAILED: "The application service could not start the Web CLI runtime process."
+  WEB_CLI_PROCESS_START_FAILED: "The application service could not start the Web Terminal runtime process."
 };
 
-const DEFAULT_TERMINAL_LINES = [
-  {
-    kind: "system",
-    text: "Web CLI is ready. Select a device and check readiness before connecting."
-  }
-];
+const CONTROL_FRAME_TYPES = new Set([
+  "terminal_connected",
+  "terminal_started",
+  "connected",
+  "runtime_started"
+]);
 
-const TERMINAL_TRANSCRIPT_SAVE_DELAY_MS = 750;
-
-function getInitialTerminalLines() {
-  return DEFAULT_TERMINAL_LINES.map((line) => ({
-    ...line,
-    timestamp: new Date().toISOString()
-  }));
-}
+const TERMINAL_ENCODER = new TextEncoder();
+const TERMINAL_DECODER = new TextDecoder();
 
 function getDeviceId(device, index) {
   return (
@@ -73,61 +69,8 @@ function getReadableWebCliError(errorCode, fallbackMessage = "") {
   return (
     READABLE_WEB_CLI_ERRORS[errorCode] ||
     fallbackMessage ||
-    "Web CLI is not ready for the selected device."
+    "Web Terminal is not ready for the selected device."
   );
-}
-
-function parseWebCliMessage(rawMessage) {
-  if (!rawMessage) {
-    return {
-      kind: "output",
-      text: ""
-    };
-  }
-
-  try {
-    const parsedMessage = JSON.parse(rawMessage);
-
-    if (parsedMessage?.type === "error") {
-      const friendlyMessage = getReadableWebCliError(
-        parsedMessage.error_code,
-        parsedMessage.message
-      );
-
-      return {
-        kind: "error",
-        text: `[${parsedMessage.error_code || "WEB_CLI_ERROR"}] ${friendlyMessage}`,
-        data: parsedMessage
-      };
-    }
-
-    if (parsedMessage?.type === "connected" || parsedMessage?.type === "runtime_started") {
-      return {
-        kind: "system",
-        text: parsedMessage.message || `Web CLI event: ${parsedMessage.type}`,
-        data: parsedMessage
-      };
-    }
-
-    if (parsedMessage?.message) {
-      return {
-        kind: "system",
-        text: parsedMessage.message,
-        data: parsedMessage
-      };
-    }
-
-    return {
-      kind: "output",
-      text: JSON.stringify(parsedMessage, null, 2),
-      data: parsedMessage
-    };
-  } catch {
-    return {
-      kind: "output",
-      text: rawMessage
-    };
-  }
 }
 
 function getReadinessDevice(readiness) {
@@ -165,15 +108,108 @@ function formatReadinessMessage(readiness) {
   if (device?.ready === false || readiness.ready === false) {
     return getReadableWebCliError(
       errorCode,
-      device?.message || readiness.message || "Selected device is not ready for Web CLI."
+      device?.message || readiness.message || "Selected device is not ready for Web Terminal."
     );
   }
 
   if (readiness.ready === true || device?.ready === true) {
-    return readiness.message || device?.message || "Selected device is ready for Web CLI.";
+    return readiness.message || device?.message || "Selected device is ready for Web Terminal.";
   }
 
   return readiness.message || device?.message || "Readiness state is unknown.";
+}
+
+function parseControlFrame(rawMessage) {
+  if (!rawMessage || typeof rawMessage !== "string") {
+    return null;
+  }
+
+  try {
+    const parsedMessage = JSON.parse(rawMessage);
+
+    if (!parsedMessage || typeof parsedMessage !== "object") {
+      return null;
+    }
+
+    if (parsedMessage.type === "error") {
+      return {
+        kind: "error",
+        message: `[${parsedMessage.error_code || "WEB_TERMINAL_ERROR"}] ${getReadableWebCliError(
+          parsedMessage.error_code,
+          parsedMessage.message
+        )}`
+      };
+    }
+
+    if (CONTROL_FRAME_TYPES.has(parsedMessage.type)) {
+      return {
+        kind: "system",
+        message: parsedMessage.message || `Terminal event: ${parsedMessage.type}`
+      };
+    }
+
+    if (parsedMessage.message) {
+      return {
+        kind: "system",
+        message: parsedMessage.message
+      };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeReadinessPayload(payload) {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const device = getReadinessDevice(safePayload);
+
+  return {
+    ...safePayload,
+    ready: safePayload.ready === true || device?.ready === true,
+    devices: Array.isArray(safePayload.devices)
+      ? safePayload.devices
+      : device
+        ? [device]
+        : []
+  };
+}
+
+function formatConnectionState(state) {
+  return String(state || "idle")
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatModeLabel(mode) {
+  const normalizedMode = String(mode || "").toLowerCase();
+
+  if (normalizedMode.includes("browser_cli") || normalizedMode.includes("terminal")) {
+    return "Browser Terminal";
+  }
+
+  if (normalizedMode.includes("local_docker")) {
+    return "Runtime CLI";
+  }
+
+  return String(mode || "Browser Terminal")
+    .replace(/_/g, " ")
+    .replace(/\bmvp\b/gi, "")
+    .trim() || "Browser Terminal";
+}
+
+function getStatusBadgeClass(state) {
+  if (state === "connected" || state === "ready") {
+    return "pass";
+  }
+
+  if (state === "error") {
+    return "fail";
+  }
+
+  return "neutral";
 }
 
 function ReadinessDetails({ readiness }) {
@@ -216,7 +252,7 @@ function ReadinessDetails({ readiness }) {
 
         <div>
           <span>Current Mode</span>
-          <strong>{readiness.current_mode || "-"}</strong>
+          <strong>{formatModeLabel(readiness.current_mode)}</strong>
         </div>
 
         <div>
@@ -248,250 +284,413 @@ function ReadinessDetails({ readiness }) {
   );
 }
 
-function WebCliTerminal({
-  sessionId,
-  studentId = "student",
-  devices = [],
-  mode = "browser_cli_mvp"
+function TerminalPane({
+  active,
+  device,
+  mode,
+  onStatusChange,
+  sessionId
 }) {
+  const deviceId = device?.deviceId || "";
+  const deviceLabel = device?.label || deviceId || "Device";
   const socketRef = useRef(null);
-  const outputEndRef = useRef(null);
-  const hasRenderedTerminalOutputRef = useRef(false);
-  const terminalLinesRef = useRef([]);
-  const transcriptIdentityRef = useRef({
-    studentId: "student",
-    sessionId: "",
-    deviceId: ""
-  });
-  const transcriptSaveTimeoutRef = useRef(null);
+  const terminalRef = useRef(null);
+  const fitAddonRef = useRef(null);
+  const terminalContainerRef = useRef(null);
+  const pasteBufferRef = useRef(null);
+  const dataDisposableRef = useRef(null);
+  const resizeObserverRef = useRef(null);
+  const activeRef = useRef(active);
+  const transcriptLinesRef = useRef([]);
 
-  const normalizedDevices = useMemo(() => {
-    return devices
-      .map((device, index) => ({
-        ...device,
-        deviceId: getDeviceId(device, index),
-        label: getDeviceLabel(device, index)
-      }))
-      .filter((device) => Boolean(device.deviceId));
-  }, [devices]);
-
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [connectionState, setConnectionState] = useState("idle");
-  const [command, setCommand] = useState("");
-  const [terminalLines, setTerminalLines] = useState(() => getInitialTerminalLines());
   const [webCliError, setWebCliError] = useState("");
   const [webCliErrorDetails, setWebCliErrorDetails] = useState("");
   const [readiness, setReadiness] = useState(null);
 
-  useEffect(() => {
-    terminalLinesRef.current = terminalLines;
-  }, [terminalLines]);
+  const terminalPanelId = `terminal-panel-${deviceId}`;
+  const isCheckingReadiness = connectionState === "checking readiness";
+  const isReady = readiness?.ready === true;
+  const isConnected = connectionState === "connected";
+  const isConnecting = connectionState === "connecting";
+  const canConnect = isReady && !isConnected && !isConnecting && !isCheckingReadiness;
+  const primaryTerminalActionDisabled = (
+    isCheckingReadiness ||
+    isConnecting ||
+    (!isConnected && !canConnect)
+  );
+  const primaryTerminalActionLabel = isConnecting
+    ? "Connecting..."
+    : isConnected || connectionState === "disconnected" || connectionState === "error"
+      ? "Reconnect Terminal"
+      : "Connect Terminal";
+  const primaryTerminalActionTitle = isConnected
+    ? "Restart this terminal connection."
+    : canConnect
+      ? "Connect to this device."
+      : "Check readiness and deploy the lab before connecting.";
+  const statusBadgeClass = getStatusBadgeClass(connectionState);
 
   useEffect(() => {
-    transcriptIdentityRef.current = {
-      studentId,
-      sessionId,
-      deviceId: selectedDeviceId
-    };
-  }, [studentId, sessionId, selectedDeviceId]);
+    activeRef.current = active;
 
-  useEffect(() => {
-    cleanupExpiredTerminalTranscripts();
-    hasRenderedTerminalOutputRef.current = false;
-
-    if (!sessionId || !selectedDeviceId) {
-      setTerminalLines(getInitialTerminalLines());
-      return;
+    if (active) {
+      window.setTimeout(() => {
+        fitTerminal();
+        terminalRef.current?.focus();
+        sendResizeFrame();
+      }, 80);
     }
-
-    const restoredLines = readTerminalTranscript({
-      studentId,
-      sessionId,
-      deviceId: selectedDeviceId
-    });
-
-    if (restoredLines.length > 0) {
-      setTerminalLines(
-        trimTerminalTranscriptLines([
-          ...restoredLines,
-          {
-            kind: "system",
-            text: `Restored local terminal history for ${selectedDeviceId}.`,
-            timestamp: new Date().toISOString()
-          }
-        ])
-      );
-      return;
-    }
-
-    setTerminalLines(getInitialTerminalLines());
-  }, [studentId, sessionId, selectedDeviceId]);
+  }, [active]);
 
   useEffect(() => {
-    if (!sessionId || !selectedDeviceId) {
+    onStatusChange(deviceId, connectionState, deviceLabel);
+  }, [connectionState, deviceId, deviceLabel, onStatusChange]);
+
+  useEffect(() => {
+    if (!terminalContainerRef.current || terminalRef.current) {
       return undefined;
     }
 
-    if (transcriptSaveTimeoutRef.current) {
-      window.clearTimeout(transcriptSaveTimeoutRef.current);
+    const terminal = new Terminal({
+      cursorBlink: true,
+      convertEol: false,
+      fontFamily: '"Cascadia Mono", "Consolas", "Menlo", monospace',
+      fontSize: 14,
+      lineHeight: 1.15,
+      rows: 24,
+      cols: 100,
+      scrollback: 3000,
+      theme: {
+        background: "#020617",
+        foreground: "#e2e8f0",
+        cursor: "#93c5fd",
+        selectionBackground: "#1d4ed8"
+      }
+    });
+    const fitAddon = new FitAddon();
+
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalContainerRef.current);
+
+    if (activeRef.current) {
+      try {
+        fitAddon.fit();
+      } catch (error) {
+        console.warn("Initial xterm fit failed.", error);
+      }
     }
 
-    transcriptSaveTimeoutRef.current = window.setTimeout(() => {
-      writeTerminalTranscript({
-        studentId,
-        sessionId,
-        deviceId: selectedDeviceId,
-        lines: terminalLines
-      });
+    cleanupExpiredTerminalTranscripts();
 
-      transcriptSaveTimeoutRef.current = null;
-    }, TERMINAL_TRANSCRIPT_SAVE_DELAY_MS);
+    const restoredLines = readTerminalTranscript({
+      sessionId,
+      deviceId
+    });
+
+    transcriptLinesRef.current = restoredLines;
+
+    if (restoredLines.length > 0) {
+      restoredLines.forEach((line) => {
+        terminal.write(String(line.text || ""));
+      });
+    } else {
+      const initialLines = [
+        "AutoNetLab Terminal Workspace",
+        `Terminal tab: ${deviceLabel} (${deviceId})`,
+        "Check readiness, then connect.",
+        ""
+      ].map((text) => ({
+        kind: "system",
+        text: `${text}\r\n`,
+        timestamp: new Date().toISOString()
+      }));
+
+      initialLines.forEach((line) => terminal.write(line.text));
+      persistTranscriptLines(initialLines);
+    }
+
+    dataDisposableRef.current = terminal.onData((data) => {
+      sendTerminalInput(data);
+    });
+
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
+
+    resizeObserverRef.current = new ResizeObserver(() => {
+      if (!activeRef.current) {
+        return;
+      }
+
+      fitTerminal();
+      sendResizeFrame();
+    });
+    resizeObserverRef.current.observe(terminalContainerRef.current);
 
     return () => {
-      if (transcriptSaveTimeoutRef.current) {
-        window.clearTimeout(transcriptSaveTimeoutRef.current);
-        transcriptSaveTimeoutRef.current = null;
+      const socket = socketRef.current;
+
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+
+        if (
+          socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING
+        ) {
+          socket.close();
+        }
       }
+
+      dataDisposableRef.current?.dispose();
+      resizeObserverRef.current?.disconnect();
+      terminal.dispose();
+
+      dataDisposableRef.current = null;
+      resizeObserverRef.current = null;
+      socketRef.current = null;
+      terminalRef.current = null;
+      fitAddonRef.current = null;
     };
-  }, [studentId, sessionId, selectedDeviceId, terminalLines]);
+  }, [deviceId, deviceLabel, sessionId]);
 
   useEffect(() => {
-    if (!selectedDeviceId && normalizedDevices.length > 0) {
-      setSelectedDeviceId(normalizedDevices[0].deviceId);
-    }
-  }, [normalizedDevices, selectedDeviceId]);
-
-  useEffect(() => {
-    if (!hasRenderedTerminalOutputRef.current) {
-      hasRenderedTerminalOutputRef.current = true;
-      return;
+    if (!active || !sessionId || !deviceId || readiness || connectionState !== "idle") {
+      return undefined;
     }
 
-    outputEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest"
-    });
-  }, [terminalLines]);
-
-  useEffect(() => {
-    if (!sessionId || !selectedDeviceId) {
-      setReadiness(null);
-      setConnectionState("idle");
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      checkReadiness({
-        silent: true
-      });
+    const timer = window.setTimeout(() => {
+      checkReadiness({ silent: true });
     }, 250);
 
-    return () => window.clearTimeout(timeoutId);
-  }, [sessionId, selectedDeviceId]);
+    return () => window.clearTimeout(timer);
+  }, [active, connectionState, deviceId, readiness, sessionId]);
 
-  useEffect(() => {
-    return () => {
-      if (transcriptSaveTimeoutRef.current) {
-        window.clearTimeout(transcriptSaveTimeoutRef.current);
-        transcriptSaveTimeoutRef.current = null;
-      }
+  function persistTranscriptLines(lines) {
+    transcriptLinesRef.current = lines;
 
-      const identity = transcriptIdentityRef.current;
-
-      if (identity.sessionId && identity.deviceId) {
-        writeTerminalTranscript({
-          ...identity,
-          lines: terminalLinesRef.current
-        });
-      }
-
-      disconnectWebCli();
-    };
-  }, []);
-
-  function appendTerminalLine(kind, text) {
-    setTerminalLines((currentLines) =>
-      trimTerminalTranscriptLines([
-        ...currentLines,
-        {
-          kind,
-          text,
-          timestamp: new Date().toISOString()
-        }
-      ])
-    );
+    writeTerminalTranscript({
+      sessionId,
+      deviceId,
+      lines
+    });
   }
 
-  function disconnectWebCli() {
-    if (socketRef.current) {
-      socketRef.current.close();
-      socketRef.current = null;
-    }
+  function appendTranscriptEntry(kind, text) {
+    const safeText = String(text || "");
 
-    setConnectionState("disconnected");
-  }
-
-  function clearTerminalHistory() {
-    if (!sessionId || !selectedDeviceId) {
+    if (!safeText) {
       return;
     }
 
-    removeTerminalTranscript({
-      studentId,
-      sessionId,
-      deviceId: selectedDeviceId
-    });
-
-    setTerminalLines(
-      trimTerminalTranscriptLines([
-        ...getInitialTerminalLines(),
-        {
-          kind: "system",
-          text: `Cleared local terminal history for ${selectedDeviceId}.`,
-          timestamp: new Date().toISOString()
-        }
-      ])
-    );
+    persistTranscriptLines([
+      ...transcriptLinesRef.current,
+      {
+        kind,
+        text: safeText,
+        timestamp: new Date().toISOString()
+      }
+    ]);
   }
 
-  function normalizeReadinessPayload(payload) {
-    const safePayload = payload && typeof payload === "object" ? payload : {};
-    const device = getReadinessDevice(safePayload);
+  function writeTerminal(text = "") {
+    const safeText = String(text || "");
 
-    return {
-      ...safePayload,
-      ready: safePayload.ready === true || device?.ready === true,
-      devices: Array.isArray(safePayload.devices)
-        ? safePayload.devices
-        : device
-          ? [device]
-          : []
-    };
+    if (!safeText) {
+      return;
+    }
+
+    terminalRef.current?.write(safeText);
+    appendTranscriptEntry("output", safeText);
+  }
+
+  function writeTerminalLine(text = "") {
+    const safeText = String(text || "");
+
+    terminalRef.current?.writeln(safeText);
+    appendTranscriptEntry("system", `${safeText}\r\n`);
+  }
+
+  function clearTerminal() {
+    removeTerminalTranscript({
+      sessionId,
+      deviceId
+    });
+    transcriptLinesRef.current = [];
+
+    terminalRef.current?.clear();
+    writeTerminalLine("AutoNetLab Terminal Workspace");
+    writeTerminalLine(`Terminal tab: ${deviceLabel} (${deviceId})`);
+    writeTerminalLine("");
+  }
+
+  function fitTerminal() {
+    try {
+      fitAddonRef.current?.fit();
+    } catch (error) {
+      console.warn("xterm fit failed.", error);
+    }
+  }
+
+  function sendResizeFrame() {
+    const socket = socketRef.current;
+    const terminal = terminalRef.current;
+
+    if (!socket || !terminal || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(JSON.stringify({
+      type: "resize",
+      cols: terminal.cols,
+      rows: terminal.rows
+    }));
+  }
+
+  function sendTerminalInput(data) {
+    if (!data) {
+      return;
+    }
+
+    const socket = socketRef.current;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    socket.send(TERMINAL_ENCODER.encode(data));
+  }
+
+  function focusPasteBufferForKeyboardPaste() {
+    const pasteBuffer = pasteBufferRef.current;
+
+    if (!pasteBuffer) {
+      terminalRef.current?.focus();
+      return;
+    }
+
+    pasteBuffer.value = "";
+    pasteBuffer.focus();
+
+    window.setTimeout(() => {
+      const bufferedText = pasteBuffer.value;
+      pasteBuffer.value = "";
+
+      if (bufferedText) {
+        sendTerminalInput(bufferedText);
+      }
+
+      terminalRef.current?.focus();
+    }, 0);
+  }
+
+  function handleBufferedPaste(event) {
+    const pastedText = event.clipboardData?.getData("text/plain") || "";
+
+    if (!pastedText) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    sendTerminalInput(pastedText);
+    event.currentTarget.value = "";
+    terminalRef.current?.focus();
+  }
+
+  function handleTerminalKeyDown(event) {
+    const key = String(event.key || "").toLowerCase();
+    const isPasteShortcut = (event.ctrlKey || event.metaKey) && !event.altKey && key === "v";
+
+    if (!isPasteShortcut) {
+      return;
+    }
+
+    event.stopPropagation();
+
+    if (
+      typeof window !== "undefined" &&
+      window.isSecureContext &&
+      navigator.clipboard?.readText
+    ) {
+      event.preventDefault();
+
+      navigator.clipboard.readText()
+        .then((clipboardText) => {
+          if (clipboardText) {
+            sendTerminalInput(clipboardText);
+          }
+        })
+        .catch(() => {
+          terminalRef.current?.focus();
+        });
+
+      return;
+    }
+
+    focusPasteBufferForKeyboardPaste();
+  }
+
+  function handleTerminalPaste(event) {
+    const pastedText = event.clipboardData?.getData("text/plain") || "";
+
+    if (!pastedText) {
+      return;
+    }
+
+    event.preventDefault();
+    sendTerminalInput(pastedText);
+    terminalRef.current?.focus();
+  }
+
+  function disconnectWebTerminal({ writeMessage = true } = {}) {
+    const socket = socketRef.current;
+
+    if (socket) {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+
+      if (
+        socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING
+      ) {
+        socket.close();
+      }
+    }
+
+    socketRef.current = null;
+    setConnectionState("disconnected");
+
+    if (writeMessage) {
+      writeTerminalLine("\r\n[system] Terminal connection closed.");
+    }
   }
 
   function setReadinessFailureFromError(error) {
-    const data = error?.data && typeof error.data === "object" ? error.data : {};
     const normalizedReadiness = normalizeReadinessPayload({
       success: false,
       session_id: sessionId,
-      lab_deployed: data.lab_deployed,
+      lab_deployed: error?.data?.lab_deployed,
       ready: false,
-      error_code: data.error_code || data.detail?.error_code,
+      error_code: error?.data?.error_code || error?.data?.detail?.error_code,
       message:
-        data.message ||
-        data.detail?.message ||
-        error.technicalMessage ||
-        error.message ||
+        error?.data?.message ||
+        error?.data?.detail?.message ||
+        error?.technicalMessage ||
+        error?.message ||
         "Readiness check failed."
     });
 
     setReadiness(normalizedReadiness);
-
     const message = formatReadinessMessage(normalizedReadiness);
     setWebCliError(message);
     setWebCliErrorDetails(getErrorDetails(error));
     setConnectionState("error");
-    appendTerminalLine("error", message);
+    writeTerminalLine(`[error] ${message}`);
   }
 
   async function checkReadiness({ silent = false } = {}) {
@@ -499,34 +698,37 @@ function WebCliTerminal({
     setWebCliErrorDetails("");
 
     if (!sessionId) {
-      const message = "A lab session is required before checking Web CLI readiness.";
+      const message = "A lab session is required before checking Web Terminal readiness.";
       setWebCliError(message);
       setConnectionState("error");
+      writeTerminalLine(`[error] ${message}`);
       return null;
     }
 
-    if (!selectedDeviceId) {
-      const message = "Select a device before checking Web CLI readiness.";
+    if (!deviceId) {
+      const message = "Select a device before checking Web Terminal readiness.";
       setWebCliError(message);
       setConnectionState("error");
+      writeTerminalLine(`[error] ${message}`);
       return null;
     }
 
     if (!getAuthToken()) {
-      const message = "A login token is required before checking Web CLI readiness.";
+      const message = "A login token is required before checking Web Terminal readiness.";
       setWebCliError(message);
       setConnectionState("error");
+      writeTerminalLine(`[error] ${message}`);
       return null;
     }
 
     setConnectionState("checking readiness");
 
     if (!silent) {
-      appendTerminalLine("system", `Checking Web CLI readiness for ${selectedDeviceId}...`);
+      writeTerminalLine(`[system] Checking readiness for ${deviceId}...`);
     }
 
     try {
-      const result = await getWebCliDeviceReadiness(sessionId, selectedDeviceId);
+      const result = await getWebCliDeviceReadiness(sessionId, deviceId);
       const normalizedReadiness = normalizeReadinessPayload(result);
       const message = formatReadinessMessage(normalizedReadiness);
 
@@ -536,7 +738,7 @@ function WebCliTerminal({
         setConnectionState("ready");
 
         if (!silent) {
-          appendTerminalLine("system", message);
+          writeTerminalLine(`[system] ${message}`);
         }
 
         return normalizedReadiness;
@@ -546,7 +748,7 @@ function WebCliTerminal({
       setWebCliError(message);
 
       if (!silent) {
-        appendTerminalLine("error", message);
+        writeTerminalLine(`[error] ${message}`);
       }
 
       return normalizedReadiness;
@@ -556,7 +758,7 @@ function WebCliTerminal({
     }
   }
 
-  async function connectWebCli() {
+  async function connectWebTerminal() {
     setWebCliError("");
     setWebCliErrorDetails("");
 
@@ -569,166 +771,174 @@ function WebCliTerminal({
     }
 
     try {
-      const webCliUrl = getWebCliUrl({
+      const webTerminalUrl = getWebTerminalUrl({
         sessionId,
-        deviceId: selectedDeviceId
+        deviceId
       });
 
-      disconnectWebCli();
-      appendTerminalLine("system", `Connecting to ${selectedDeviceId}...`);
+      disconnectWebTerminal({ writeMessage: false });
 
-      const socket = new WebSocket(webCliUrl);
+      writeTerminalLine(`\r\n[system] Connecting to ${deviceId}...`);
+
+      const socket = new WebSocket(webTerminalUrl);
+      socket.binaryType = "arraybuffer";
       socketRef.current = socket;
       setConnectionState("connecting");
 
       socket.onopen = () => {
         setConnectionState("connected");
-        appendTerminalLine("system", "WebSocket connection opened.");
+        writeTerminalLine("[system] WebSocket connection opened.");
+        fitTerminal();
+        sendResizeFrame();
+
+        if (activeRef.current) {
+          terminalRef.current?.focus();
+        }
       };
 
-      socket.onmessage = (event) => {
-        const parsedMessage = parseWebCliMessage(event.data);
-        appendTerminalLine(parsedMessage.kind, parsedMessage.text);
+      socket.onmessage = async (event) => {
+        if (typeof event.data === "string") {
+          const controlFrame = parseControlFrame(event.data);
 
-        if (parsedMessage.kind === "error") {
-          setWebCliError(parsedMessage.text);
-          setConnectionState("error");
+          if (controlFrame) {
+            if (controlFrame.kind === "error") {
+              setWebCliError(controlFrame.message);
+              setConnectionState("error");
+            }
+
+            writeTerminalLine(`[${controlFrame.kind}] ${controlFrame.message}`);
+            return;
+          }
+
+          writeTerminal(event.data);
+          return;
+        }
+
+        if (event.data instanceof ArrayBuffer) {
+          writeTerminal(TERMINAL_DECODER.decode(event.data));
+          return;
+        }
+
+        if (event.data instanceof Blob) {
+          const buffer = await event.data.arrayBuffer();
+          writeTerminal(TERMINAL_DECODER.decode(buffer));
         }
       };
 
       socket.onerror = () => {
         setConnectionState("error");
-        setWebCliError("Web CLI connection failed. Check lab deployment and Docker runtime.");
-        appendTerminalLine("error", "WebSocket connection error.");
+        setWebCliError("Web Terminal connection failed. Check lab deployment and Docker runtime.");
+        writeTerminalLine("[error] WebSocket connection error.");
       };
 
       socket.onclose = () => {
+        socketRef.current = null;
         setConnectionState("disconnected");
-        appendTerminalLine("system", "WebSocket connection closed.");
+        writeTerminalLine("\r\n[system] WebSocket connection closed.");
       };
     } catch (error) {
       setConnectionState("error");
-      setWebCliError(getErrorMessage(error, "Web CLI could not be opened."));
+      setWebCliError(getErrorMessage(error, "Web Terminal could not be opened."));
       setWebCliErrorDetails(getErrorDetails(error));
-      appendTerminalLine("error", error.message || "Web CLI could not be opened.");
+      writeTerminalLine(`[error] ${error.message || "Web Terminal could not be opened."}`);
     }
   }
 
-  function sendCommand(event) {
-    event.preventDefault();
-
-    if (!command.trim()) {
-      return;
-    }
-
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-      setWebCliError("Web CLI is not connected. Connect before sending commands.");
-      return;
-    }
-
-    const commandToSend = `${command}\n`;
-    socketRef.current.send(commandToSend);
-    appendTerminalLine("command", `$ ${command}`);
-    setCommand("");
+  function reconnectWebTerminal() {
+    disconnectWebTerminal({ writeMessage: false });
+    connectWebTerminal();
   }
 
-  const isCheckingReadiness = connectionState === "checking readiness";
-  const isReady = connectionState === "ready";
-  const isConnected = connectionState === "connected";
-  const isConnecting = connectionState === "connecting";
-  const canConnect = isReady && normalizedDevices.length > 0;
-  const selectedDevice =
-    normalizedDevices.find((device) => device.deviceId === selectedDeviceId) ||
-    null;
-  const statusBadgeClass = isConnected || isReady ? "pass" : connectionState === "error" ? "fail" : "neutral";
+  function handlePrimaryTerminalAction() {
+    if (isConnected) {
+      reconnectWebTerminal();
+      return;
+    }
+
+    connectWebTerminal();
+  }
 
   return (
-    <section className="web-cli-panel web-cli-panel-terminal-first">
-      <div className="section-title-row">
-        <div>
-          <h4>Browser Web CLI</h4>
-          <p className="muted">
-            Open a controlled terminal session for the selected lab device after runtime readiness passes.
-          </p>
+    <div
+      className={`terminal-tab-panel ${active ? "active" : "inactive"}`}
+      hidden={!active}
+      id={terminalPanelId}
+      role="tabpanel"
+      aria-label={`${deviceLabel} terminal panel`}
+    >
+      <div className="web-terminal-shell-card">
+        <div className="web-terminal-toolbar terminal-workspace-toolbar">
+          <div>
+            <span className="muted">Active terminal tab</span>
+            <strong>{deviceLabel}</strong>
+          </div>
+
+          <div className="terminal-workspace-toolbar-badges">
+            <span className={`badge ${statusBadgeClass}`}>
+              {formatConnectionState(connectionState)}
+            </span>
+
+            <span className={`badge ${isConnected ? "pass" : "neutral"}`}>
+              {isConnected ? "LIVE PTY" : "NOT LIVE"}
+            </span>
+          </div>
         </div>
 
-        <span className={`badge ${statusBadgeClass}`}>
-          {connectionState}
-        </span>
-      </div>
-
-      <div className="web-cli-terminal" role="log" aria-label="Web CLI terminal output">
-        {terminalLines.map((line, index) => (
-          <pre className={`web-cli-line ${line.kind}`} key={`${line.kind}-${index}`}>
-            {line.text}
-          </pre>
-        ))}
-        <div ref={outputEndRef} />
-      </div>
-
-      <form className="web-cli-command-form" onSubmit={sendCommand}>
-        <span>$</span>
-        <input
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          disabled={!isConnected}
-          placeholder={isConnected ? "Type a command and press Enter" : "Connect Web CLI before sending commands"}
-          autoComplete="off"
+        <div
+          className="xterm-shell-container multi-terminal-xterm-container"
+          ref={terminalContainerRef}
+          onClick={() => terminalRef.current?.focus()}
+          onPaste={handleTerminalPaste}
+          onKeyDownCapture={handleTerminalKeyDown}
+          role="application"
+          aria-label={`Interactive Web Terminal for ${deviceLabel}`}
         />
-        <button className="primary-button" disabled={!isConnected || !command.trim()}>
-          Send
-        </button>
-      </form>
 
-      <div className="web-cli-selected-device">
+        <textarea
+          ref={pasteBufferRef}
+          className="terminal-paste-buffer"
+          aria-hidden="true"
+          tabIndex={-1}
+          onPaste={handleBufferedPaste}
+          style={{
+            position: "fixed",
+            left: "-1000px",
+            top: "0",
+            width: "1px",
+            height: "1px",
+            opacity: 0
+          }}
+        />
+      </div>
+
+      <div className="web-cli-selected-device terminal-workspace-selected-device">
         <div>
           <span>Selected Device</span>
-          <strong>{selectedDevice?.label || selectedDeviceId || "No device selected"}</strong>
+          <strong>{deviceLabel}</strong>
         </div>
 
         <div>
           <span>Device ID</span>
-          <strong>{selectedDevice?.deviceId || selectedDeviceId || "-"}</strong>
+          <strong>{deviceId || "-"}</strong>
+        </div>
+
+        <div>
+          <span>Endpoint</span>
+          <strong>/terminal/ws</strong>
         </div>
 
         <div>
           <span>Connection State</span>
-          <strong>{connectionState}</strong>
+          <strong>{formatConnectionState(connectionState)}</strong>
         </div>
       </div>
 
-      <div className="web-cli-controls">
-        <div className="form-group">
-          <label htmlFor="web-cli-device">Device</label>
-          <select
-            id="web-cli-device"
-            value={selectedDeviceId}
-            onChange={(event) => {
-              setSelectedDeviceId(event.target.value);
-              setReadiness(null);
-              setWebCliError("");
-              setWebCliErrorDetails("");
-              setConnectionState("idle");
-            }}
-            disabled={isConnected || isConnecting || isCheckingReadiness}
-          >
-            {normalizedDevices.length === 0 && (
-              <option value="">No devices available</option>
-            )}
-
-            {normalizedDevices.map((device) => (
-              <option value={device.deviceId} key={device.deviceId}>
-                {device.label} ({device.deviceId})
-              </option>
-            ))}
-          </select>
-        </div>
-
+      <div className="web-cli-controls terminal-workspace-controls">
         <div className="web-cli-button-row">
           <button
             className="secondary-button"
             onClick={() => checkReadiness({ silent: false })}
-            disabled={isConnected || isConnecting || isCheckingReadiness || normalizedDevices.length === 0}
+            disabled={isConnected || isConnecting || isCheckingReadiness}
             type="button"
           >
             {isCheckingReadiness ? "Checking..." : "Check Readiness"}
@@ -736,17 +946,17 @@ function WebCliTerminal({
 
           <button
             className="primary-button"
-            onClick={connectWebCli}
-            disabled={!canConnect || isConnected || isConnecting || isCheckingReadiness}
-            title={!canConnect ? "Check readiness and deploy the lab before connecting." : "Connect to the selected device."}
+            onClick={handlePrimaryTerminalAction}
+            disabled={primaryTerminalActionDisabled}
+            title={primaryTerminalActionTitle}
             type="button"
           >
-            {isConnecting ? "Connecting..." : canConnect ? "Connect Web CLI" : "Not Ready"}
+            {primaryTerminalActionLabel}
           </button>
 
           <button
             className="secondary-button"
-            onClick={disconnectWebCli}
+            onClick={() => disconnectWebTerminal()}
             disabled={!isConnected && !isConnecting}
             type="button"
           >
@@ -755,12 +965,10 @@ function WebCliTerminal({
 
           <button
             className="secondary-button"
-            onClick={clearTerminalHistory}
-            disabled={!sessionId || !selectedDeviceId}
-            title="Clear stored terminal history for the selected device."
+            onClick={clearTerminal}
             type="button"
           >
-            Clear History
+            Clear Terminal
           </button>
         </div>
       </div>
@@ -769,7 +977,7 @@ function WebCliTerminal({
         <>
           <MessageBox
             type="error"
-            title="Web CLI readiness"
+            title="Web Terminal readiness"
             message={webCliError}
           />
 
@@ -784,15 +992,190 @@ function WebCliTerminal({
 
       <ReadinessDetails readiness={readiness} />
 
+      <p className="footer-note">
+        Current mode: {formatModeLabel(mode)}. This tab keeps its own WebSocket, xterm state, and terminal scrollback while you switch devices and page reloads.
+      </p>
+    </div>
+  );
+}
+
+function WebCliTerminal({
+  sessionId,
+  devices = [],
+  mode = "browser_cli_mvp"
+}) {
+  const [activeDeviceId, setActiveDeviceId] = useState("");
+  const [terminalStatuses, setTerminalStatuses] = useState({});
+
+  const normalizedDevices = useMemo(() => {
+    return devices
+      .map((device, index) => ({
+        ...device,
+        deviceId: getDeviceId(device, index),
+        label: getDeviceLabel(device, index)
+      }))
+      .filter((device) => Boolean(device.deviceId));
+  }, [devices]);
+
+  useEffect(() => {
+    if (normalizedDevices.length === 0) {
+      setActiveDeviceId("");
+      return;
+    }
+
+    const activeDeviceStillExists = normalizedDevices.some(
+      (device) => device.deviceId === activeDeviceId
+    );
+
+    if (!activeDeviceId || !activeDeviceStillExists) {
+      setActiveDeviceId(normalizedDevices[0].deviceId);
+    }
+  }, [activeDeviceId, normalizedDevices]);
+
+  const handleStatusChange = useCallback((deviceId, state, label) => {
+    if (!deviceId) {
+      return;
+    }
+
+    setTerminalStatuses((currentStatuses) => {
+      const currentStatus = currentStatuses[deviceId];
+
+      if (
+        currentStatus?.state === state &&
+        currentStatus?.label === label
+      ) {
+        return currentStatuses;
+      }
+
+      return {
+        ...currentStatuses,
+        [deviceId]: {
+          label,
+          state,
+          updatedAt: Date.now()
+        }
+      };
+    });
+  }, []);
+
+  const activeDevice =
+    normalizedDevices.find((device) => device.deviceId === activeDeviceId) ||
+    null;
+  const connectedCount = normalizedDevices.filter(
+    (device) => terminalStatuses[device.deviceId]?.state === "connected"
+  ).length;
+
+  if (normalizedDevices.length === 0) {
+    return (
+      <section className="web-cli-panel web-cli-panel-terminal-first web-terminal-panel terminal-workspace-panel">
+        <div className="section-title-row">
+          <div>
+            <h4>Terminal Workspace</h4>
+            <p className="muted">
+              Open interactive PTY-backed terminal tabs for lab devices.
+            </p>
+          </div>
+
+          <span className="badge neutral">No Devices</span>
+        </div>
+
+        <MessageBox
+          type="info"
+          title="No terminal devices"
+          message="CLI access information is not available yet."
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="web-cli-panel web-cli-panel-terminal-first web-terminal-panel terminal-workspace-panel">
+      <div className="section-title-row">
+        <div>
+          <h4>Terminal Workspace</h4>
+          <p className="muted">
+            Keep multiple device terminals open and switch tabs without closing active sessions.
+          </p>
+        </div>
+
+        <span className={`badge ${connectedCount > 0 ? "pass" : "neutral"}`}>
+          {connectedCount > 0 ? `${connectedCount} Connected` : "No Live Sessions"}
+        </span>
+      </div>
+
+      <div className="terminal-workspace-summary">
+        <div>
+          <span>Active Tab</span>
+          <strong>{activeDevice?.label || "No active device"}</strong>
+        </div>
+
+        <div>
+          <span>Open Device Tabs</span>
+          <strong>{normalizedDevices.length}</strong>
+        </div>
+
+        <div>
+          <span>Live Sessions</span>
+          <strong>{connectedCount}</strong>
+        </div>
+
+        <div>
+          <span>Endpoint</span>
+          <strong>/terminal/ws</strong>
+        </div>
+      </div>
+
+      <div
+        className="terminal-workspace-tabs"
+        role="tablist"
+        aria-label="Device terminal tabs"
+      >
+        {normalizedDevices.map((device) => {
+          const status = terminalStatuses[device.deviceId]?.state || "idle";
+          const isActive = activeDeviceId === device.deviceId;
+
+          return (
+            <button
+              aria-controls={`terminal-panel-${device.deviceId}`}
+              aria-selected={isActive}
+              className={`terminal-device-tab ${isActive ? "active" : ""} ${status}`}
+              key={device.deviceId}
+              onClick={() => setActiveDeviceId(device.deviceId)}
+              role="tab"
+              type="button"
+            >
+              <span className="terminal-tab-title">{device.label}</span>
+              <span className="terminal-tab-device-id">{device.deviceId}</span>
+              <span className={`terminal-tab-status badge ${getStatusBadgeClass(status)}`}>
+                {formatConnectionState(status)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="terminal-workspace-panels">
+        {normalizedDevices.map((device) => (
+          <TerminalPane
+            active={activeDeviceId === device.deviceId}
+            device={device}
+            key={`${sessionId || "session"}-${device.deviceId}`}
+            mode={mode}
+            onStatusChange={handleStatusChange}
+            sessionId={sessionId}
+          />
+        ))}
+      </div>
+
       <div className="web-cli-help-stack">
         <MessageBox
           type="info"
-          title="Safe Web CLI access"
-          message="Device selection uses trusted lab metadata. Container names cannot be typed or overridden from the browser."
+          title="Safe multi-terminal access"
+          message="Each device tab uses trusted lab metadata and its own WebSocket session. Closing or disconnecting one tab does not close the other terminal tabs."
         />
 
         <p className="footer-note">
-          Current mode: {mode || "browser_cli_mvp"}. Local Docker Exec commands remain available below as a fallback.
+          Backend terminal concurrency is used through /terminal/ws. Terminal tabs stay mounted so output and scrollback are preserved while switching devices.
         </p>
       </div>
     </section>

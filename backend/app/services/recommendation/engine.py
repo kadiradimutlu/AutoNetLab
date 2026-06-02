@@ -3,6 +3,7 @@ from typing import Any
 
 from app.db.repositories import persist_recommendation_snapshot
 from app.schemas.enums import SessionStatus
+from app.services.network_topics import scenario_id_from_session
 from app.services.recommendation.features import (
     build_ml_feature_rows,
     build_topic_performance,
@@ -21,8 +22,11 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
             "status": session.get("status", SessionStatus.created),
             "score": session.get("score"),
             "passed": session.get("passed"),
+            "scenario_id": scenario_id_from_session(session),
+            "topology_template": session.get("topology_template"),
             "source": "rule_based",
             "fallback_used": True,
+            "topic_performance": [],
             "recommendations": [],
             "message": (
                 "No validation result found yet. Run validation before requesting "
@@ -44,27 +48,32 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
     feature_rows = build_ml_feature_rows(
         topic_performance=topic_performance,
         overall_score=score,
+        validation_result=validation_result,
+        session=session,
     )
 
-    ml_predictions_list = predict_topic_priorities(feature_rows)
+    try:
+        ml_predictions_list = predict_topic_priorities(feature_rows)
+    except Exception:
+        ml_predictions_list = None
+
     ml_predictions = {
         item["topic"]: item
         for item in ml_predictions_list
+        if isinstance(item, dict) and item.get("topic")
     } if ml_predictions_list else {}
 
     if ml_predictions:
         source = "hybrid"
         fallback_used = False
         message = (
-            "Hybrid recommendations generated using rule-based validation signals "
-            "and the optional ML prototype."
+            "Recommendations generated from validation signals and topic performance."
         )
     else:
         source = "rule_based"
         fallback_used = True
         message = (
-            "Rule-based fallback recommendations generated successfully. "
-            "ML prototype was unavailable or did not produce a reliable prediction."
+            "Recommendations generated from validation signals and topic performance."
         )
 
     recommendations = build_rule_based_recommendations(
@@ -80,8 +89,11 @@ def build_recommendations_for_session(session: dict[str, Any]) -> dict[str, Any]
         "status": session.get("status", SessionStatus.validated),
         "score": score,
         "passed": passed,
+        "scenario_id": scenario_id_from_session(session),
+        "topology_template": session.get("topology_template"),
         "source": source,
         "fallback_used": fallback_used,
+        "topic_performance": topic_performance,
         "recommendations": recommendations,
         "message": message,
     }

@@ -3,17 +3,17 @@
     {
       "value": "easy",
       "label": "Easy",
-      "description": "Two injected errors. Suitable for beginners."
+      "description": "One hidden fault. Suitable for focused troubleshooting practice."
     },
     {
       "value": "medium",
       "label": "Medium",
-      "description": "Three injected errors. Suitable for intermediate users."
+      "description": "Two hidden faults. Suitable for intermediate troubleshooting practice."
     },
     {
       "value": "hard",
       "label": "Hard",
-      "description": "Five injected errors. Suitable for advanced users."
+      "description": "Three hidden faults. Suitable for advanced multi-step troubleshooting practice."
     }
   ]
 }
